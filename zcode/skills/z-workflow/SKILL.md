@@ -250,21 +250,19 @@ must **actually exist in the repo's tooling** (check package.json scripts,
 Makefile, cargo targets) — a hallucinated gate fails forever and poisons
 the loop.
 
-This flow runs only in ZCode, so the official ZCode plugins
-(zcode-plugins-official) are the defaults — verify each against the
-session's available-skills list before naming it in the routing map
-(plugins are optional installs; the list differs per machine):
+Two kinds of tooling, two rules:
 
-- web targets → `browser-use` (control-browser, web-gui-tester)
-- desktop/native GUI → `computer-use`
-- Android → `android-emulator` (android-dev)
-- iOS → `ios-simulator` (ios-dev)
-
-For implementation areas, match language/framework best-practice and
-code-review skills by capability from the same list. If a named
-official skill is absent, fall back to whatever the list offers for
-that capability; if nothing fits an area, route it without a skill —
-note the gap in STATE.md and the final report instead of blocking.
+- **Skills** (language/framework best-practice and code-review — rust,
+  axum, gpui, svelte, flutter, react, ...) are DYNAMIC: they differ per
+  machine and session. Match them by capability against the session's
+  available-skills list — never assume or hardcode them — and record
+  the chosen skill's absolute SKILL.md path in the routing map. If
+  nothing fits an area, route it without a skill and note the gap in
+  STATE.md and the final report instead of blocking.
+- **Plugins** (`browser-use`, `computer-use`, `android-emulator`,
+  `ios-simulator`) are built into the ZCode harness and exist for
+  VISION AND TESTING, not implementation. The router never assigns
+  them to areas; the vision phase pins them by name.
 
 ## Phase 2 — Implementers (one area at a time)
 
@@ -332,13 +330,10 @@ so in the report, only if the routing map marks no UI areas (the
 router's call, not yours). Spawn a `general-flash` verification agent
 that:
 
-1. Loads the official ZCode plugin skill for the target's runtime —
-   web → `browser-use` control-browser; desktop/native →
-   `computer-use`; Android → `android-emulator` android-dev; iOS →
-   `ios-simulator` ios-dev — after verifying it exists in the session's
-   available-skills list. If the official plugin isn't installed, fall
-   back to any skill the list offers for that runtime; if none, report
-   vision skipped-with-reason instead of blocking.
+1. Loads the harness plugin skill for the target's runtime — web →
+   `browser-use` control-browser; desktop/native → `computer-use`;
+   Android → `android-emulator` android-dev; iOS → `ios-simulator`
+   ios-dev. These plugins are built into ZCode — use them by name.
 2. `mkdir -p .z-workflow/evidence/`, derives its visual checklist from the
    TASK section ONCE, and appends the checklist with its section — re-shot
    rounds must reuse the identical checklist, not re-derive it.

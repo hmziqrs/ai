@@ -199,13 +199,9 @@ rule, and after each vision fix the failed screens are re-shot with the
 same checklist. The vision agent (dispatch as `general-flash`) owns app
 lifecycle — it starts the dev server if the checklist needs one and stops it
 after. Checklist derives from the task; evidence saves to
-`/tmp/z-liteflow/<task-slug>/` with stable names; skill by runtime from the
-official ZCode plugins — web → `browser-use` control-browser, desktop →
-`computer-use`, Android → `android-emulator` android-dev, iOS →
-`ios-simulator` ios-dev — each verified against the session's
-available-skills list, falling back to any listed skill matching the
-runtime; if none, report vision skipped-with-reason instead of
-blocking). Say in
+`/tmp/z-liteflow/<task-slug>/` with stable names; skill by runtime from the harness's built-in plugins — web →
+`browser-use` control-browser, desktop → `computer-use`, Android →
+`android-emulator` android-dev, iOS → `ios-simulator` ios-dev). Say in
 the report when vision was skipped (the default) or run.
 
 ## Commits
