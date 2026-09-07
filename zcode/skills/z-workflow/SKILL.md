@@ -250,15 +250,20 @@ must **actually exist in the repo's tooling** (check package.json scripts,
 Makefile, cargo targets) — a hallucinated gate fails forever and poisons
 the loop.
 
-Match skills by CAPABILITY, never by memorized name — the
-available-skills list differs per machine and changes as plugins are
-installed or removed. For each area, scan the session's
-available-skills list and pick skills whose description matches the
-work: language/framework best-practice and code-review skills for
-implementation areas; browser automation for web targets; OS/GUI
-automation for desktop; emulator or simulator control for Android/iOS
-targets. Record the chosen skill's absolute SKILL.md path in the
-routing map; if nothing matches an area, route it without a skill —
+This flow runs only in ZCode, so the official ZCode plugins
+(zcode-plugins-official) are the defaults — verify each against the
+session's available-skills list before naming it in the routing map
+(plugins are optional installs; the list differs per machine):
+
+- web targets → `browser-use` (control-browser, web-gui-tester)
+- desktop/native GUI → `computer-use`
+- Android → `android-emulator` (android-dev)
+- iOS → `ios-simulator` (ios-dev)
+
+For implementation areas, match language/framework best-practice and
+code-review skills by capability from the same list. If a named
+official skill is absent, fall back to whatever the list offers for
+that capability; if nothing fits an area, route it without a skill —
 note the gap in STATE.md and the final report instead of blocking.
 
 ## Phase 2 — Implementers (one area at a time)
@@ -327,12 +332,13 @@ so in the report, only if the routing map marks no UI areas (the
 router's call, not yours). Spawn a `general-flash` verification agent
 that:
 
-1. Picks its skill by scanning the session's available-skills list and
-   matching the target's RUNTIME — browser automation for web apps,
-   OS/GUI automation for desktop/native, emulator control for Android,
-   simulator control for iOS. Never assume a skill by name; use only
-   what the list actually offers. If no skill on this machine matches
-   the runtime, report vision skipped-with-reason instead of blocking.
+1. Loads the official ZCode plugin skill for the target's runtime —
+   web → `browser-use` control-browser; desktop/native →
+   `computer-use`; Android → `android-emulator` android-dev; iOS →
+   `ios-simulator` ios-dev — after verifying it exists in the session's
+   available-skills list. If the official plugin isn't installed, fall
+   back to any skill the list offers for that runtime; if none, report
+   vision skipped-with-reason instead of blocking.
 2. `mkdir -p .z-workflow/evidence/`, derives its visual checklist from the
    TASK section ONCE, and appends the checklist with its section — re-shot
    rounds must reuse the identical checklist, not re-derive it.
