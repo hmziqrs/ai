@@ -21,7 +21,7 @@ install.md                    task-oriented install instructions
   Valid colors: red, blue, green, yellow, purple, orange, pink, cyan.
   Model IDs resolve against zai / zai-coding-plan providers
   (`glm-5.3-flash`, `glm-5.3`).
-- The installer links/copies EVERYTHING found under `zcode/agents/` and
+- The installer copies EVERYTHING found under `zcode/agents/` and
   `zcode/skills/` — new files need no installer or manifest changes.
 - New harness = new sibling folder (`claude/`, `cursor/`, ...) with its
   own layout; never mix harnesses in one folder.
@@ -32,8 +32,11 @@ Follow `install.md`. Preferred: `npx github:hmziqrs/ai` (full kit) or
 `npx skills add hmziqrs/ai -g` (skills only). Always end by noting that
 ZCode loads agents at session start — restart or new session required.
 
+Install as real files, never symlinks — ZCode silently skips symlinked
+agent definitions; if not using the installer, verify
+`find ~/.zcode/agents -type l` prints nothing.
+
 ## When asked to update an installed kit
 
-If installed via symlinks (default): `git pull` in the cloned repo is
-enough. If copied: re-run the installer. `npx` users re-run the one-liner
-(add `--yes` if npx caches an old ref).
+Re-run the installer: `npx github:hmziqrs/ai` (`--yes` skips npx's
+install prompt), or `./bin/ai.js` from a clone.

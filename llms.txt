@@ -6,13 +6,16 @@
 
 All content lives under `zcode/` (the ZCode harness kit: 3 sub-agents +
 2 skills). To install everything, run `npx github:hmziqrs/ai` — it
-symlinks agents into `~/.zcode/agents/` and skills into
+copies agents into `~/.zcode/agents/` and skills into
 `~/.agents/skills/`, then ZCode loads them at next session start.
+Agent definitions must be regular files — ZCode's discovery
+silently skips symlinks; `find ~/.zcode/agents -type l` printing
+nothing confirms no symlinks.
 Agents: follow [install.md](install.md) for task-oriented instructions.
 
 ## Install — full kit (agents + skills)
 
-- [bin/ai.js](bin/ai.js): the installer. `npx github:hmziqrs/ai` (default: symlinks), `npx github:hmziqrs/ai uninstall`, flags `--copy`, `--zcode-skills`. Node >= 16, zero dependencies.
+- [bin/ai.js](bin/ai.js): the installer. `npx github:hmziqrs/ai`, `npx github:hmziqrs/ai uninstall`, flag `--zcode-skills`. Node >= 16, zero dependencies.
 - [install.md](install.md): task-oriented instructions an AI agent can execute autonomously (environment check, install, verify, report).
 
 ## Install — skills only (skills.sh ecosystem)

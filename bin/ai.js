@@ -3,14 +3,15 @@
  * ai — install the agents & skills from this repo (ZCode kit by default).
  *
  * Run via npx straight from GitHub (no npm publish needed):
- *   npx github:hmziqrs/ai            symlink install (default)
+ *   npx github:hmziqrs/ai            install (default)
  *   npx github:hmziqrs/ai uninstall  remove what was installed
  *
- * Or locally:  ./bin/ai.js [--copy] [--zcode-skills] [uninstall]
+ * Or locally:  ./bin/ai.js [--zcode-skills] [uninstall]
  *
  * Agents -> ~/.zcode/agents/   Skills -> ~/.agents/skills/
- * Symlinks by default (a git pull / re-run of npx updates in place);
- * falls back to copying on platforms where symlinks need privileges.
+ * Copies real files: ZCode's subagent discovery only loads regular
+ * files — symlinked definitions are silently skipped; re-running
+ * updates in place.
  */
 'use strict';
 
@@ -20,10 +21,9 @@ const path = require('path');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const HARNESS = 'zcode';
-const MODES = { link: true, copy: false };
 
 const args = process.argv.slice(2);
-let mode = 'link';
+let mode = 'install';
 let skillDir = path.join(os.homedir(), '.agents', 'skills');
 const agentDir = path.join(os.homedir(), '.zcode', 'agents');
 
@@ -31,13 +31,12 @@ for (const arg of args) {
   switch (arg) {
     case 'install': break; // default action, allows `npx github:hmziqrs/ai install`
     case 'uninstall': case '--uninstall': mode = 'uninstall'; break;
-    case '--copy': mode = 'copy'; break;
     case '--zcode-skills': skillDir = path.join(os.homedir(), '.zcode', 'skills'); break;
     case '--help': case '-h':
-      console.log('usage: npx github:hmziqrs/ai [install] [--copy] [--zcode-skills] | uninstall');
+      console.log('usage: npx github:hmziqrs/ai [install] [--zcode-skills] | uninstall');
       process.exit(0);
     default:
-      console.error(`unknown argument: ${arg} (supported: install, --copy, --zcode-skills, uninstall)`);
+      console.error(`unknown argument: ${arg} (supported: install, --zcode-skills, uninstall)`);
       process.exit(1);
   }
 }
@@ -49,7 +48,7 @@ function installDir(srcDir, destDir, kind) {
     process.exitCode = 1;
     return;
   }
-  fs.mkdirSync(destDir, { recursive: true });
+  if (mode !== 'uninstall') fs.mkdirSync(destDir, { recursive: true });
   for (const entry of fs.readdirSync(srcDir)) {
     const src = path.join(srcDir, entry);
     const dest = path.join(destDir, entry);
@@ -62,20 +61,8 @@ function installDir(srcDir, destDir, kind) {
       continue;
     }
     fs.rmSync(dest, { recursive: true, force: true });
-    if (mode === 'copy') {
-      fs.cpSync(src, dest, { recursive: true });
-      console.log(`installed ${kind}  ${dest} (copy)`);
-    } else {
-      try {
-        fs.symlinkSync(src, dest, 'file');
-        console.log(`installed ${kind}  ${dest} -> ${src}`);
-      } catch (e) {
-        if (e.code === 'EPERM' || e.code === 'EACCES') {
-          fs.cpSync(src, dest, { recursive: true });
-          console.log(`installed ${kind}  ${dest} (copy — symlink not permitted)`);
-        } else throw e;
-      }
-    }
+    fs.cpSync(src, dest, { recursive: true });
+    console.log(`installed ${kind}  ${dest}`);
     installed++;
   }
   if (mode !== 'uninstall' && installed === 0) {
@@ -84,7 +71,13 @@ function installDir(srcDir, destDir, kind) {
 }
 
 installDir(path.join(REPO_ROOT, HARNESS, 'agents'), agentDir, 'agent');
-installDir(path.join(REPO_ROOT, HARNESS, 'skills'), skillDir, 'skill');
+if (mode === 'uninstall') {
+  // sweep both skill locations, whichever the install used
+  installDir(path.join(REPO_ROOT, HARNESS, 'skills'), path.join(os.homedir(), '.agents', 'skills'), 'skill');
+  installDir(path.join(REPO_ROOT, HARNESS, 'skills'), path.join(os.homedir(), '.zcode', 'skills'), 'skill');
+} else {
+  installDir(path.join(REPO_ROOT, HARNESS, 'skills'), skillDir, 'skill');
+}
 
 if (mode === 'uninstall') {
   console.log('Done. Restart ZCode (or open a new session) for removals to take effect.');

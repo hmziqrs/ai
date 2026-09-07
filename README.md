@@ -43,10 +43,10 @@ npx github:hmziqrs/ai
 ```
 
 Runs the repo's installer straight from GitHub — no npm publish, no
-clone, no dependencies (Node ≥ 16). Agents symlink into
-`~/.zcode/agents/`, skills into `~/.agents/skills/`, so updates re-run
-the same command. Variants: `npx github:hmziqrs/ai uninstall`,
-`--copy`, `--zcode-skills`.
+clone, no dependencies (Node ≥ 16). Agents copy into
+`~/.zcode/agents/`, skills into `~/.agents/skills/` (ZCode's subagent
+loader skips symlinked definitions), so updates re-run the same
+command. Variants: `npx github:hmziqrs/ai uninstall`, `--zcode-skills`.
 
 ### Option B — skills.sh ecosystem (skills only)
 
@@ -85,7 +85,7 @@ entry point, `install.md` holds task-oriented install instructions,
   - `zcode/skills/<name>/SKILL.md` — YAML frontmatter (`name`,
     `description`) + body.
   Both install paths pick new entries up automatically — the script
-  links whatever it finds, and the plugin manifest points at the
+  copies whatever it finds, and the plugin manifest points at the
   directories.
 - **Another harness** (claude, cursor, codex, …) — add a sibling folder
   `claude/` etc. with whatever layout that harness expects, plus its own
