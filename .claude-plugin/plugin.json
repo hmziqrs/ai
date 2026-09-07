@@ -1,0 +1,6 @@
+{
+  "name": "flash-agents",
+  "description": "Model-pinned ZCode sub-agents (general-flash, explore-flash, general-pro) and the z-workflow / z-liteflow orchestration skills that dispatch them.",
+  "agents": "zcode/agents",
+  "skills": "zcode/skills"
+}

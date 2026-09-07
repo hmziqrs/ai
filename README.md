@@ -36,29 +36,45 @@ ai/
 
 ## Install (pick one)
 
-### Option A — script (recommended)
+### Option A — npx one-liner (recommended)
 
 ```bash
-git clone git@github.com:hmziqrs/ai.git
-cd ai && ./install.sh
+npx github:hmziqrs/ai
 ```
 
-- Reads `zcode/agents/` and `zcode/skills/`; agents symlink into
-  `~/.zcode/agents/`, skills into `~/.agents/skills/`.
-- Symlinks mean `git pull` updates everything in place.
-- `./install.sh --copy` to copy instead, `--zcode-skills` to install
-  skills into `~/.zcode/skills/` instead, `--uninstall` to remove.
-- Restart ZCode (or open a new session) afterwards — agents are scanned
-  at session start. Verify in **Settings → Subagents**.
+Runs the repo's installer straight from GitHub — no npm publish, no
+clone, no dependencies (Node ≥ 16). Agents symlink into
+`~/.zcode/agents/`, skills into `~/.agents/skills/`, so updates re-run
+the same command. Variants: `npx github:hmziqrs/ai uninstall`,
+`--copy`, `--zcode-skills`. (Shell-only machine? `git clone` + `./install.sh`.)
 
-### Option B — ZCode plugin
+### Option B — skills.sh ecosystem (skills only)
+
+```bash
+npx skills add hmziqrs/ai -g -a zcode -y
+```
+
+Installs the two SKILL.md packs through the cross-agent skills CLI into
+`~/.zcode/skills/` (`zcode` is a first-class target; swap `-a` for
+claude-code, cursor, universal, ...). Note: the skills CLI does not
+install sub-agent definitions — use Option A when the agents are wanted
+too.
+
+### Option C — ZCode plugin
 
 The repo carries a `.zcode-plugin/plugin.json` manifest pointing at
 `zcode/agents` and `zcode/skills`, so the repo works as a plugin
 marketplace source: **Settings → Plugin Management → Discover → + → Git
 URL** → this repo. Install the `flash-agents` plugin; its skills and
 agents load with the plugin (agents dispatchable by bare name).
-Disable/remove from the same screen.
+Disable/remove from the same screen. (A `.claude-plugin/` marketplace
+manifest is included for Claude Code / skills.sh compatibility.)
+
+### For AI agents
+
+Point an agent at this repo and it can install itself: `llms.txt` is the
+entry point, `install.md` holds task-oriented install instructions,
+`AGENTS.md` orients agents working inside the repo.
 
 ## Adding more agents / skills / harnesses
 

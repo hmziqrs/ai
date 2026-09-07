@@ -1,0 +1,36 @@
+# ai
+
+> Model-pinned ZCode sub-agents and orchestration skills — one repo, one
+> subfolder per harness. Installable by humans or AI agents in one command;
+> no build step, no dependencies.
+
+All content lives under `zcode/` (the ZCode harness kit: 3 sub-agents +
+2 skills). To install everything, run `npx github:hmziqrs/ai` — it
+symlinks agents into `~/.zcode/agents/` and skills into
+`~/.agents/skills/`, then ZCode loads them at next session start.
+Agents: follow [install.md](install.md) for task-oriented instructions.
+
+## Install — full kit (agents + skills)
+
+- [bin/ai.js](bin/ai.js): the installer. `npx github:hmziqrs/ai` (default: symlinks), `npx github:hmziqrs/ai uninstall`, flags `--copy`, `--zcode-skills`. Node >= 16, zero dependencies.
+- [install.sh](install.sh): shell equivalent of the same installer, for machines without Node.
+- [install.md](install.md): task-oriented instructions an AI agent can execute autonomously (environment check, install, verify, report).
+
+## Install — skills only (skills.sh ecosystem)
+
+- `npx skills add hmziqrs/ai -g -a zcode -y` installs both SKILL.md packs (z-workflow, z-liteflow) into `~/.zcode/skills/` via the skills CLI. Verified invocation; other `-a` agent targets supported. Skills only — the sub-agent definitions under `zcode/agents/` are not handled by the skills CLI; use the full-kit installer for those.
+
+## ZCode kit contents (`zcode/`)
+
+- [zcode/agents/general-flash.md](zcode/agents/general-flash.md): full-tools general agent pinned to glm-5.3-flash — objectively checkable work (CRUD, boilerplate, mechanical verification).
+- [zcode/agents/explore-flash.md](zcode/agents/explore-flash.md): read-only search + code-audit agent pinned to glm-5.3-flash — reports findings, no verdict authority.
+- [zcode/agents/general-pro.md](zcode/agents/general-pro.md): full-tools judgment agent pinned to glm-5.3 — complex implementation, audit verdicts, continue/stop decisions.
+- [zcode/skills/z-workflow/SKILL.md](zcode/skills/z-workflow/SKILL.md): state-file-driven orchestration loop for multi-phase tasks; dispatches general-flash / general-pro by role.
+- [zcode/skills/z-liteflow/SKILL.md](zcode/skills/z-liteflow/SKILL.md): lightweight loop for small single-domain tasks; implementer on general-flash, auditor on explore-flash.
+
+## Optional
+
+- [README.md](README.md): full documentation — layout, all install paths, how to add agents/skills/harnesses.
+- [.zcode-plugin/plugin.json](.zcode-plugin/plugin.json): install as a ZCode plugin (Settings → Plugin Management → Discover → + → this Git URL).
+- [.claude-plugin/marketplace.json](.claude-plugin/marketplace.json): Claude Code marketplace manifest; also makes skills.sh discovery deterministic.
+- [AGENTS.md](AGENTS.md): orientation for AI agents working IN this repository (layout, conventions, extension rules).

@@ -1,0 +1,14 @@
+{
+  "name": "ai",
+  "owner": {
+    "name": "hmziqrs"
+  },
+  "plugins": [
+    {
+      "name": "flash-agents",
+      "source": "./",
+      "description": "Model-pinned sub-agents (general-flash, explore-flash, general-pro) plus z-workflow / z-liteflow orchestration skills.",
+      "categories": ["agents", "skills", "orchestration"]
+    }
+  ]
+}
