@@ -199,9 +199,11 @@ rule, and after each vision fix the failed screens are re-shot with the
 same checklist. The vision agent (dispatch as `general-flash`) owns app
 lifecycle — it starts the dev server if the checklist needs one and stops it
 after. Checklist derives from the task; evidence saves to
-`/tmp/z-liteflow/<task-slug>/` with stable names; skill by target (web →
-`browser-use` control-browser, desktop → `zcode-computer-use`; if absent on
-this machine, report vision skipped-with-reason instead of blocking). Say in
+`/tmp/z-liteflow/<task-slug>/` with stable names; skill chosen from the
+session's available-skills list by matching the target's runtime — browser
+automation for web, OS/GUI automation for desktop, emulator or simulator
+control for Android/iOS; if no matching skill exists on this machine,
+report vision skipped-with-reason instead of blocking). Say in
 the report when vision was skipped (the default) or run.
 
 ## Commits

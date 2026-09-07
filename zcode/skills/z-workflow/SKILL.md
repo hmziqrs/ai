@@ -250,14 +250,16 @@ must **actually exist in the repo's tooling** (check package.json scripts,
 Makefile, cargo targets) — a hallucinated gate fails forever and poisons
 the loop.
 
-Common skills to look for: rust-best-practices / rust-testing /
-rust-async-patterns, axum-web-framework / axum-code-review, svelte-code-writer
-/ svelte-core-bestpractices, react-doctor / tanstack-* / tailwind,
-flutter-apply-architecture-best-practices / flutter-fix-layout-issues,
-browser-use control-browser / web-gui-tester, zcode-computer-use.
-
-If no skill exists for a domain, proceed without one — note it in STATE.md
-and the final report instead of blocking.
+Match skills by CAPABILITY, never by memorized name — the
+available-skills list differs per machine and changes as plugins are
+installed or removed. For each area, scan the session's
+available-skills list and pick skills whose description matches the
+work: language/framework best-practice and code-review skills for
+implementation areas; browser automation for web targets; OS/GUI
+automation for desktop; emulator or simulator control for Android/iOS
+targets. Record the chosen skill's absolute SKILL.md path in the
+routing map; if nothing matches an area, route it without a skill —
+note the gap in STATE.md and the final report instead of blocking.
 
 ## Phase 2 — Implementers (one area at a time)
 
@@ -325,10 +327,12 @@ so in the report, only if the routing map marks no UI areas (the
 router's call, not yours). Spawn a `general-flash` verification agent
 that:
 
-1. Loads the right skill by target: web app → `browser-use`
-   control-browser; desktop/native → `zcode-computer-use`. If the skill is
-   absent on this machine, report vision skipped-with-reason instead of
-   blocking.
+1. Picks its skill by scanning the session's available-skills list and
+   matching the target's RUNTIME — browser automation for web apps,
+   OS/GUI automation for desktop/native, emulator control for Android,
+   simulator control for iOS. Never assume a skill by name; use only
+   what the list actually offers. If no skill on this machine matches
+   the runtime, report vision skipped-with-reason instead of blocking.
 2. `mkdir -p .z-workflow/evidence/`, derives its visual checklist from the
    TASK section ONCE, and appends the checklist with its section — re-shot
    rounds must reuse the identical checklist, not re-derive it.
