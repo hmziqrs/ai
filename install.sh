@@ -2,22 +2,27 @@
 #
 # install.sh — install the agents and skills from this repo into ZCode.
 #
+# Content lives under <harness>/ in this repo (default: zcode/), so more
+# harnesses can be added as sibling folders later without touching this
+# script's defaults.
+#
 # Agents  -> ~/.zcode/agents/          (user scope; ZCode's sub-agent root)
 # Skills  -> ~/.agents/skills/         (user scope; cross-tool compatible)
 #
 # Default install is symlinks, so a `git pull` updates everything in place.
 #
 # Usage:
-#   ./install.sh                 symlink install (default)
-#   ./install.sh --copy          copy files instead of symlinking
-#   ./install.sh --zcode-skills  install skills into ~/.zcode/skills/ instead
-#                                of ~/.agents/skills/ (ZCode-only, higher
-#                                precedence if you ever have both)
-#   ./install.sh --uninstall     remove only what this repo installed
+#   ./install.sh                     symlink install (default)
+#   ./install.sh --copy              copy files instead of symlinking
+#   ./install.sh --zcode-skills      install skills into ~/.zcode/skills/
+#                                    instead of ~/.agents/skills/ (ZCode-only,
+#                                    higher precedence if you have both)
+#   ./install.sh --uninstall         remove only what this repo installed
 #
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HARNESS="zcode"
 MODE="link"
 SKILL_DIR="$HOME/.agents/skills"
 AGENT_DIR="$HOME/.zcode/agents"
@@ -63,8 +68,8 @@ install_items() {
   fi
 }
 
-install_items "$REPO_ROOT/agents" "$AGENT_DIR" "agent"
-install_items "$REPO_ROOT/skills" "$SKILL_DIR" "skill"
+install_items "$REPO_ROOT/$HARNESS/agents" "$AGENT_DIR" "agent"
+install_items "$REPO_ROOT/$HARNESS/skills" "$SKILL_DIR" "skill"
 
 if [ "$MODE" = "uninstall" ]; then
   echo "Done. Restart ZCode (or open a new session) for removals to take effect."
