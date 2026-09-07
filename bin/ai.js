@@ -85,5 +85,6 @@ if (mode === 'uninstall') {
   console.log(`
 Done. Restart ZCode (or open a new session) to load the new agents.
 Verify: Settings -> Subagents should list general-flash, explore-flash,
-general-pro. Dispatch a skill by mentioning z-workflow / z-liteflow.`);
+general-pro. Dispatch a skill by mentioning z-workflow / flash-flow /
+z-liteflow.`);
 }

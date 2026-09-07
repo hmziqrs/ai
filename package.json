@@ -1,7 +1,7 @@
 {
   "name": "@hmziqrs/ai",
-  "version": "0.1.0",
-  "description": "Model-pinned ZCode sub-agents (general-flash, explore-flash, general-pro) and the z-workflow / z-liteflow orchestration skills — one repo, one subfolder per harness.",
+  "version": "0.2.0",
+  "description": "Model-pinned ZCode sub-agents (general-flash, explore-flash, general-pro) and the z-workflow / z-liteflow orchestration skills \u2014 one repo, one subfolder per harness.",
   "bin": {
     "ai": "bin/ai.js"
   },

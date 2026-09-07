@@ -20,7 +20,7 @@ Agents: follow [install.md](install.md) for task-oriented instructions.
 
 ## Install — skills only (skills.sh ecosystem)
 
-- `npx skills add hmziqrs/ai -g -a zcode -y` installs both SKILL.md packs (z-workflow, z-liteflow) into `~/.zcode/skills/` via the skills CLI. Verified invocation; other `-a` agent targets supported. Skills only — the sub-agent definitions under `zcode/agents/` are not handled by the skills CLI; use the full-kit installer for those.
+- `npx skills add hmziqrs/ai -g -a zcode -y` installs the SKILL.md packs (z-workflow, flash-flow, z-liteflow) into `~/.zcode/skills/` via the skills CLI. Verified invocation; other `-a` agent targets supported. Skills only — the sub-agent definitions under `zcode/agents/` are not handled by the skills CLI; use the full-kit installer for those.
 
 ## ZCode kit contents (`zcode/`)
 
@@ -28,6 +28,7 @@ Agents: follow [install.md](install.md) for task-oriented instructions.
 - [zcode/agents/explore-flash.md](zcode/agents/explore-flash.md): read-only search + code-audit agent pinned to glm-5.3-flash — reports findings, no verdict authority.
 - [zcode/agents/general-pro.md](zcode/agents/general-pro.md): full-tools judgment agent pinned to glm-5.3 — complex implementation, audit verdicts, continue/stop decisions.
 - [zcode/skills/z-workflow/SKILL.md](zcode/skills/z-workflow/SKILL.md): state-file-driven orchestration loop for multi-phase tasks; dispatches general-flash / general-pro by role.
+- [zcode/skills/flash-flow/SKILL.md](zcode/skills/flash-flow/SKILL.md): the all-flash variant of z-workflow — every role dispatches general-flash (glm-5.3-flash); gates, fix rounds, and the POLICY decider compensate; escalates to z-workflow for depth.
 - [zcode/skills/z-liteflow/SKILL.md](zcode/skills/z-liteflow/SKILL.md): lightweight loop for small single-domain tasks; implementer on general-flash, auditor on explore-flash.
 
 ## Optional
