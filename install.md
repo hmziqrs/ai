@@ -7,9 +7,7 @@ inline. Default scope: user (home directory), symlinks.
 ## Environment check
 
 1. `node --version` — if >= 16, use the npx runner (Task A).
-2. Otherwise `git --version` + a POSIX shell — use the shell installer
-   (Task B).
-3. Neither: download the repo and copy files by hand (Task D).
+2. Otherwise: download the repo and copy files by hand (Task C).
 
 ## Task A — full kit via npx (preferred)
 
@@ -22,12 +20,7 @@ Variants: append `--copy` to copy instead of symlink, `--zcode-skills`
 to place skills in `~/.zcode/skills/`, or run
 `npx github:hmziqrs/ai uninstall` to remove.
 
-## Task B — full kit via shell
-
-Run: `git clone https://github.com/hmziqrs/ai.git && cd ai && ./install.sh`
-(same destinations and flags as Task A).
-
-## Task C — skills only (skills.sh ecosystem)
+## Task B — skills only (skills.sh ecosystem)
 
 Run: `npx skills add hmziqrs/ai -g -a zcode -y`
 
@@ -37,7 +30,7 @@ them on error). Note: this installs skills only — the sub-agent
 definitions in `zcode/agents/` are NOT handled by the skills CLI; run
 Task A or B when agents are wanted.
 
-## Task D — manual copy
+## Task C — manual copy
 
 Copy `zcode/agents/*.md` to `~/.zcode/agents/` and `zcode/skills/*` to
 `~/.agents/skills/`.

@@ -9,7 +9,6 @@ subfolder per harness. Current kits: `zcode/`.
 zcode/agents/<name>.md        ZCode sub-agent definitions (YAML frontmatter + system-prompt body)
 zcode/skills/<name>/SKILL.md  ZCode skills
 bin/ai.js                     npx installer (npx github:hmziqrs/ai)
-install.sh                    shell installer
 llms.txt                      entry point for consuming agents
 install.md                    task-oriented install instructions
 ```
@@ -22,7 +21,7 @@ install.md                    task-oriented install instructions
   Valid colors: red, blue, green, yellow, purple, orange, pink, cyan.
   Model IDs resolve against zai / zai-coding-plan providers
   (`glm-5.3-flash`, `glm-5.3`).
-- Both installers link/copy EVERYTHING found under `zcode/agents/` and
+- The installer links/copies EVERYTHING found under `zcode/agents/` and
   `zcode/skills/` — new files need no installer or manifest changes.
 - New harness = new sibling folder (`claude/`, `cursor/`, ...) with its
   own layout; never mix harnesses in one folder.

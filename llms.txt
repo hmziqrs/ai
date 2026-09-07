@@ -13,7 +13,6 @@ Agents: follow [install.md](install.md) for task-oriented instructions.
 ## Install — full kit (agents + skills)
 
 - [bin/ai.js](bin/ai.js): the installer. `npx github:hmziqrs/ai` (default: symlinks), `npx github:hmziqrs/ai uninstall`, flags `--copy`, `--zcode-skills`. Node >= 16, zero dependencies.
-- [install.sh](install.sh): shell equivalent of the same installer, for machines without Node.
 - [install.md](install.md): task-oriented instructions an AI agent can execute autonomously (environment check, install, verify, report).
 
 ## Install — skills only (skills.sh ecosystem)

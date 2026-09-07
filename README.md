@@ -8,7 +8,7 @@ that pins its own model.
 
 ```
 ai/
-├── install.sh          installer (reads from zcode/ by default)
+├── bin/ai.js           npx installer (reads from zcode/ by default)
 └── zcode/              ZCode kit
     ├── agents/
     └── skills/
@@ -46,7 +46,7 @@ Runs the repo's installer straight from GitHub — no npm publish, no
 clone, no dependencies (Node ≥ 16). Agents symlink into
 `~/.zcode/agents/`, skills into `~/.agents/skills/`, so updates re-run
 the same command. Variants: `npx github:hmziqrs/ai uninstall`,
-`--copy`, `--zcode-skills`. (Shell-only machine? `git clone` + `./install.sh`.)
+`--copy`, `--zcode-skills`.
 
 ### Option B — skills.sh ecosystem (skills only)
 
