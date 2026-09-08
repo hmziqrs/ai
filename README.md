@@ -30,7 +30,7 @@ ai/
   multi-phase tasks. Router / straightforward implementers / committer /
   vision dispatch `general-flash`; complex implementers / judge / decider
   dispatch `general-pro`.
-- **flash-flow** — the all-flash variant of z-workflow: every role
+- **z-flashflow** — the all-flash variant of z-workflow: every role
   (router, implementers, committer, judge, decider, vision) dispatches
   `general-flash`; gates, fresh auditors, fix rounds, and the POLICY
   decider compensate for flash judgment, with escalation to z-workflow

@@ -4,6 +4,15 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
 
+## [0.3.0] - 2026-09-07
+
+### Changed
+- **Renamed `flash-flow` skill to `z-flashflow`** (directory and
+  frontmatter name) to match the z- family naming: z-workflow,
+  z-flashflow, z-liteflow. Breaking for references to the old name.
+
+[0.3.0]: https://github.com/hmziqrs/ai/compare/v0.2.0...v0.3.0
+
 ## [0.2.0] - 2026-09-07
 
 ### Added

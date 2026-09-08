@@ -1,5 +1,5 @@
 ---
-name: flash-flow
+name: z-flashflow
 description: >-
   State-file-driven ZCode orchestration loop — the all-flash variant of
   z-workflow. Same phases, same state file, same gates; the only difference
@@ -13,7 +13,7 @@ description: >-
   workflow, cheap orchestration, all-flash loop, fast iterate-until-clean.
 ---
 
-# flash-flow
+# z-flashflow
 
 **Hard rule — the main thread is a thin sequencer.** It spawns, sequences,
 runs gates, and reports. It holds as little as possible: the state file path,
@@ -45,12 +45,12 @@ Use this skill for real work only. Trivial one-file edits are cheaper done
 directly — without this skill loaded, no rule binds you. These rules bind
 only runs started under this skill: its siblings z-workflow (main-tier
 judgment roles) and z-liteflow (small single-domain tasks) run under their
-own rules — never cross-apply. But once a flash-flow run starts, the
+own rules — never cross-apply. But once a z-flashflow run starts, the
 boundary holds until the final report.
 
 ## The state file
 
-`.flash-flow/` (STATE.md + `evidence/`), gitignored — the committer
+`.z-flashflow/` (STATE.md + `evidence/`), gitignored — the committer
 establishes the ignore entry on round 1. It is the only memory in the
 system; the main thread's conversation deliberately carries almost nothing.
 
@@ -100,7 +100,7 @@ or "clean">
 Rules:
 
 - **Every sub-agent appends its own section** at end-of-file via shell
-  redirect (`cat >> .flash-flow/STATE.md <<'EOF' … EOF`), never by rewriting
+  redirect (`cat >> .z-flashflow/STATE.md <<'EOF' … EOF`), never by rewriting
   the file wholesale — sections may have been appended since it was last
   read. The main thread's gate-verdict lines follow the same mechanics. An
   agent's final message back is 1–3 lines: verdict + "appended".
@@ -113,7 +113,7 @@ Rules:
 - **Only the decider updates the HEADER.** It is a checkpoint, not a live
   cursor: between decider checkpoints, this document's phase order drives
   sequencing; `next:` matters where the loop branches.
-- Screenshots and evidence go to `.flash-flow/evidence/` (the vision agent
+- Screenshots and evidence go to `.z-flashflow/evidence/` (the vision agent
   creates it with `mkdir -p`), referenced by path, never inlined.
 
 ## Model routing
@@ -158,7 +158,7 @@ vision failure cheap to revert.
   the committer executes the discard (`git checkout -- <paths>`) on your
   order; you never run it yourself.
 - **Round-1 housekeeping:** the committer's first action ensures
-  `.flash-flow/` is gitignored (append to `.gitignore` if missing, include
+  `.z-flashflow/` is gitignored (append to `.gitignore` if missing, include
   that change in the first commit).
 - **Never `--no-verify`.** If a commit fails (hook rejection, signing),
   the committer reports the failure verbatim and appends nothing — you
@@ -225,7 +225,7 @@ Why this shape:
 ## Phase 0 — Init (main thread)
 
 1. You already hold the task in conversation — write a fresh
-   `.flash-flow/STATE.md`: the TASK section verbatim, the POLICY block
+   `.z-flashflow/STATE.md`: the TASK section verbatim, the POLICY block
    numbered exactly as templated, an empty BODY, HEADER set to
    `phase: routing / next: spawn router`. Do NOT survey the repo or read
    AGENTS.md yourself — that is the router's job.
@@ -276,7 +276,7 @@ Model: GLM 5.3 Flash
 
 You are implementing the <area> area of the task in <repo path>.
 
-FIRST, read /abs/path/.flash-flow/STATE.md — the TASK, POLICY, routing map,
+FIRST, read /abs/path/.z-flashflow/STATE.md — the TASK, POLICY, routing map,
 and project-rules sections, plus the implementer sections of any areas
 yours depends on (their interface notes carry your contract). Load the
 skill files listed for your area before writing any code:
@@ -334,7 +334,7 @@ that:
    `browser-use` control-browser; desktop/native → `computer-use`;
    Android → `android-emulator` android-dev; iOS → `ios-simulator`
    ios-dev. These plugins are built into ZCode — use them by name.
-2. `mkdir -p .flash-flow/evidence/`, derives its visual checklist from the
+2. `mkdir -p .z-flashflow/evidence/`, derives its visual checklist from the
    TASK section ONCE, and appends the checklist with its section — re-shot
    rounds must reuse the identical checklist, not re-derive it.
 3. Saves screenshot evidence with stable paths, appends pass/fail per
@@ -359,8 +359,8 @@ Prompt core:
 Model: GLM 5.3 Flash
 
 Read-only audit of <scope> in <repo path>, plus any vision FAIL evidence
-at .flash-flow/evidence/ (omit that clause if vision was skipped).
-Judge against the project-rules section of .flash-flow/STATE.md (plus any
+at .z-flashflow/evidence/ (omit that clause if vision was skipped).
+Judge against the project-rules section of .z-flashflow/STATE.md (plus any
 rule file paths it lists).
 <scope> = the commits for this area since its last clean verdict — the
 shas in the committer sections; on round 1 the single feature commit; on

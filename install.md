@@ -44,7 +44,7 @@ symlinked agent definitions.
   `general-pro.md`.
 - `find ~/.zcode/agents -type l` prints nothing — agent files must be
   regular files.
-- `ls ~/.agents/skills/` shows `z-workflow/`, `flash-flow/`, and
+- `ls ~/.agents/skills/` shows `z-workflow/`, `z-flashflow/`, and
   `z-liteflow/` each containing `SKILL.md`.
 - ZCode picks up agents at session start: restart ZCode or open a new
   session, then check Settings → Subagents lists the three agents.
