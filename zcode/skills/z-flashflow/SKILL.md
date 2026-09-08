@@ -2,10 +2,11 @@
 name: z-flashflow
 description: >-
   State-file-driven ZCode orchestration loop — the all-flash variant of
-  z-workflow. Same phases, same state file, same gates; the only difference
-  is the model policy: EVERY sub-agent (router, implementers, committer,
-  judge, decider, vision) runs glm-5.3-flash via `general-flash` — no
-  main-tier model anywhere — so multi-phase runs are fast and cheap. Flash
+  z-workflow. No router agent (one model tier means nothing to route —
+  the main thread surveys once at init); every spawned sub-agent
+  (implementers, committer, judge, decider, vision) runs glm-5.3-flash
+  via `general-flash` — no main-tier model anywhere — so multi-phase
+  runs are fast and cheap. Flash
   judgment is compensated mechanically: objective gates, fresh auditors,
   fix rounds, and the decider's POLICY checkpoint. Use for speed- and
   cost-sensitive multi-area work; escalate to z-workflow when
@@ -26,7 +27,7 @@ judge of everything downstream.
 | Read the HEADER plus compact operational sections — routing map, gate-verdict lines, commit shas (HEADER via `sed -n '1,/^# POLICY/p' STATE.md`, never a whole-file read) | Read raw evidence: diffs, full gate output, screenshots, or the detail of judge / vision / implementer sections |
 | Spawn/resume sub-agents, each seeded with the state file path | Edit/create/delete any project source, config, test, or doc file |
 | Run mechanical gates via Bash — exit code + `tail -20`, nothing more | Run any git mutation — the committer agent owns them |
-| Append one-line gate verdicts to the state BODY (shell `>>`, never a full-file read) | Route domains, judge findings, or decide continue/stop |
+| Append one-line gate verdicts to the state BODY (shell `>>`, never a full-file read) | Judge findings or decide continue/stop |
 | Write the final report from the decider's header summary | Debug inside implementation details |
 
 The distinction that makes this work: **operational metadata is compact and
@@ -58,7 +59,7 @@ system; the main thread's conversation deliberately carries almost nothing.
 # HEADER  (main thread writes it once at init; only the decider updates it
 #          after; read it with: sed -n '1,/^# POLICY/p' STATE.md)
 phase: <phase name>
-verdict: <one line while looping; on stop: the run summary, see Phase 7>
+verdict: <one line while looping; on stop: the run summary, see Phase 6>
 next: <branch at the last decider checkpoint — "spawn implementer area 2" |
       "spawn fixer area backend" | "final report">
 
@@ -76,7 +77,7 @@ Never claim clean while a gate is red.
 
 # BODY  (append-only; one section per actor per round; the main thread
 #        appends only one-line gate verdicts)
-## router — init
+## survey — init (main thread)
 <routing map, one row per area: paths, excluded paths, skills (absolute),
 gate commands (non-mutating only — no --fix/--write flags), complexity tag
 (straightforward | complex), depends-on, has-UI>
@@ -127,9 +128,8 @@ z-workflow (see Escalation), never a mid-run model swap.
 
 | Work | Model | Dispatch as | Why |
 |---|---|---|---|
-| Orchestration (spawn, sequence, gates) | GLM 5.3, main thread | — | The session's host model; sequencing is all it does |
+| Orchestration (init survey, spawn, sequence, gates) | Host model, main thread | — | Survey output is compact control data; sequencing is all it does |
 | State decider (continue/stop, compaction) | GLM 5.3 Flash | `general-flash` | Input is compact; honesty comes from POLICY rules, not model depth |
-| Router (repo survey → routing map) | GLM 5.3 Flash | `general-flash` | Table lookup + structured output; a misroute dies at the gates |
 | Implementation — complex (concurrency, architecture, subtle bugs) | GLM 5.3 Flash | `general-flash` | Gates + fix loop catch failures; stalling complex areas escalate |
 | Implementation — straightforward (CRUD, boilerplate, simple UI) | GLM 5.3 Flash | `general-flash` | Gates + fix loop catch failures objectively |
 | Mechanical gates (`cargo test`, builds, linters) | Direct Bash, no sub-agent | — | Objective truth, no model needed |
@@ -179,7 +179,7 @@ vision failure cheap to revert.
 ## The shape of the flow
 
 ```
-Init STATE.md ──► Router (general-flash): routing map + rules
+Init + survey (main thread): STATE.md + routing map + project rules
                         │
                         ▼  (per area, routing-map order, dependencies first)
    ┌────────────────────────────────────────────────────────────┐
@@ -222,33 +222,30 @@ Why this shape:
   or the final report. Between checkpoints, phase order above drives
   sequencing.
 
-## Phase 0 — Init (main thread)
+## Phase 0 — Init + survey (main thread)
 
-1. You already hold the task in conversation — write a fresh
-   `.z-flashflow/STATE.md`: the TASK section verbatim, the POLICY block
-   numbered exactly as templated, an empty BODY, HEADER set to
-   `phase: routing / next: spawn router`. Do NOT survey the repo or read
-   AGENTS.md yourself — that is the router's job.
-2. Write a `TodoWrite` plan with one item per phase. Update it as rounds
+No router agent: one model tier means nothing to route, so the main
+thread surveys once at init and writes the routing map itself. Survey
+output is compact control data — manifests and rule files, not diffs or
+gate logs — so the context discipline still holds.
+
+1. Survey the repo (`Cargo.toml`, `package.json`, `pyproject.toml`,
+   `pubspec.yaml`, app/packages dirs, svelte/react/mobile configs) and
+   extract project rules from AGENTS.md / CLAUDE.md / CONTRIBUTING.md.
+2. Write a fresh `.z-flashflow/STATE.md`: the TASK section verbatim, the
+   POLICY block numbered exactly as templated, the survey section
+   holding the routing map and project rules, an empty BODY, HEADER set
+   to `phase: implement / next: spawn implementer <area 1>`.
+3. One routing-map row per area: paths, excluded paths, skills, gate
+   commands, complexity tag (`straightforward` | `complex` — complex
+   marks escalation candidates, see Escalation), depends-on, has-UI.
+4. Two survey hard rules: gate commands must be **non-mutating** (no
+   `--fix`/`--write` flags — formatting and fixes belong to
+   implementers) and must **actually exist in the repo's tooling**
+   (check package.json scripts, Makefile, cargo targets) — a
+   hallucinated gate fails forever and poisons the loop.
+5. Write a `TodoWrite` plan with one item per phase. Update it as rounds
    pass; on a long run it is the user's window into the work.
-
-## Phase 1 — Router (GLM 5.3 Flash)
-
-Spawn a `general-flash` agent with the state file path: survey the repo
-(`Cargo.toml`, `package.json`,
-`pyproject.toml`, `pubspec.yaml`, app/packages dirs, svelte/react/mobile
-configs), extract project rules from AGENTS.md / CLAUDE.md / CONTRIBUTING.md,
-and append the routing map. One row per area: paths, excluded paths, skills
-(verified against the session's available-skills list — it differs per
-machine — with absolute paths), gate commands, complexity tag
-(`straightforward` | `complex` — complex marks escalation candidates, see
-Escalation), depends-on, has-UI.
-
-Two router hard rules: gate commands must be **non-mutating** (no
-`--fix`/`--write` flags — formatting and fixes belong to implementers) and
-must **actually exist in the repo's tooling** (check package.json scripts,
-Makefile, cargo targets) — a hallucinated gate fails forever and poisons
-the loop.
 
 Two kinds of tooling, two rules:
 
@@ -261,10 +258,10 @@ Two kinds of tooling, two rules:
   STATE.md and the final report instead of blocking.
 - **Plugins** (`browser-use`, `computer-use`, `android-emulator`,
   `ios-simulator`) are built into the ZCode harness and exist for
-  VISION AND TESTING, not implementation. The router never assigns
-  them to areas; the vision phase pins them by name.
+  VISION AND TESTING, not implementation. Never assign them to areas;
+  the vision phase pins them by name.
 
-## Phase 2 — Implementers (one area at a time)
+## Phase 1 — Implementers (one area at a time)
 
 Spawn one agent per area, in routing-map order (dependencies first) —
 always `general-flash`, straightforward and complex alike; the type
@@ -295,7 +292,7 @@ Two contract rules are non-negotiable: the implementer runs the gates
 itself before claiming done, and it appends its own section — never trust a
 bare "succeeded".
 
-## Phase 3 — Mechanical gates (main thread)
+## Phase 2 — Mechanical gates (main thread)
 
 After each implementation and each fix round, run the gates of **every area
 touched so far** — an untouched area's gates say nothing about this round.
@@ -315,7 +312,7 @@ the failing gates itself and reads the errors directly; you relay only
 which commands failed. But count consecutive gate-fail rounds: after two
 with no shrinking failures, spawn the decider (POLICY rule 1 — the exit).
 
-## Phase 4 — Committer (GLM 5.3 Flash)
+## Phase 3 — Committer (GLM 5.3 Flash)
 
 When an area's gates pass, spawn the committer — a `general-flash` agent —
 with that area's explicit paths. Round-1 housekeeping
@@ -323,11 +320,11 @@ with that area's explicit paths. Round-1 housekeeping
 stage explicit paths, commit one logical unit, append sha + paths + message
 to the BODY.
 
-## Phase 5 — Vision (GLM 5.3 Flash) — run-level
+## Phase 4 — Vision (GLM 5.3 Flash) — run-level
 
 Runs ONCE, after all areas are clean — never per-area. Skip it, noting
-so in the report, only if the routing map marks no UI areas (the
-router's call, not yours). Spawn a `general-flash` verification agent
+so in the report, only if the routing map marks no UI areas (decided at survey time,
+not mid-run). Spawn a `general-flash` verification agent
 that:
 
 1. Loads the harness plugin skill for the target's runtime — web →
@@ -343,7 +340,7 @@ that:
 The vision agent reports evidence; it does not get the final word — its
 FAIL verdicts are reviewed by the judge in the next phase.
 
-## Phase 6 — Judge (GLM 5.3 Flash)
+## Phase 5 — Judge (GLM 5.3 Flash)
 
 Two occasions, same contract: **per-area** (code audit, spawned by the
 per-area cycle) and **run-level** (vision FAIL evidence + any commits not
@@ -374,7 +371,7 @@ what the code does right. Append your section to STATE.md; reply in 3
 lines max.
 ```
 
-## Phase 7 — Decider (GLM 5.3 Flash)
+## Phase 6 — Decider (GLM 5.3 Flash)
 
 Spawn the decider — a `general-flash` agent (glm-5.3-flash pinned) —
 after every judge verdict, and after two stagnant gate-fail rounds. It reads the
@@ -404,7 +401,7 @@ judgment the main thread ever consumes.
 Collect nothing yourself — open findings live in the judge's latest BODY
 section. Prefer resuming the original implementer where the harness
 supports sub-agent resume — it still knows its own code; otherwise
-spawn a fresh fixer with the FULL Phase 2 template — general-flash
+spawn a fresh fixer with the FULL Phase 1 template — general-flash
 dispatch, skill loading, scope fences, no-git, append, 3-line reply —
 with scope set to the affected area and the open findings attached.
 

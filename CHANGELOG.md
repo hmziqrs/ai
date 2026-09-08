@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
 
+## [0.4.0] - 2026-09-07
+
+### Changed
+- **z-flashflow: removed the router phase.** One model tier means
+  nothing to route — the main thread now surveys once at init and
+  writes the routing map itself (compact control data, context
+  discipline intact). Phases renumbered 0-6, model-routing table row
+  removed, all cross-references updated.
+
+[0.4.0]: https://github.com/hmziqrs/ai/compare/v0.3.0...v0.4.0
+
 ## [0.3.0] - 2026-09-07
 
 ### Changed
