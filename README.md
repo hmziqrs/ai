@@ -30,6 +30,7 @@ ai/
   multi-phase tasks. Router / straightforward implementers / committer /
   vision dispatch `general-flash`; complex implementers / judge / decider
   dispatch `general-pro`.
+- **z-proflow** — the depth-first variant: all-pro (every role on `general-pro`, glm-5.3), no router (main thread surveys at init), no vision (the main-tier model has no image support — visual verification hands off to z-workflow). Phases 0–5.
 - **z-flashflow** — the all-flash variant of z-workflow: every role
   (router, implementers, committer, judge, decider, vision) dispatches
   `general-flash`; gates, fresh auditors, fix rounds, and the POLICY

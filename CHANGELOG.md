@@ -4,6 +4,18 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
 
+## [0.5.0] - 2026-09-07
+
+### Added
+- **z-proflow** skill — the depth-first variant: same loop as
+  z-flashflow but every sub-agent (implementers, committer, judge,
+  decider) dispatches `general-pro` (glm-5.3 pinned); no router
+  (inherited); no vision phase or evidence layer at all — the
+  main-tier model has no image support, and visual verification is a
+  documented hand-off to z-workflow's flash vision agent. Phases 0-5.
+
+[0.5.0]: https://github.com/hmziqrs/ai/compare/v0.4.0...v0.5.0
+
 ## [0.4.0] - 2026-09-07
 
 ### Changed
