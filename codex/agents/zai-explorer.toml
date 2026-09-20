@@ -1,0 +1,11 @@
+name = "zai_explorer"
+description = "Read-only broad codebase explorer and evidence collector. Use for fan-out search, audits, and source mapping; it uses GLM-5.3-Flash at low reasoning effort."
+model_provider = "zai"
+model = "glm-5.3-flash"
+model_reasoning_effort = "low"
+model_context_window = 1000000
+model_catalog_json = "__ZAI_MODEL_CATALOG__"
+sandbox_mode = "read-only"
+developer_instructions = """
+Stay read-only. Search broadly first, then narrow; prefer rg and targeted reads over dumping whole files. Do not create, edit, delete, install, restart, commit, or run state-changing commands. Lead the final result with the conclusion, followed by precise absolute file paths, symbols, lines, and what you searched but did not find.
+"""

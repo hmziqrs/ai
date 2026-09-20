@@ -1,0 +1,28 @@
+{
+  "name": "zai-workflows",
+  "version": "0.5.0",
+  "description": "Codex orchestration workflows for Z.ai GLM-5.3 and GLM-5.3-Flash agents.",
+  "author": {
+    "name": "hmziqrs",
+    "url": "https://github.com/hmziqrs"
+  },
+  "homepage": "https://github.com/hmziqrs/ai/tree/main/codex",
+  "repository": "https://github.com/hmziqrs/ai",
+  "license": "MIT",
+  "keywords": ["codex", "zai", "glm-5.3", "multi-agent", "workflow"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Z.ai Workflows",
+    "shortDescription": "Route Codex work across GLM-5.3 agents.",
+    "longDescription": "Four state-driven Codex workflows for routing implementation, review, and visual verification across GLM-5.3 and multimodal GLM-5.3-Flash custom agents.",
+    "developerName": "hmziqrs",
+    "category": "Productivity",
+    "capabilities": ["Multi-agent orchestration", "Visual verification"],
+    "websiteURL": "https://github.com/hmziqrs/ai",
+    "defaultPrompt": [
+      "Use z-workflow for this multi-phase engineering task.",
+      "Use z-liteflow for this small, scoped change.",
+      "Use z-flashflow and verify any UI visually."
+    ]
+  }
+}

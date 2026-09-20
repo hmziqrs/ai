@@ -1,0 +1,20 @@
+# Rendered by bin/codex-ai.js into the user-level ~/.codex/config.toml.
+# It deliberately does not select Z.ai as the global default provider or
+# persist the API key in TOML.
+
+# BEGIN hmziqrs/ai Codex Z.ai provider
+
+[model_providers.zai]
+name = "Z.ai"
+base_url = "https://api.z.ai/api/v1"
+wire_api = "responses"
+request_max_retries = 2
+stream_max_retries = 4
+stream_idle_timeout_ms = 300000
+
+[model_providers.zai.auth]
+command = "/bin/cat"
+args = ["__ZAI_API_KEY_FILE__"]
+refresh_interval_ms = 300000
+
+# END hmziqrs/ai Codex Z.ai provider

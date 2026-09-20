@@ -1,8 +1,8 @@
 # ai
 
-> Model-pinned ZCode sub-agents and orchestration skills — one repo, one
-> subfolder per harness. Installable by humans or AI agents in one command;
-> no build step, no dependencies.
+> Model-pinned ZCode and Codex sub-agents plus orchestration skills — one repo,
+> one subfolder per harness. Installable by humans or AI agents in one command;
+> no build step and no runtime dependencies beyond Node.
 
 All content lives under `zcode/` (the ZCode harness kit: 3 sub-agents +
 2 skills). To install everything, run `npx github:hmziqrs/ai` — it
@@ -12,6 +12,23 @@ Agent definitions must be regular files — ZCode's discovery
 silently skips symlinks; `find ~/.zcode/agents -type l` printing
 nothing confirms no symlinks.
 Agents: follow [install.md](install.md) for task-oriented instructions.
+
+The Codex kit lives under `codex/`. Install it with
+`npx github:hmziqrs/ai codex`; it adds the Z.ai Responses provider, five custom
+agents, six profiles, a two-model catalog, and four skills while preserving the
+normal OpenAI default. The installer imports `ZAI_API_KEY` into the private
+Codex-only file `~/.codex/secrets/zai-api-key` with mode `0600`; provider
+authentication reads that file, and the key never enters Git or
+`~/.codex/config.toml`. Full details: [codex/install.md](codex/install.md).
+
+## Install — Codex + Z.ai kit
+
+- [bin/codex-ai.js](bin/codex-ai.js): safe, idempotent Codex installer invoked
+  through `npx github:hmziqrs/ai codex`.
+- [codex/agents](codex/agents): `zai_flash`, `zai_vision`, `zai_pro`, and
+  `zai_reviewer` at max reasoning, plus a low-effort read-only explorer.
+- [codex/plugins/zai-workflows](codex/plugins/zai-workflows): publishable Codex
+  plugin containing z-workflow, z-proflow, z-flashflow, and z-liteflow.
 
 ## Install — full kit (agents + skills)
 

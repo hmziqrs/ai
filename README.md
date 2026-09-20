@@ -8,7 +8,9 @@ that pins its own model.
 
 ```
 ai/
-├── bin/ai.js           npx installer (reads from zcode/ by default)
+├── bin/ai.js           npx entry point (ZCode default; `codex` subcommand)
+├── bin/codex-ai.js     Codex provider/agent/profile/skill installer
+├── codex/              Codex kit (agents, profiles, plugin, setup docs)
 └── zcode/              ZCode kit
     ├── agents/
     └── skills/
@@ -39,6 +41,14 @@ ai/
 - **z-liteflow** — lightweight loop for small single-domain tasks;
   implementer/fixer/vision on `general-flash`, fresh auditor on
   `explore-flash`.
+- **z-gpui-workflow** — fine-grained orchestration loop for GPUI
+  (gpui-kit) Rust desktop work. A thin main thread sequences
+  sub-agents, runs mechanical gates, and alone drives the
+  main-thread-only computer-use surface (app launch, screenshots);
+  router / implementers / committer / judge / decider do the real work
+  from a persistent `STATE.md`. Image interpretation only in flash
+  sub-agents reading images natively; has-UI areas get per-area visual
+  checkpoints plus one run-level pass.
 
 ## Install (pick one)
 
@@ -97,6 +107,35 @@ entry point, `install.md` holds task-oriented install instructions,
   `claude/` etc. with whatever layout that harness expects, plus its own
   install step in its README. The root installer stays ZCode-default and
   untouched.
+
+## Codex kit (`codex/`)
+
+The Codex kit provides Z.ai custom-provider configuration, five TOML custom
+agents, all six GLM-5.3 / GLM-5.3-Flash reasoning profiles, and Codex-adapted
+versions of the four workflow skills. `zai_flash`, `zai_vision`, `zai_pro`, and
+`zai_reviewer` are pinned to max effort; the read-only fan-out explorer stays
+at low. GLM-5.3-Flash owns vision and computer-use work because it is the
+multimodal model.
+
+Install the entire Codex kit without putting a key in Git or TOML:
+
+```bash
+npx github:hmziqrs/ai codex
+```
+
+Provide `ZAI_API_KEY` in the installer's environment. The installer imports it
+into the private Codex-only file `~/.codex/secrets/zai-api-key`, sets mode
+`0600`, and configures provider authentication to read that file. The key is
+never written to the repository or `~/.codex/config.toml`.
+
+The four skills are also packaged as the publishable Codex plugin at
+`codex/plugins/zai-workflows/`. See [codex/install.md](codex/install.md) for
+secret-file handling, paths, protocol requirements, and uninstall behavior.
+
+For Desktop, install `codex/scripts/codex-zai-desktop` as both `codex-zai` and
+`codex-openai`. Run `codex-zai flash` or `codex-zai pro` to activate the Z.ai
+catalog before Desktop starts; run `codex-openai` to restore the exact saved
+official configuration. See `codex/install.md` for the switching behavior.
 
 ## Model note
 

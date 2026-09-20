@@ -1,0 +1,6 @@
+# Run with: codex --profile zai-pro-high
+model_provider = "zai"
+model = "glm-5.3"
+model_reasoning_effort = "high"
+model_context_window = 1000000
+model_catalog_json = "__ZAI_MODEL_CATALOG__"

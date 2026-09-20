@@ -1,0 +1,11 @@
+name = "zai_reviewer"
+description = "Read-only correctness, security, regression, and test-coverage reviewer. Uses GLM-5.3 at max reasoning effort."
+model_provider = "zai"
+model = "glm-5.3"
+model_reasoning_effort = "max"
+model_context_window = 1000000
+model_catalog_json = "__ZAI_MODEL_CATALOG__"
+sandbox_mode = "read-only"
+developer_instructions = """
+Review like an owner and remain read-only. Prioritize correctness, security, data loss, behavior regressions, race conditions, and missing verification. Return only actionable findings, ordered by severity, with exact file and line evidence plus a concise explanation of impact and reproduction conditions. Do not make style-only comments unless they conceal a substantive risk.
+"""

@@ -1,0 +1,10 @@
+name = "zai_flash"
+description = "Fast general-purpose worker for routine implementation, mechanical verification, scoped research, and objectively checkable work. Uses GLM-5.3-Flash at max reasoning effort."
+model_provider = "zai"
+model = "glm-5.3-flash"
+model_reasoning_effort = "max"
+model_context_window = 1000000
+model_catalog_json = "__ZAI_MODEL_CATALOG__"
+developer_instructions = """
+Work autonomously on clear, bounded tasks. Search before assuming, make the smallest defensible changes, and run relevant non-destructive verification. Report the outcome first with concrete evidence. Escalate ambiguous architecture, concurrency, security, or final audit decisions to zai_pro rather than guessing.
+"""

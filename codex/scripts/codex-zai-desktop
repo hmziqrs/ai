@@ -1,0 +1,194 @@
+#!/bin/zsh
+set -euo pipefail
+
+command_name="${0:t}"
+
+usage() {
+  if [[ "$command_name" == "codex-openai" ]]; then
+    cat <<'EOF'
+usage: codex-openai [workspace]
+
+Restore the saved OpenAI Codex Desktop configuration and launch the app.
+EOF
+  else
+    cat <<'EOF'
+usage: codex-zai [flash|pro] [workspace]
+
+Activate a Z.ai model catalog for Codex Desktop and launch the app.
+
+  codex-zai                 GLM-5.3-Flash, current directory
+  codex-zai flash /path     GLM-5.3-Flash, selected workspace
+  codex-zai pro /path       GLM-5.3, selected workspace
+
+Run codex-openai to restore the exact OpenAI configuration saved when Z.ai
+was first activated.
+EOF
+  fi
+}
+
+mode="zai"
+[[ "$command_name" == "codex-openai" ]] && mode="openai"
+
+variant="flash"
+if [[ "$mode" == "zai" && $# -gt 0 ]]; then
+  case "$1" in
+    flash|pro)
+      variant="$1"
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+  esac
+elif [[ "$mode" == "openai" && $# -gt 0 ]]; then
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+  esac
+fi
+
+if (( $# > 1 )); then
+  usage >&2
+  exit 2
+fi
+
+workspace="${1:-$PWD}"
+workspace="${workspace:A}"
+if [[ ! -d "$workspace" ]]; then
+  print -u2 -- "$command_name: workspace is not a directory: $workspace"
+  exit 1
+fi
+
+codex_home="${CODEX_HOME:-$HOME/.codex}"
+config="$codex_home/config.toml"
+catalog="$codex_home/model-catalogs/zai-models.json"
+secret="$codex_home/secrets/zai-api-key"
+profile_dir="$codex_home/desktop-profiles"
+openai_config="$profile_dir/openai.config.toml"
+active_file="$profile_dir/active"
+
+if [[ ! -r "$config" ]]; then
+  print -u2 -- "$command_name: missing Codex configuration: $config"
+  exit 1
+fi
+
+if [[ "$mode" == "zai" ]]; then
+  if [[ ! -r "$catalog" ]]; then
+    print -u2 -- "$command_name: missing model catalog: $catalog"
+    exit 1
+  fi
+  if [[ ! -s "$secret" ]]; then
+    print -u2 -- "$command_name: missing Codex-local Z.ai credential"
+    exit 1
+  fi
+  if ! grep -q '^\[model_providers\.zai\]$' "$config"; then
+    print -u2 -- "$command_name: the managed Z.ai provider is absent from $config"
+    exit 1
+  fi
+fi
+
+mkdir -p "$profile_dir"
+chmod 700 "$profile_dir"
+
+atomic_copy() {
+  local source="$1"
+  local destination="$2"
+  local temporary
+  temporary="$(mktemp "${destination}.XXXXXX")"
+  /bin/cp "$source" "$temporary"
+  chmod 600 "$temporary"
+  /bin/mv -f "$temporary" "$destination"
+}
+
+write_active() {
+  local value="$1"
+  local temporary
+  temporary="$(mktemp "${active_file}.XXXXXX")"
+  print -r -- "$value" > "$temporary"
+  chmod 600 "$temporary"
+  /bin/mv -f "$temporary" "$active_file"
+}
+
+active="openai"
+[[ -r "$active_file" ]] && active="$(<"$active_file")"
+
+if [[ "$mode" == "openai" ]]; then
+  if [[ ! -r "$openai_config" ]]; then
+    print -u2 -- "$command_name: no saved OpenAI configuration exists yet"
+    exit 1
+  fi
+  atomic_copy "$openai_config" "$config"
+  write_active "openai"
+  selected_model="OpenAI"
+else
+  case "$variant" in
+    flash) model="glm-5.3-flash" ;;
+    pro) model="glm-5.3" ;;
+  esac
+
+  # Refresh the baseline only while the official configuration is active.
+  # Repeated Z.ai launches therefore never overwrite the restore point.
+  if [[ "$active" == "openai" || ! -r "$openai_config" ]]; then
+    atomic_copy "$config" "$openai_config"
+  fi
+
+  rendered="$profile_dir/zai-${variant}.config.toml"
+  temporary="$(mktemp "${rendered}.XXXXXX")"
+  awk -v selected_model="$model" -v selected_catalog="$catalog" '
+    function settings() {
+      print "model_provider = \"zai\""
+      print "model = \"" selected_model "\""
+      print "model_reasoning_effort = \"max\""
+      print "model_catalog_json = \"" selected_catalog "\""
+      print ""
+    }
+    BEGIN { in_root = 1; emitted = 0 }
+    in_root && /^\[/ {
+      settings()
+      emitted = 1
+      in_root = 0
+    }
+    in_root && /^(model|model_provider|model_reasoning_effort|model_catalog_json)[[:space:]]*=/ { next }
+    { print }
+    END { if (!emitted) settings() }
+  ' "$openai_config" > "$temporary"
+  chmod 600 "$temporary"
+  /bin/mv -f "$temporary" "$rendered"
+  atomic_copy "$rendered" "$config"
+  write_active "zai-$variant"
+  selected_model="$model"
+fi
+
+if [[ "${CODEX_DESKTOP_NO_LAUNCH:-0}" == "1" ]]; then
+  print -r -- "$command_name: activated $selected_model; launch Codex Desktop to apply it"
+  exit 0
+fi
+
+bundled_codex="/Applications/ChatGPT.app/Contents/Resources/codex"
+if [[ -x "$bundled_codex" ]]; then
+  codex_bin="$bundled_codex"
+elif (( $+commands[codex] )); then
+  codex_bin="$commands[codex]"
+else
+  print -u2 -- "$command_name: configuration switched, but the Codex launcher was not found"
+  exit 1
+fi
+
+# Catalogs and providers are read at startup, so request a graceful app quit.
+app_id="com.openai.codex"
+if [[ "$(/usr/bin/osascript -e "application id \"$app_id\" is running")" == "true" ]]; then
+  /usr/bin/osascript -e "tell application id \"$app_id\" to quit"
+  for _ in {1..100}; do
+    [[ "$(/usr/bin/osascript -e "application id \"$app_id\" is running")" == "false" ]] && break
+    sleep 0.1
+  done
+  if [[ "$(/usr/bin/osascript -e "application id \"$app_id\" is running")" == "true" ]]; then
+    print -u2 -- "$command_name: configuration switched, but Desktop did not quit; quit and reopen it manually"
+    exit 1
+  fi
+fi
+
+exec "$codex_bin" app "$workspace"

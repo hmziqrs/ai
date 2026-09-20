@@ -45,8 +45,8 @@ symlinked agent definitions.
 - `find ~/.zcode/agents -type l` prints nothing — agent files must be
   regular files.
 - `ls ~/.agents/skills/` shows `z-workflow/`, `z-proflow/`,
-  `z-flashflow/`, and
-  `z-liteflow/` each containing `SKILL.md`.
+  `z-flashflow/`, `z-liteflow/`, and
+  `z-gpui-workflow/` each containing `SKILL.md`.
 - ZCode picks up agents at session start: restart ZCode or open a new
   session, then check Settings → Subagents lists the three agents.
 
@@ -54,3 +54,19 @@ symlinked agent definitions.
 
 State: which task ran, agents and skills now present,
 and that a ZCode restart / new session is required to load the agents.
+
+## Codex + Z.ai kit
+
+This page's Tasks A–C are for the default ZCode kit. For Codex, run:
+
+```sh
+npx github:hmziqrs/ai codex
+```
+
+The Codex installer uses the Z.ai Responses endpoint, installs five Codex agent
+definitions and six profiles, installs the four Codex workflow skills, and
+imports `ZAI_API_KEY` into the private Codex-only file
+`~/.codex/secrets/zai-api-key` with mode `0600`. Provider authentication reads
+that file; the key never enters Git or `~/.codex/config.toml`. See
+[codex/install.md](codex/install.md) for the complete behavior and
+`codex uninstall` command.
