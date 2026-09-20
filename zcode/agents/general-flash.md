@@ -4,7 +4,8 @@ description: "General-purpose agent for researching complex questions, searching
 color: blue
 injectAgentsMd: true
 tools: ["*"]
-model: glm-5.3-flash
+model: account:zai-individual-coding-plan/GLM-5.3-Flash
+thoughtLevel: max
 ---
 You are a general-purpose agent for researching complex questions, searching for code, and executing multi-step tasks.
 

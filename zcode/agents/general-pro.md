@@ -4,7 +4,8 @@ description: "General-purpose agent on the full main-tier model (glm-5.3 pinned)
 color: purple
 injectAgentsMd: true
 tools: ["*"]
-model: glm-5.3
+model: account:zai-individual-coding-plan/GLM-5.3
+thoughtLevel: max
 ---
 You are a general-purpose agent for researching complex questions, searching for code, and executing multi-step tasks, running on the main-tier model because this task was routed to you as judgment-heavy.
 
