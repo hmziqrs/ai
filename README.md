@@ -13,7 +13,8 @@ ai/
 ├── codex/              Codex kit (agents, profiles, plugin, setup docs)
 └── zcode/              ZCode kit
     ├── agents/
-    └── skills/
+    ├── skills/
+    └── workflows/       saved-workflow sources (zflow-engine + SPEC)
 ```
 
 ## ZCode kit (`zcode/`)
@@ -28,27 +29,35 @@ ai/
 
 ### Skills (`zcode/skills/`)
 
-- **z-workflow** — state-file-driven orchestration loop for complex
-  multi-phase tasks. Router / straightforward implementers / committer /
-  vision dispatch `general-flash`; complex implementers / judge / decider
-  dispatch `general-pro`.
-- **z-proflow** — the depth-first variant: all-pro (every role on `general-pro`, glm-5.3), no router (main thread surveys at init), no vision (the main-tier model has no image support — visual verification hands off to z-workflow). Phases 0–5.
-- **z-flashflow** — the all-flash variant of z-workflow: every role
-  (router, implementers, committer, judge, decider, vision) dispatches
-  `general-flash`; gates, fresh auditors, fix rounds, and the POLICY
-  decider compensate for flash judgment, with escalation to z-workflow
-  when depth is the bottleneck.
-- **z-liteflow** — lightweight loop for small single-domain tasks;
-  implementer/fixer/vision on `general-flash`, fresh auditor on
-  `explore-flash`.
-- **z-gpui-workflow** — fine-grained orchestration loop for GPUI
-  (gpui-kit) Rust desktop work. A thin main thread sequences
-  sub-agents, runs mechanical gates, and alone drives the
-  main-thread-only computer-use surface (app launch, screenshots);
-  router / implementers / committer / judge / decider do the real work
-  from a persistent `STATE.md`. Image interpretation only in flash
-  sub-agents reading images natively; has-UI areas get per-area visual
-  checkpoints plus one run-level pass.
+All five z-flow skills are **thin chain-coordinator wrappers** over one
+saved workflow node: the main agent is a thin sequencer that launches
+tier-pure `zflow-engine` runs (implement / vision / judge) via
+CreateWorkflow with `subagent_model` pinned per run, and holds only
+compact control data between runs. The engine (`zcode/workflows/
+zflow-engine.dwf.ts`, contract in `zflow-SPEC.md` beside it) runs the
+mechanical gates as `world.run` behind a literal-command allowlist,
+drafts commits with a named Committer agent while the script executes
+the mutations, and enforces the POLICY exit rules as loop conditions in
+code. The engine installs as a saved workflow at `~/.zcode/workflows/`
+(`zcode/workflows/` is the source copy).
+
+- **z-workflow** — mixed-tier chain for complex multi-phase tasks: pro
+  implement and judge runs with a flash run-level vision node chained
+  between rounds, looping per POLICY until clean or honestly stopped.
+- **z-proflow** — the all-pro depth-first variant: every run pinned to
+  the pro tier, no router, no pixel vision (pro is image-blind; ocu
+  AX-text structural audits allowed — text is tier-blind).
+- **z-flashflow** — the all-flash variant: every run pinned to flash;
+  gates, fresh blind judges, fix rounds, and code-enforced POLICY
+  exits compensate for flash judgment, with hand-off to z-proflow when
+  a complex area stalls.
+- **z-liteflow** — lightweight chain for small single-domain tasks:
+  flash implement and judge runs looping between runs per finding, plus
+  an optional flash vision node.
+- **z-gpui-workflow** — fine-grained GPUI desktop chain: pro
+  implement/judge runs, a flash vision node for pixel design audits
+  via ocu capture (AX text + decoded PNGs), and the main-thread
+  computer-use plugin as the interactive fallback lane only.
 
 ## Install (pick one)
 

@@ -38,6 +38,17 @@ Copy `zcode/agents/*.md` to `~/.zcode/agents/` and `zcode/skills/*` to
 Copy, never symlink — ZCode's subagent discovery silently skips
 symlinked agent definitions.
 
+## The z-flow skills and the zflow-engine
+
+The five z-flow skills (`z-workflow`, `z-proflow`, `z-flashflow`,
+`z-liteflow`, `z-gpui-workflow`) are thin chain-coordinator wrappers:
+they launch the saved `zflow-engine` dynamic workflow as tier-pure
+nodes (implement / vision / judge) instead of running a state-file
+loop. The engine is not installed by Tasks A–C — its source lives at
+`zcode/workflows/zflow-engine.dwf.ts` in the repo (contract in
+`zflow-SPEC.md` beside it) and it installs as a saved workflow at
+`~/.zcode/workflows/`.
+
 ## Verify
 
 - `ls ~/.zcode/agents/` shows `general-flash.md`, `explore-flash.md`,

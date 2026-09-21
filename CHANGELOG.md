@@ -4,6 +4,47 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
 
+## [1.0.0] - 2026-09-22
+
+### Changed
+- **The five z-flow skills are rewritten as thin chain-coordinator
+  wrappers over one saved workflow node.** z-workflow, z-proflow,
+  z-flashflow, z-liteflow, and z-gpui-workflow keep their names,
+  folders, and triggers; the main agent is now a thin sequencer that
+  launches tier-pure `zflow-engine` runs (implement / vision / judge)
+  and holds only compact control data between runs. The state file,
+  the append/compaction machinery, and the sequencer discipline
+  tables are deleted. The decider's POLICY exit rules became loop
+  conditions in code — in-run round caps and stagnation counters,
+  coordinator counts between rounds — so no model judges an exit.
+  Mechanical gates run as `world.run` behind a literal-command
+  allowlist (npm, pnpm, yarn, bun, cargo, make, go, python3, pytest,
+  npx, git read-only subcommands). Vision is flash-tier subagents
+  driving `agent-browser` (web) and `ocu` (desktop AX text + decoded
+  pixel PNGs). Tier mixing goes through per-run `subagent_model`
+  pins; mid-run cross-tier needs go through the batched escalation
+  bridge. Commit messages are drafted by a named Committer agent
+  while the script executes the mutations serialized via
+  `world.run("git", …)`; `commit: false` is supported.
+- Verified-facts basis: every mechanism above was live-tested on
+  2026-09-21/22 — one model per run, escalation bridging, flash
+  image reading, and agent-browser / ocu driven from subagents.
+
+### Added
+- **zflow-engine** — the single saved dynamic workflow every z-flow
+  skill chains over: `zcode/workflows/zflow-engine.dwf.ts`, with its
+  contract in `zcode/workflows/zflow-SPEC.md`. The engine's install
+  path is `~/.zcode/workflows/` (`zcode/workflows/` is the source
+  copy).
+
+### Breaking
+- The five skills now require ZCode dynamic workflows; the old
+  state-file orchestration loop is gone.
+- Deployed originals were backed up at
+  `~/.agents/skills-backup-2026-09-21` before this release.
+
+[1.0.0]: https://github.com/hmziqrs/ai/compare/v0.5.0...v1.0.0
+
 ## [0.5.0] - 2026-09-07
 
 ### Added

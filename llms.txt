@@ -44,10 +44,12 @@ authentication reads that file, and the key never enters Git or
 - [zcode/agents/general-flash.md](zcode/agents/general-flash.md): full-tools general agent pinned to glm-5.3-flash — objectively checkable work (CRUD, boilerplate, mechanical verification).
 - [zcode/agents/explore-flash.md](zcode/agents/explore-flash.md): read-only search + code-audit agent pinned to glm-5.3-flash — reports findings, no verdict authority.
 - [zcode/agents/general-pro.md](zcode/agents/general-pro.md): full-tools judgment agent pinned to glm-5.3 — complex implementation, audit verdicts, continue/stop decisions.
-- [zcode/skills/z-workflow/SKILL.md](zcode/skills/z-workflow/SKILL.md): state-file-driven orchestration loop for multi-phase tasks; dispatches general-flash / general-pro by role.
-- [zcode/skills/z-proflow/SKILL.md](zcode/skills/z-proflow/SKILL.md): the depth-first variant — every role dispatches general-pro (glm-5.3), no router, no vision (main-tier model has no image support; visual verification hands off to z-workflow).
-- [zcode/skills/z-flashflow/SKILL.md](zcode/skills/z-flashflow/SKILL.md): the all-flash variant of z-workflow — every role dispatches general-flash (glm-5.3-flash); gates, fix rounds, and the POLICY decider compensate; escalates to z-workflow for depth.
-- [zcode/skills/z-liteflow/SKILL.md](zcode/skills/z-liteflow/SKILL.md): lightweight loop for small single-domain tasks; implementer on general-flash, auditor on explore-flash.
+- [zcode/skills/z-workflow/SKILL.md](zcode/skills/z-workflow/SKILL.md): thin chain coordinator over zflow-engine — pro implement and judge runs with a flash run-level vision node chained between rounds, looping per POLICY until clean or honestly stopped.
+- [zcode/skills/z-proflow/SKILL.md](zcode/skills/z-proflow/SKILL.md): the all-pro depth-first chain — every run pinned to the pro tier via subagent_model, no router, no pixel vision (pro is image-blind; ocu AX-text structural audits allowed).
+- [zcode/skills/z-flashflow/SKILL.md](zcode/skills/z-flashflow/SKILL.md): the all-flash chain — every run pinned to flash; gates, fresh blind judges, fix rounds, and code-enforced POLICY exits compensate; hands off to z-proflow when a complex area stalls.
+- [zcode/skills/z-liteflow/SKILL.md](zcode/skills/z-liteflow/SKILL.md): lightweight chain for small single-domain tasks — flash implement and judge runs looping between runs, optional flash vision node.
+- [zcode/skills/z-gpui-workflow/SKILL.md](zcode/skills/z-gpui-workflow/SKILL.md): fine-grained GPUI desktop chain — pro implement/judge runs, flash vision node for pixel design audits via ocu capture; main-thread computer-use plugin as interactive fallback only.
+- [zcode/workflows/zflow-engine.dwf.ts](zcode/workflows/zflow-engine.dwf.ts): the ONE saved dynamic workflow all five z-flow skills chain over (implement / vision / judge nodes; world.run gate allowlist; Committer-drafted commits; POLICY as loop conditions in code). Installs as a saved workflow at ~/.zcode/workflows/ — zcode/workflows/ is the source copy. Contract: [zcode/workflows/zflow-SPEC.md](zcode/workflows/zflow-SPEC.md).
 
 ## Optional
 

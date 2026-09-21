@@ -8,6 +8,7 @@ subfolder per harness. Current kits: `zcode/` and `codex/`.
 ```
 zcode/agents/<name>.md        ZCode sub-agent definitions (YAML frontmatter + system-prompt body)
 zcode/skills/<name>/SKILL.md  ZCode skills
+zcode/workflows/              dynamic-workflow sources (zflow-engine.dwf.ts + zflow-SPEC.md)
 bin/ai.js                     npx installer (npx github:hmziqrs/ai)
 bin/codex-ai.js               Codex installer selected by the `codex` subcommand
 codex/agents/*.toml           Codex custom agent templates
@@ -28,6 +29,12 @@ install.md                    task-oriented install instructions
   (`glm-5.3-flash`, `glm-5.3`).
 - The installer copies EVERYTHING found under `zcode/agents/` and
   `zcode/skills/` — new files need no installer or manifest changes.
+- The five z-flow skills are thin chain-coordinator wrappers over
+  `zflow-engine` nodes; keep them consistent with
+  `zcode/workflows/zflow-SPEC.md` (the engine contract). Workflow
+  sources under `zcode/workflows/` are NOT file-copied by the
+  installer — the engine installs as a saved workflow into
+  `~/.zcode/workflows/`.
 - New harness = new sibling folder (`claude/`, `cursor/`, ...) with its
   own layout; never mix harnesses in one folder.
 - Codex templates keep `__ZAI_MODEL_CATALOG__` until the installer renders an
