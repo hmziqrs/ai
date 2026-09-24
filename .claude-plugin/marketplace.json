@@ -7,7 +7,7 @@
     {
       "name": "flash-agents",
       "source": "./",
-      "description": "Model-pinned sub-agents (general-flash, explore-flash, general-pro) plus z-workflow / z-proflow / z-flashflow / z-liteflow orchestration skills.",
+      "description": "Model-pinned sub-agents (general-flash, explore-flash, general-pro) plus the five z-flow orchestration skills.",
       "categories": [
         "agents",
         "skills",
