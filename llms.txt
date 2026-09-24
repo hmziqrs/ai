@@ -1,59 +1,56 @@
 # ai
 
-> Model-pinned ZCode and Codex sub-agents plus orchestration skills — one repo,
-> one subfolder per harness. Installable by humans or AI agents in one command;
-> no build step and no runtime dependencies beyond Node.
+> Model-pinned ZCode and Codex harness kits plus cross-harness skill
+> categories. No installer, no build step, no dependencies: an AI agent
+> pointed at this repo installs it by following the procedures below.
 
-All content lives under `zcode/` (the ZCode harness kit: 3 sub-agents +
-2 skills). To install everything, run `npx github:hmziqrs/ai` — it
-copies agents into `~/.zcode/agents/` and skills into
-`~/.agents/skills/`, then ZCode loads them at next session start.
-Agent definitions must be regular files — ZCode's discovery
-silently skips symlinks; `find ~/.zcode/agents -type l` printing
-nothing confirms no symlinks.
-Agents: follow [install.md](install.md) for task-oriented instructions.
+Layout: harness-specific kits under `harness/` (`zcode/`, `codex/`);
+every other top-level directory (`copy/`, …) is a cross-harness skill
+category that applies to every harness. To install, follow
+[install.md](install.md) (ZCode kit + categories) or
+[harness/codex/install.md](harness/codex/install.md) (Codex kit +
+categories) — plain copies into `~/.zcode/agents/`, `~/.agents/skills/`,
+and `~/.codex/`. Agent definitions must be regular files — ZCode's
+discovery silently skips symlinks; `find ~/.zcode/agents -type l`
+printing nothing confirms none.
 
-The Codex kit lives under `codex/`. Install it with
-`npx github:hmziqrs/ai codex`; it adds the Z.ai Responses provider, five custom
-agents, six profiles, a two-model catalog, and four skills while preserving the
-normal OpenAI default. The installer imports `ZAI_API_KEY` into the private
-Codex-only file `~/.codex/secrets/zai-api-key` with mode `0600`; provider
+## ZCode kit (`harness/zcode/`)
+
+- [harness/zcode/agents/general-flash.md](harness/zcode/agents/general-flash.md): full-tools general agent pinned to glm-5.3-flash — objectively checkable work (CRUD, boilerplate, mechanical verification).
+- [harness/zcode/agents/explore-flash.md](harness/zcode/agents/explore-flash.md): read-only search + code-audit agent pinned to glm-5.3-flash — reports findings, no verdict authority.
+- [harness/zcode/agents/general-pro.md](harness/zcode/agents/general-pro.md): full-tools judgment agent pinned to glm-5.3 — complex implementation, audit verdicts, continue/stop decisions.
+- [harness/zcode/skills/z-workflow/SKILL.md](harness/zcode/skills/z-workflow/SKILL.md): thin chain coordinator over zflow-engine — pro implement and judge runs with a flash run-level vision node chained between rounds, looping per POLICY until clean or honestly stopped.
+- [harness/zcode/skills/z-proflow/SKILL.md](harness/zcode/skills/z-proflow/SKILL.md): the all-pro depth-first chain — every run pinned to the pro tier via subagent_model, no router, no pixel vision (pro is image-blind; ocu AX-text structural audits allowed).
+- [harness/zcode/skills/z-flashflow/SKILL.md](harness/zcode/skills/z-flashflow/SKILL.md): the all-flash chain — every run pinned to flash; gates, fresh blind judges, fix rounds, and code-enforced POLICY exits compensate; hands off to z-proflow when a complex area stalls.
+- [harness/zcode/skills/z-liteflow/SKILL.md](harness/zcode/skills/z-liteflow/SKILL.md): lightweight chain for small single-domain tasks — flash implement and judge runs looping between runs per finding, optional flash vision node.
+- [harness/zcode/skills/z-gpui-workflow/SKILL.md](harness/zcode/skills/z-gpui-workflow/SKILL.md): fine-grained GPUI desktop chain — pro implement/judge runs, flash vision node for pixel design audits via ocu capture; main-thread computer-use plugin as interactive fallback only.
+- [harness/zcode/workflows/zflow-engine.dwf.ts](harness/zcode/workflows/zflow-engine.dwf.ts): the ONE saved dynamic workflow all five z-flow skills chain over (implement / vision / judge nodes; world.run gate allowlist; Committer-drafted commits; POLICY as loop conditions in code). Installs as a saved workflow at ~/.zcode/workflows/ — harness/zcode/workflows/ is the source copy. Contract: [harness/zcode/workflows/zflow-SPEC.md](harness/zcode/workflows/zflow-SPEC.md).
+
+## Cross-harness skill categories
+
+Every top-level directory except `harness/` is a category holding
+plain-SKILL.md skills (no harness tooling). All of them install for
+every harness.
+
+- [copy/antislop-copy/SKILL.md](copy/antislop-copy/SKILL.md): cuts consumer-facing website copy to the shortest version that still answers the visitor's questions, without inventing or bending facts.
+
+## Codex kit (`harness/codex/`)
+
+Installs the Z.ai Responses provider, five custom agents, six profiles,
+a two-model catalog, and four skills while preserving the normal OpenAI
+default. The `ZAI_API_KEY` import goes into the private Codex-only
+`~/.codex/secrets/zai-api-key` file with mode `0600`; provider
 authentication reads that file, and the key never enters Git or
-`~/.codex/config.toml`. Full details: [codex/install.md](codex/install.md).
+`~/.codex/config.toml`. Full procedure:
+[harness/codex/install.md](harness/codex/install.md).
 
-## Install — Codex + Z.ai kit
-
-- [bin/codex-ai.js](bin/codex-ai.js): safe, idempotent Codex installer invoked
-  through `npx github:hmziqrs/ai codex`.
-- [codex/agents](codex/agents): `zai_flash`, `zai_vision`, `zai_pro`, and
-  `zai_reviewer` at max reasoning, plus a low-effort read-only explorer.
-- [codex/plugins/zai-workflows](codex/plugins/zai-workflows): publishable Codex
-  plugin containing z-workflow, z-proflow, z-flashflow, and z-liteflow.
-
-## Install — full kit (agents + skills)
-
-- [bin/ai.js](bin/ai.js): the installer. `npx github:hmziqrs/ai`, `npx github:hmziqrs/ai uninstall`, flag `--zcode-skills`. Node >= 16, zero dependencies.
-- [install.md](install.md): task-oriented instructions an AI agent can execute autonomously (environment check, install, verify, report).
-
-## Install — skills only (skills.sh ecosystem)
-
-- `npx skills add hmziqrs/ai -g -a zcode -y` installs the SKILL.md packs (z-workflow, z-proflow, z-flashflow, z-liteflow) into `~/.zcode/skills/` via the skills CLI. Verified invocation; other `-a` agent targets supported. Skills only — the sub-agent definitions under `zcode/agents/` are not handled by the skills CLI; use the full-kit installer for those.
-
-## ZCode kit contents (`zcode/`)
-
-- [zcode/agents/general-flash.md](zcode/agents/general-flash.md): full-tools general agent pinned to glm-5.3-flash — objectively checkable work (CRUD, boilerplate, mechanical verification).
-- [zcode/agents/explore-flash.md](zcode/agents/explore-flash.md): read-only search + code-audit agent pinned to glm-5.3-flash — reports findings, no verdict authority.
-- [zcode/agents/general-pro.md](zcode/agents/general-pro.md): full-tools judgment agent pinned to glm-5.3 — complex implementation, audit verdicts, continue/stop decisions.
-- [zcode/skills/z-workflow/SKILL.md](zcode/skills/z-workflow/SKILL.md): thin chain coordinator over zflow-engine — pro implement and judge runs with a flash run-level vision node chained between rounds, looping per POLICY until clean or honestly stopped.
-- [zcode/skills/z-proflow/SKILL.md](zcode/skills/z-proflow/SKILL.md): the all-pro depth-first chain — every run pinned to the pro tier via subagent_model, no router, no pixel vision (pro is image-blind; ocu AX-text structural audits allowed).
-- [zcode/skills/z-flashflow/SKILL.md](zcode/skills/z-flashflow/SKILL.md): the all-flash chain — every run pinned to flash; gates, fresh blind judges, fix rounds, and code-enforced POLICY exits compensate; hands off to z-proflow when a complex area stalls.
-- [zcode/skills/z-liteflow/SKILL.md](zcode/skills/z-liteflow/SKILL.md): lightweight chain for small single-domain tasks — flash implement and judge runs looping between runs, optional flash vision node.
-- [zcode/skills/z-gpui-workflow/SKILL.md](zcode/skills/z-gpui-workflow/SKILL.md): fine-grained GPUI desktop chain — pro implement/judge runs, flash vision node for pixel design audits via ocu capture; main-thread computer-use plugin as interactive fallback only.
-- [zcode/workflows/zflow-engine.dwf.ts](zcode/workflows/zflow-engine.dwf.ts): the ONE saved dynamic workflow all five z-flow skills chain over (implement / vision / judge nodes; world.run gate allowlist; Committer-drafted commits; POLICY as loop conditions in code). Installs as a saved workflow at ~/.zcode/workflows/ — zcode/workflows/ is the source copy. Contract: [zcode/workflows/zflow-SPEC.md](zcode/workflows/zflow-SPEC.md).
+- [harness/codex/agents](harness/codex/agents): `zai_flash`, `zai_vision`, `zai_pro`, and `zai_reviewer` at max reasoning, plus a low-effort read-only explorer.
+- [harness/codex/plugins/zai-workflows](harness/codex/plugins/zai-workflows): publishable Codex plugin containing z-workflow, z-proflow, z-flashflow, and z-liteflow.
 
 ## Optional
 
-- [README.md](README.md): full documentation — layout, all install paths, how to add agents/skills/harnesses.
+- [README.md](README.md): full documentation — layout, categories, install paths, how to add skills/kits/harnesses.
+- [install.md](install.md): the ZCode-kit + categories install procedure an AI agent executes.
 - [.zcode-plugin/plugin.json](.zcode-plugin/plugin.json): install as a ZCode plugin (Settings → Plugin Management → Discover → + → this Git URL).
 - [.claude-plugin/marketplace.json](.claude-plugin/marketplace.json): Claude Code marketplace manifest; also makes skills.sh discovery deterministic.
 - [AGENTS.md](AGENTS.md): orientation for AI agents working IN this repository (layout, conventions, extension rules).

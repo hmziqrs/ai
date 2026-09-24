@@ -1,83 +1,64 @@
-# Installing `ai` (ZCode kit)
+# Installing `ai`
 
-Task-oriented install instructions. An AI agent given this repo should be
-able to complete every task below autonomously. Human commands included
-inline. Default scope: user (home directory), files copied (ZCode's
-subagent loader skips symlinked definitions).
+There is no installer script. This file is the procedure: an AI agent
+given this repo completes it with its own file tools, and a human can
+follow the same steps. Everything is plain copies — no build, no
+dependencies.
 
-## Environment check
+Content comes in two kinds (see [README.md](README.md)):
 
-1. `node --version` — if >= 16, use the npx runner (Task A).
-2. Otherwise: download the repo and copy files by hand (Task C).
+- `harness/<name>/` — a harness-specific kit. Only the kit for your
+  harness applies.
+- every other top-level directory (`copy/`, …) — a cross-harness skill
+  category. **All of them apply to every harness.**
 
-## Task A — full kit via npx (preferred)
+## ZCode kit
 
-Run: `npx github:hmziqrs/ai`
+1. Copy each `harness/zcode/agents/*.md` to `~/.zcode/agents/`.
+   Copy, never symlink — ZCode silently skips symlinked agent files.
+2. Copy each skill folder to `~/.agents/skills/` (or
+   `~/.zcode/skills/` if you prefer ZCode-scoped skills), keeping the
+   folder name. Sources:
+   - the five z-flow skills in `harness/zcode/skills/`
+     (`z-workflow`, `z-proflow`, `z-flashflow`, `z-liteflow`,
+     `z-gpui-workflow`)
+   - every skill folder in every category directory (`copy/antislop-copy`,
+     …)
+3. The z-flow skills need the engine: copy
+   `harness/zcode/workflows/zflow-engine.dwf.ts` to
+   `~/.zcode/workflows/`. Its contract is `zflow-SPEC.md` beside the
+   source.
+4. Update = re-copy; folders are replaced wholesale. Uninstall = delete
+   the copied folders listed above.
 
-Expected output: three `installed agent  ~/.zcode/agents/...` lines and
-two `installed skill  ~/.agents/skills/...` lines.
+## Codex kit
 
-Variants: `--zcode-skills` to place skills in `~/.zcode/skills/`, or
-run `npx github:hmziqrs/ai uninstall` to remove.
+Follow [harness/codex/install.md](harness/codex/install.md). It covers
+the provider config, the secret file, model-catalog rendering, the
+skills, and uninstall.
 
-## Task B — skills only (skills.sh ecosystem)
+## Skills-only via skills.sh (optional)
 
-Run: `npx skills add hmziqrs/ai -g -a zcode -y`
+```sh
+npx skills add hmziqrs/ai -g -a zcode -y
+```
 
-Installs both SKILL.md packs into `~/.zcode/skills/` (copied). Other
-`-a` targets exist (claude-code, cursor, universal, ... — the CLI lists
-them on error). Note: this installs skills only — the sub-agent
-definitions in `zcode/agents/` are NOT handled by the skills CLI; run
-Task A or C when agents are wanted.
+Installs the SKILL.md packs into `~/.zcode/skills/` (other `-a`
+targets: claude-code, cursor, universal, …). Skills only — the
+sub-agent definitions under `harness/zcode/agents/` still need the
+ZCode-kit steps above.
 
-## Task C — manual copy
+## Verify (ZCode)
 
-Copy `zcode/agents/*.md` to `~/.zcode/agents/` and `zcode/skills/*` to
-`~/.agents/skills/`.
-
-Copy, never symlink — ZCode's subagent discovery silently skips
-symlinked agent definitions.
-
-## The z-flow skills and the zflow-engine
-
-The five z-flow skills (`z-workflow`, `z-proflow`, `z-flashflow`,
-`z-liteflow`, `z-gpui-workflow`) are thin chain-coordinator wrappers:
-they launch the saved `zflow-engine` dynamic workflow as tier-pure
-nodes (implement / vision / judge) instead of running a state-file
-loop. The engine is not installed by Tasks A–C — its source lives at
-`zcode/workflows/zflow-engine.dwf.ts` in the repo (contract in
-`zflow-SPEC.md` beside it) and it installs as a saved workflow at
-`~/.zcode/workflows/`.
-
-## Verify
-
-- `ls ~/.zcode/agents/` shows `general-flash.md`, `explore-flash.md`,
-  `general-pro.md`.
-- `find ~/.zcode/agents -type l` prints nothing — agent files must be
-  regular files.
-- `ls ~/.agents/skills/` shows `z-workflow/`, `z-proflow/`,
-  `z-flashflow/`, `z-liteflow/`, and
-  `z-gpui-workflow/` each containing `SKILL.md`.
-- ZCode picks up agents at session start: restart ZCode or open a new
-  session, then check Settings → Subagents lists the three agents.
+- `ls ~/.zcode/agents/` lists `general-flash.md`, `explore-flash.md`,
+  `general-pro.md`; `find ~/.zcode/agents -type l` prints nothing.
+- `ls ~/.agents/skills/` lists the five z-flow skills and
+  `antislop-copy/`, each containing `SKILL.md`.
+- `ls ~/.zcode/workflows/` lists `zflow-engine.dwf.ts`.
+- Agents load at session start: restart ZCode or open a new session,
+  then Settings → Subagents lists the three agents.
 
 ## Report back
 
-State: which task ran, agents and skills now present,
-and that a ZCode restart / new session is required to load the agents.
-
-## Codex + Z.ai kit
-
-This page's Tasks A–C are for the default ZCode kit. For Codex, run:
-
-```sh
-npx github:hmziqrs/ai codex
-```
-
-The Codex installer uses the Z.ai Responses endpoint, installs five Codex agent
-definitions and six profiles, installs the four Codex workflow skills, and
-imports `ZAI_API_KEY` into the private Codex-only file
-`~/.codex/secrets/zai-api-key` with mode `0600`. Provider authentication reads
-that file; the key never enters Git or `~/.codex/config.toml`. See
-[codex/install.md](codex/install.md) for the complete behavior and
-`codex uninstall` command.
+State which kit(s) you installed, the agents and skills now present,
+and that a restart / new session is required to load the agents.

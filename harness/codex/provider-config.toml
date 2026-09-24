@@ -1,4 +1,4 @@
-# Rendered by bin/codex-ai.js into the user-level ~/.codex/config.toml.
+# Rendered at install time into the user-level ~/.codex/config.toml — see install.md.
 # It deliberately does not select Z.ai as the global default provider or
 # persist the API key in TOML.
 

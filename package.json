@@ -1,13 +1,8 @@
 {
   "name": "@hmziqrs/ai",
   "version": "1.0.0",
-  "description": "Reusable ZCode and Codex agent kits with Z.ai GLM-5.3 models and orchestration skills.",
-  "bin": {
-    "ai": "bin/ai.js"
-  },
-  "engines": {
-    "node": ">=16"
-  },
+  "description": "Harness kits (ZCode, Codex) plus cross-harness skill categories for Z.ai GLM-5.3 agents. No installer — an AI agent installs it from install.md.",
+  "private": true,
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -6,7 +6,7 @@
     "name": "hmziqrs",
     "url": "https://github.com/hmziqrs"
   },
-  "homepage": "https://github.com/hmziqrs/ai/tree/main/codex",
+  "homepage": "https://github.com/hmziqrs/ai/tree/main/harness/codex",
   "repository": "https://github.com/hmziqrs/ai",
   "license": "MIT",
   "keywords": ["codex", "zai", "glm-5.3", "multi-agent", "workflow"],

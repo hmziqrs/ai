@@ -4,6 +4,37 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
 
+## [Unreleased]
+
+### Added
+- **Cross-harness skill categories.** Every top-level directory except
+  `harness/` is a category holding plain-SKILL.md skills that install
+  for every harness. First category and first skill: `copy/antislop-copy`
+  — cuts consumer-facing website copy (homepages, landing pages,
+  feature grids, pricing, about, FAQ, release posts, page titles and
+  meta descriptions) to the shortest version that still answers the
+  visitor's questions, without adding or bending any fact.
+
+### Changed
+- **Repo restructured by kind.** `zcode/` → `harness/zcode/` and
+  `codex/` → `harness/codex/` — harness-specific kits live under
+  `harness/`, cross-harness skills in top-level categories. The
+  `.zcode-plugin/plugin.json` manifest paths and all documentation
+  (README, llms.txt, AGENTS.md, install docs) follow.
+- The zflow-engine is now an explicit install step (copy
+  `harness/zcode/workflows/zflow-engine.dwf.ts` to
+  `~/.zcode/workflows/`) instead of being left out of the kit install.
+
+### Removed
+- **The installers.** `bin/ai.js`, `bin/codex-ai.js`, and the
+  `npx github:hmziqrs/ai` entry are gone. Installation is
+  agent-driven: an AI agent (or human) follows `install.md` /
+  `harness/codex/install.md`, which now carry the full procedure the
+  scripts used to encode (marked provider block, `0600` secret file,
+  `__ZAI_MODEL_CATALOG__` rendering, category skills). The ZCode
+  plugin manifest and the skills.sh path remain as declarative
+  alternatives.
+
 ## [1.0.0] - 2026-09-22
 
 ### Changed

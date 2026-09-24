@@ -2,7 +2,7 @@
 
 Reusable Codex configuration for Z.ai's OpenAI Responses endpoint. The kit
 contains a custom model catalog, five role-specific agents, six CLI profiles,
-four workflow skills, and a credential-safe installer.
+four workflow skills, and credential-safe provider configuration.
 
 ## Agents
 
@@ -38,19 +38,15 @@ supports image input and tool calling, while GLM-5.3 is text-only.
 
 ## Install
 
-From the repository or directly from GitHub:
-
-```sh
-npx github:hmziqrs/ai codex
-```
+Follow [install.md](install.md) — an AI agent performs it, and a human
+can follow the same steps.
 
 This leaves the normal OpenAI model as the default and installs Z.ai as an
-opt-in provider. Provide `ZAI_API_KEY` in the installer's environment; the
-installer imports it into the private Codex-only file
-`~/.codex/secrets/zai-api-key` with mode `0600`. Provider authentication reads
-that file, and the key never enters Git or `~/.codex/config.toml`. See
-[install.md](install.md) for paths, authentication, manual setup, verification,
-and uninstall behavior.
+opt-in provider. Provide `ZAI_API_KEY` in the environment; it imports into
+the private Codex-only file `~/.codex/secrets/zai-api-key` with mode `0600`.
+Provider authentication reads that file, and the key never enters Git or
+`~/.codex/config.toml`. See [install.md](install.md) for paths,
+authentication, verification, and uninstall behavior.
 
 ## Launch Desktop with Z.ai
 
