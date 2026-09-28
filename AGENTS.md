@@ -9,7 +9,7 @@ There is no installer: agents install this repo by following
 ```
 harness/<name>/              harness-SPECIFIC kits (only what depends on a harness)
   zcode/agents/<name>.md       ZCode sub-agent definitions (YAML frontmatter + system-prompt body)
-  zcode/skills/<name>/SKILL.md ZCode-specific skills (the five z-flow chains)
+  zcode/skills/<name>/SKILL.md ZCode-specific skills (the six z-flow chains)
   zcode/workflows/             dynamic-workflow sources (zflow-engine.dwf.ts + zflow-SPEC.md)
   codex/                       Codex kit (agents, profiles, plugin, model-catalogs, scripts)
 <category>/<skill>/SKILL.md  cross-harness skill categories (copy/, ...): plain SKILL.md skills
@@ -36,7 +36,7 @@ llms.txt                     entry point for consuming agents
   install path picks up whatever is in the tree. A new category is a
   new top-level directory; a new harness is a new `harness/<name>/`
   folder plus its install documentation.
-- The five z-flow skills are thin chain-coordinator wrappers over
+- The six z-flow skills are thin chain-coordinator wrappers over
   `zflow-engine` nodes; keep them consistent with
   `harness/zcode/workflows/zflow-SPEC.md` (the engine contract).
 - Codex templates keep `__ZAI_MODEL_CATALOG__` until install renders an

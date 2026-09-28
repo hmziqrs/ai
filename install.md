@@ -19,9 +19,9 @@ Content comes in two kinds (see [README.md](README.md)):
 2. Copy each skill folder to `~/.agents/skills/` (or
    `~/.zcode/skills/` if you prefer ZCode-scoped skills), keeping the
    folder name. Sources:
-   - the five z-flow skills in `harness/zcode/skills/`
+   - the six z-flow skills in `harness/zcode/skills/`
      (`z-workflow`, `z-proflow`, `z-flashflow`, `z-liteflow`,
-     `z-gpui-workflow`)
+     `z-gpui-workflow`, `z-tauri-workflow`)
    - every skill folder in every category directory (`copy/antislop-copy`,
      …)
 3. The z-flow skills need the engine: copy
@@ -52,7 +52,7 @@ ZCode-kit steps above.
 
 - `ls ~/.zcode/agents/` lists `general-flash.md`, `explore-flash.md`,
   `general-pro.md`; `find ~/.zcode/agents -type l` prints nothing.
-- `ls ~/.agents/skills/` lists the five z-flow skills and
+- `ls ~/.agents/skills/` lists the six z-flow skills and
   `antislop-copy/`, each containing `SKILL.md`.
 - `ls ~/.zcode/workflows/` lists `zflow-engine.dwf.ts`.
 - Agents load at session start: restart ZCode or open a new session,

@@ -7,6 +7,12 @@ versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
 ## [Unreleased]
 
 ### Added
+- **z-tauri-workflow skill** — the Tauri v2 twin of z-gpui-workflow: a
+  fine-grained desktop chain with two-lane vision (frontend areas audited
+  on the tauri dev-server URL via the web lane; window/tray/native via the
+  desktop ocu lane), Tauri-specific area slicing (Rust core under
+  `src-tauri/`, frontend, capabilities/config), and non-mutating gate forms
+  for the cargo + frontend toolchains.
 - **Cross-harness skill categories.** Every top-level directory except
   `harness/` is a category holding plain-SKILL.md skills that install
   for every harness. First category and first skill: `copy/antislop-copy`

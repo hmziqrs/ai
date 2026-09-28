@@ -75,10 +75,13 @@ ONE saved workflow, launched once per chain node. Declared args (validated by th
 - `task`: string (verbatim user task).
 - `areas`: array of { name, paths[], excludedPaths[], skills[] (absolute SKILL.md paths),
   gates: { tool, args[] }[], complexity: "straightforward"|"complex", hasUI: boolean,
-  dependsOn: string[] }.
+  dependsOn: string[], lane: "web"|"desktop" (optional; overrides vision-mode routing —
+  without it the engine falls back to a URL heuristic over the task text) }.
 - `evidence`: string[] (screenshot/evidence paths for judge/vision modes).
 - `findings`: prior-round findings array (fix rounds).
 - `maxRounds`: number, default 3.
+- `commit`: boolean, default true (implement mode only). False skips the commit
+  phase entirely — green work stays on disk, uncommitted, and the report says so.
 
 Hard rules:
 
@@ -108,7 +111,7 @@ Hard rules:
 
 ## 4. Per-skill port map — thin SKILL.md wrappers (target ≤ ~120 lines each)
 
-All five keep their directory name, frontmatter (valid `name` + `description` with
+All six keep their directory name, frontmatter (valid `name` + `description` with
 trigger phrases), and become: **when to use → tier matrix → chain blueprint (nodes,
 order, POLICY) → conventions → fallback lanes**. Delete ALL state-file machinery,
 append/compaction contracts, and sequencer discipline tables (the engine and coordinator
@@ -126,6 +129,9 @@ built-ins, SendMessage-as-flow-step) — blocker if found.
 - **z-gpui-workflow**: pro implement/judge; ocu AX audits inside pro runs (text);
   pixel design audits via the flash vision node, batched per area; main-thread
   computer-use plugin = interactive fallback lane only.
+- **z-tauri-workflow**: pro implement/judge; flash vision two-lane — frontend areas
+  on the web lane (tauri dev-server URL), window/tray/native on the desktop lane
+  (ocu); main-thread computer-use plugin = interactive fallback lane only.
 - Cross-flow hand-offs = finish the run, relaunch as the sibling flow (no nesting).
 - Preserve verbatim in spirit: small commits / cheap revert; never claim clean while a
   gate is red; never `--no-verify`; fresh auditors never judge fixes they inspired;

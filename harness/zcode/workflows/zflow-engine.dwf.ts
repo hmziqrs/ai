@@ -38,7 +38,7 @@ args:
     default: true
 */
 
-// zflow-engine: the single workflow behind the five z-*flow skill ports (see zflow-port/SPEC.md).
+// zflow-engine: the single workflow behind the z-*flow skill ports (contract: harness/zcode/workflows/zflow-SPEC.md).
 //
 // One saved workflow, launched once per chain node. The coordinator (the main agent running the
 // skill) calls CreateWorkflow per node, sets `subagent_model` to the node's tier, and passes the

@@ -8,7 +8,7 @@ is no installer: an AI agent pointed at this repo installs it from
 ```
 ai/
 ├── harness/              harness-SPECIFIC kits (only what depends on a harness)
-│   ├── zcode/            ZCode kit: agents/, skills/ (5 z-flow chains), workflows/
+│   ├── zcode/            ZCode kit: agents/, skills/ (6 z-flow chains), workflows/
 │   └── codex/            Codex kit: agents, profiles, plugin, model catalogs
 ├── copy/                 cross-harness skill category: writing & copywriting
 │   └── antislop-copy/
@@ -29,7 +29,7 @@ Both flash agents read images natively; GLM-5.3-Flash is the multimodal tier.
 
 ### Skills (`harness/zcode/skills/`)
 
-All five z-flow skills are thin coordinators over one saved workflow:
+All six z-flow skills are thin coordinators over one saved workflow:
 they launch tier-pure `zflow-engine` runs (implement / vision / judge)
 via CreateWorkflow with `subagent_model` pinned per run. The engine
 (`harness/zcode/workflows/zflow-engine.dwf.ts`, contract in
@@ -43,6 +43,7 @@ engine to `~/.zcode/workflows/`.
 - **z-flashflow:** the all-flash variant. Every run pinned to flash, pixel vision included; gates, fresh blind judges, fix rounds, and code-enforced POLICY exits compensate for flash judgment, with hand-off to z-proflow when a complex area stalls.
 - **z-liteflow:** lightweight chain for small single-domain tasks. Flash implement and judge runs looping between runs per finding, plus an optional flash vision node.
 - **z-gpui-workflow:** fine-grained GPUI desktop chain. Pro implement/judge runs, a flash vision node for pixel design audits via ocu capture (AX text + decoded PNGs), and the main-thread computer-use plugin as the interactive fallback lane only.
+- **z-tauri-workflow:** fine-grained Tauri v2 desktop chain. Pro implement/judge runs, a flash vision node with two lanes (web lane on the tauri dev-server URL for frontend areas, desktop lane via ocu for window/tray/native), and the main-thread computer-use plugin as the interactive fallback lane only.
 
 ## Cross-harness skills
 
