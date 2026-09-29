@@ -9,7 +9,7 @@ There is no installer: agents install this repo by following
 ```
 harness/<name>/              harness-SPECIFIC kits (only what depends on a harness)
   zcode/agents/<name>.md       ZCode sub-agent definitions (YAML frontmatter + system-prompt body)
-  zcode/skills/<name>/SKILL.md ZCode-specific skills (the six z-flow chains)
+  zcode/skills/<name>/SKILL.md ZCode-specific skills (the seven z-flow chains)
   zcode/workflows/             dynamic-workflow sources (zflow-engine.dwf.ts + zflow-SPEC.md)
   codex/                       Codex kit (agents, profiles, plugin, model-catalogs, scripts)
 <category>/[<group>/]<skill>/SKILL.md  cross-harness skill categories (copy/, languages/rust/, ...): plain SKILL.md skills, optionally grouped
@@ -41,9 +41,11 @@ llms.txt                     entry point for consuming agents
   `languages/rust/`, `languages/go/`) over adding new top-level
   directories. Skill folders still install flat by folder name, so
   nesting is organizational only.
-- The six z-flow skills are thin chain-coordinator wrappers over
+- Six of the seven z-flow skills are thin chain-coordinator wrappers over
   `zflow-engine` nodes; keep them consistent with
   `harness/zcode/workflows/zflow-SPEC.md` (the engine contract).
+  z-super-rustflow composes its own main-tier-only runs inline (no
+  vision, no flash) and needs no engine.
 - Codex templates keep `__ZAI_MODEL_CATALOG__` until install renders an
   absolute user path. `ZAI_API_KEY` imports into the Codex-only
   `~/.codex/secrets/zai-api-key` file with mode `0600`; command-backed

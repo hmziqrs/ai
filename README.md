@@ -8,7 +8,7 @@ is no installer: an AI agent pointed at this repo installs it from
 ```
 ai/
 ├── harness/              harness-SPECIFIC kits (only what depends on a harness)
-│   ├── zcode/            ZCode kit: agents/, skills/ (6 z-flow chains), workflows/
+│   ├── zcode/            ZCode kit: agents/, skills/ (7 z-flow chains), workflows/
 │   └── codex/            Codex kit: agents, profiles, plugin, model catalogs
 ├── copy/                 cross-harness skill category: writing & copywriting
 │   └── antislop-copy/
@@ -33,9 +33,11 @@ Both flash agents read images natively; GLM-5.3-Flash is the multimodal tier.
 
 ### Skills (`harness/zcode/skills/`)
 
-All six z-flow skills are thin coordinators over one saved workflow:
-they launch tier-pure `zflow-engine` runs (implement / vision / judge)
-via CreateWorkflow with `subagent_model` pinned per run. The engine
+Six of the seven z-flow skills are thin coordinators over one saved
+workflow: they launch tier-pure `zflow-engine` runs (implement / vision /
+judge) via CreateWorkflow with `subagent_model` pinned per run — the
+seventh, z-super-rustflow, composes its own main-tier-only runs inline
+(no vision, no flash anywhere) over the rust-* skill family. The engine
 (`harness/zcode/workflows/zflow-engine.dwf.ts`, contract in
 `zflow-SPEC.md` beside it) runs the mechanical gates as `world.run`
 behind a literal-command allowlist and enforces the POLICY exits as
@@ -48,6 +50,7 @@ engine to `~/.zcode/workflows/`.
 - **z-liteflow:** lightweight chain for small single-domain tasks. Flash implement and judge runs looping between runs per finding, plus an optional flash vision node.
 - **z-gpui-workflow:** fine-grained GPUI desktop chain. Pro implement/judge runs, a flash vision node for pixel design audits via ocu capture (AX text + decoded PNGs), and the main-thread computer-use plugin as the interactive fallback lane only.
 - **z-tauri-workflow:** fine-grained Tauri v2 desktop chain. Pro implement/judge runs, a flash vision node with two lanes (web lane on the tauri dev-server URL for frontend areas, desktop lane via ocu for window/tray/native), and the main-thread computer-use plugin as the interactive fallback lane only.
+- **z-super-rustflow:** Rust super-optimization chain over the rust-* skill family. Main-tier only — no vision node, no flash agents anywhere. Phase-gated: a read-only research phase (explorer/researcher/auditor → Amdahl-ranked findings dossier) is the default; the implement phase (instrumentation round 0, then implement → gates → fresh blind audit) runs only on explicit user opt-in and loops until an audit round surfaces zero novel findings.
 
 ## Cross-harness skills
 

@@ -7,6 +7,18 @@ versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
 ## [Unreleased]
 
 ### Added
+- **z-super-rustflow skill** — the Rust super-optimization chain: a
+  read-only research phase (explorer/researcher/auditor nodes →
+  Amdahl-ranked findings dossier with owner skill, lever, risk, and
+  measurement plan) as the DEFAULT with zero repo edits, an opt-in
+  implement phase that runs only on explicit user ask (round 0 =
+  criterion benchmark + parity oracle + saved baseline, then implement →
+  gates → fresh blind audit rounds scored against the rust-superopt
+  done-rubric), main-tier only — no vision node, no flash agents
+  anywhere — and a convergence loop that exits clean only when a full
+  audit round finds zero NOVEL registry findings. Composes its own
+  inline runs over the rust-* family rather than chaining over
+  zflow-engine.
 - **`coding/` category: `code-comments` skill.** Hard comment discipline
   for agent-written code: zero comments by default — names, types,
   structure, and tests carry the meaning. Exactly three earning
