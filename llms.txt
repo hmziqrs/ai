@@ -34,6 +34,11 @@ plain-SKILL.md skills (no harness tooling). All of them install for
 every harness.
 
 - [copy/antislop-copy/SKILL.md](copy/antislop-copy/SKILL.md): cuts consumer-facing website copy to the shortest version that still answers the visitor's questions, without inventing or bending facts.
+- [languages/rust/rust-superopt/SKILL.md](languages/rust/rust-superopt/SKILL.md): entry point for "make this Rust faster" — benchmarks-first triage across compute vs memory vs lock vs IO, release-profile hygiene, measurement discipline, and codegen-inspection/PGO/BOLT tooling; routes to the sibling rust skills.
+- [languages/rust/rust-simd-crates/SKILL.md](languages/rust/rust-simd-crates/SKILL.md): adopt an existing SIMD-accelerated crate (JSON, hashing, compression, UTF-8 validation, base64/hex, CRC, FFT/BLAS, crypto, image codecs, search) instead of hand-writing kernels — selection, runtime-vs-compile-time dispatch caveats, feature-flag swaps, serde_json → simd-json/sonic-rs migration.
+- [languages/rust/rust-simd-kernels/SKILL.md](languages/rust/rust-simd-kernels/SKILL.md): hand-written SIMD/vector kernels when crates and the autovectorizer are not enough — std::simd / core::simd / wide / pulp, C-intrinsic ports, `#[target_feature]` and runtime dispatch, codegen verification with cargo-show-asm / llvm-mca / LLVM remarks.
+- [languages/rust/rust-parallel-cache/SKILL.md](languages/rust/rust-parallel-cache/SKILL.md): parallel and cache-friendly Rust — rayon pool configuration, work-stealing vs pinned-shard design, false-sharing measurement and padding, cache tiling, NUMA first-touch, Apple Silicon QoS/E-core steering.
+- [languages/rust/rust-fast-architecture/SKILL.md](languages/rust/rust-fast-architecture/SKILL.md): architecture-level speed for whole Rust services — contention math, single-writer actors, lock downgrade at commit, write-behind group commit, adaptive linger, pooling, deterministic simulation testing, async-runtime chooser (glommio/monoio/compio/tokio).
 
 ## Codex kit (`harness/codex/`)
 

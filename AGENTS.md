@@ -12,7 +12,7 @@ harness/<name>/              harness-SPECIFIC kits (only what depends on a harne
   zcode/skills/<name>/SKILL.md ZCode-specific skills (the six z-flow chains)
   zcode/workflows/             dynamic-workflow sources (zflow-engine.dwf.ts + zflow-SPEC.md)
   codex/                       Codex kit (agents, profiles, plugin, model-catalogs, scripts)
-<category>/<skill>/SKILL.md  cross-harness skill categories (copy/, ...): plain SKILL.md skills
+<category>/[<group>/]<skill>/SKILL.md  cross-harness skill categories (copy/, languages/rust/, ...): plain SKILL.md skills, optionally grouped
 install.md                   ZCode-kit + categories install procedure
 llms.txt                     entry point for consuming agents
 ```
@@ -36,6 +36,11 @@ llms.txt                     entry point for consuming agents
   install path picks up whatever is in the tree. A new category is a
   new top-level directory; a new harness is a new `harness/<name>/`
   folder plus its install documentation.
+- Keep the repo root as flat as possible: prefer grouping skills under
+  an existing category (categories may nest sub-groups, e.g.
+  `languages/rust/`, `languages/go/`) over adding new top-level
+  directories. Skill folders still install flat by folder name, so
+  nesting is organizational only.
 - The six z-flow skills are thin chain-coordinator wrappers over
   `zflow-engine` nodes; keep them consistent with
   `harness/zcode/workflows/zflow-SPEC.md` (the engine contract).

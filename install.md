@@ -22,8 +22,8 @@ Content comes in two kinds (see [README.md](README.md)):
    - the six z-flow skills in `harness/zcode/skills/`
      (`z-workflow`, `z-proflow`, `z-flashflow`, `z-liteflow`,
      `z-gpui-workflow`, `z-tauri-workflow`)
-   - every skill folder in every category directory (`copy/antislop-copy`,
-     …)
+   - every skill folder in every category directory, nested to any depth
+     (`copy/antislop-copy`, `languages/rust/rust-superopt`, …)
 3. The z-flow skills need the engine: copy
    `harness/zcode/workflows/zflow-engine.dwf.ts` to
    `~/.zcode/workflows/`. Its contract is `zflow-SPEC.md` beside the
@@ -52,8 +52,10 @@ ZCode-kit steps above.
 
 - `ls ~/.zcode/agents/` lists `general-flash.md`, `explore-flash.md`,
   `general-pro.md`; `find ~/.zcode/agents -type l` prints nothing.
-- `ls ~/.agents/skills/` lists the six z-flow skills and
-  `antislop-copy/`, each containing `SKILL.md`.
+- `ls ~/.agents/skills/` lists the six z-flow skills, `antislop-copy/`,
+  and the five rust skills (`rust-superopt`, `rust-simd-crates`,
+  `rust-simd-kernels`, `rust-parallel-cache`,
+  `rust-fast-architecture`), each containing `SKILL.md`.
 - `ls ~/.zcode/workflows/` lists `zflow-engine.dwf.ts`.
 - Agents load at session start: restart ZCode or open a new session,
   then Settings → Subagents lists the three agents.

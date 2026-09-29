@@ -7,6 +7,20 @@ versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
 ## [Unreleased]
 
 ### Added
+- **`languages/rust/` category group: five Rust super-optimization skills.** Plain
+  cross-harness skills (no harness mechanisms), each folder carrying
+  `SKILL.md` plus a `references/` pack: `rust-superopt` (the router —
+  benchmark-first triage across compute/memory/lock/IO, release-profile
+  hygiene, measurement discipline, PGO/BOLT and codegen-inspection
+  tooling), `rust-simd-crates` (adopting SIMD-accelerated crates —
+  simd-json/sonic-rs, hashing, compression, codecs, BLAS — over
+  hand-writing kernels), `rust-simd-kernels` (hand-written and portable
+  SIMD kernels: std::simd, intrinsics, `#[target_feature]`, runtime
+  dispatch, codegen verification), `rust-parallel-cache` (rayon pools,
+  core pinning, false sharing, NUMA first-touch, cache tiling, Apple
+  Silicon QoS steering), and `rust-fast-architecture` (single-writer
+  service architecture, contention math, write-behind group commit,
+  deterministic simulation testing, async-runtime chooser).
 - **z-tauri-workflow skill** — the Tauri v2 twin of z-gpui-workflow: a
   fine-grained desktop chain with two-lane vision (frontend areas audited
   on the tauri dev-server URL via the web lane; window/tray/native via the
