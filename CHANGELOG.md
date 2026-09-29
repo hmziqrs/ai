@@ -7,6 +7,15 @@ versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
 ## [Unreleased]
 
 ### Added
+- **`coding/` category: `code-comments` skill.** Hard comment discipline
+  for agent-written code: zero comments by default — names, types,
+  structure, and tests carry the meaning. Exactly three earning
+  categories survive (public-API contract docs, convention-required
+  SAFETY blocks, link-carrying last-resort constraint notes pushed
+  toward a test or lint first), each capped at 2 lines, 3 absolute max;
+  doubt kills, and an unearned comment is deleted, never rewritten.
+  Narration, banners, change-log and AI-voice comments are banned
+  outright — saving output tokens and keeping the codebase clean.
 - **`languages/rust/` category group: five Rust super-optimization skills.** Plain
   cross-harness skills (no harness mechanisms), each folder carrying
   `SKILL.md` plus a `references/` pack: `rust-superopt` (the router —
