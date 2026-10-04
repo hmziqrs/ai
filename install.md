@@ -55,9 +55,11 @@ ZCode-kit steps above.
 - `ls ~/.zcode/agents/` lists `general-flash.md`, `explore-flash.md`,
   `general-pro.md`; `find ~/.zcode/agents -type l` prints nothing.
 - `ls ~/.agents/skills/` lists the seven z-flow skills, `antislop-copy/`,
-  and the five rust skills (`rust-superopt`, `rust-simd-crates`,
-  `rust-simd-kernels`, `rust-parallel-cache`,
-  `rust-fast-architecture`), each containing `SKILL.md`.
+  the coding skills (`code-comments`, `test-quality-guardrails`,
+  `test-quality-tdd-agents`, `test-quality-audit`), and the five rust
+  skills (`rust-superopt`, `rust-simd-crates`, `rust-simd-kernels`,
+  `rust-parallel-cache`, `rust-fast-architecture`), each containing
+  `SKILL.md`.
 - `ls ~/.zcode/workflows/` lists `zflow-engine.dwf.ts`.
 - Agents load at session start: restart ZCode or open a new session,
   then Settings → Subagents lists the three agents.

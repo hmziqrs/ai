@@ -13,7 +13,8 @@ ai/
 ├── copy/                 cross-harness skill category: writing & copywriting
 │   └── antislop-copy/
 ├── coding/               cross-harness skill category: code-writing discipline
-│   └── code-comments/
+│   ├── code-comments/
+│   └── test-quality-*/   the 3 test-quality skills, listed below
 ├── languages/            cross-harness skill category: language ecosystems
 │   └── rust/             Rust performance (the 5 rust-* skills, listed below)
 └── install.md            the install procedure
@@ -58,6 +59,9 @@ Every category skill installs for every harness:
 
 - **antislop-copy** (`copy/antislop-copy/`): cuts consumer-facing website copy to the shortest version that still answers what a visitor needs to act, without adding or bending any fact.
 - **code-comments** (`coding/code-comments/`): hard comment discipline for agent-written code — zero comments by default; the code is the documentation (names, types, structure, tests). Only public-API contract docs, convention-required SAFETY blocks, and link-carrying last-resort constraint notes survive, never longer than 2 lines (3 absolute max). Kills narration, banners, change-log and AI-voice comments to save output tokens and codebase cleanliness.
+- **test-quality-guardrails** (`coding/test-quality-guardrails/`): stop AI agents from generating bloated, low-value unit tests — rules-file policies with copy-paste CLAUDE.md/AGENTS.md/.cursorrules blocks: default-off test generation, read-only failing tests (never modify or delete a failing test to make it pass), targeted runs in the agent loop with the full suite in CI/hooks, and when tests are worth explicitly asking for (auth, money, parsing, public APIs).
+- **test-quality-tdd-agents** (`coding/test-quality-tdd-agents/`): tests-first workflows for AI coding agents — the confirm-fail red-green loop with tests frozen during implementation, humans writing or reviewing the tests as the spec, characterization tests for legacy code, and property-based testing as the better agent assignment than hand-written example tests.
+- **test-quality-audit** (`coding/test-quality-audit/`): audit and prune AI-written test suites — mutation testing as the quality gate, coverage as a vanity metric, implementation-coupling and mirroring smells, the "not too many, mostly integration" mix, risk-based coverage allocation, and a promote/flag/delete triage runbook.
 - **rust-superopt** (`languages/rust/rust-superopt/`): entry point for "make this Rust faster" — benchmarks-first triage across compute vs memory vs lock vs IO (Amdahl), release-profile hygiene, measurement discipline, and codegen-inspection/PGO/BOLT tooling; routes to the other four rust skills.
 - **rust-simd-crates** (`languages/rust/rust-simd-crates/`): adopt an existing SIMD-accelerated crate (JSON, hashing, compression, UTF-8 validation, base64/hex, CRC, FFT/BLAS, crypto, image codecs, search) instead of hand-writing kernels — crate selection, runtime-vs-compile-time dispatch caveats, feature-flag swaps, and the serde_json → simd-json/sonic-rs migration.
 - **rust-simd-kernels** (`languages/rust/rust-simd-kernels/`): write, port, and debug hand-written SIMD/vector kernels when crates and the autovectorizer are not enough — std::simd / core::simd / wide / pulp, C-intrinsic ports, `#[target_feature]` and runtime dispatch, codegen verification via cargo-show-asm / llvm-mca / LLVM remarks.

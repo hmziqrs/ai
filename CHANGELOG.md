@@ -7,6 +7,20 @@ versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
 ## [Unreleased]
 
 ### Added
+- **`coding/` category: three `test-quality-*` skills.** Test-discipline
+  suite for AI-heavy development, every claim, quote, and link traced to
+  a 133-source research sweep (`ai-generated-tests-research.md`):
+  `test-quality-guardrails` — stop the bloat with rules-file policies
+  (default-off test generation, read-only failing tests, targeted
+  in-loop runs with the full suite in CI/hooks) shipped as copy-paste
+  CLAUDE.md/AGENTS.md/.cursorrules blocks; `test-quality-tdd-agents` —
+  tests-first agent workflows (confirm-fail red-green loop with frozen
+  tests, tests as the spec humans own, characterization tests for legacy
+  code, property-based testing as the better agent assignment); and
+  `test-quality-audit` — prune AI-written suites (mutation testing as
+  the quality gate, coverage as a vanity metric, mirroring and
+  over-mocking smells, the "not too many, mostly integration" mix, and
+  a promote/flag/delete triage runbook).
 - **z-super-rustflow skill** — the Rust super-optimization chain: a
   read-only research phase (explorer/researcher/auditor nodes →
   Amdahl-ranked findings dossier with owner skill, lever, risk, and
