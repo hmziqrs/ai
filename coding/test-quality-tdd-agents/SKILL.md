@@ -264,6 +264,12 @@ If the invariant does not hold for the current implementation, report the
 counterexample and stop.
 ```
 
+## Spec-Driven and Type-Driven Cousins
+
+The record's cousin family moves the source of truth out of code the agent reads and into specs, types, and schemas it must satisfy. Worked examples: AWS Kiro's spec workflow — requirements with acceptance criteria, a design document with an explicit "Error handling and testing strategy," then executable tasks ([kiro.dev/docs/specs](https://kiro.dev/docs/specs/)); GitHub Spec Kit's "Define what and why before deciding how to build it" ([github/spec-kit](https://github.com/github/spec-kit)); Flightplanner's durable E2E_TESTS.md specs with disposable generated test code — "The spec is the single source of truth: when specs and tests disagree, the spec wins" ([endor.dev](https://endor.dev/blog/introducing-flightplanner)).
+
+Two cautions travel with them. Böckeler's field survey watched elaborate spec workflows produce sixteen acceptance criteria for a small bug — "a sledgehammer to crack a nut" ([martinfowler.com](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html)); and LLM-written formal specs "compile poorly and assert trivially-true properties" — "being easily able to write specifications doesn't help with correctness if the specs don't actually verify anything" ([Hillel Wayne](https://buttondown.com/hillelwayne/archive/llms-are-bad-at-vibing-specifications/)). The field-proven modest form sits closest to this skill: promote the rules that must not be luck into executable tests plus type boundaries — "Even if you write 'always cite your sources' in CLAUDE.md, whether it's obeyed is luck. Write it as a test and it's obeyed — because it fails" ([Zenn/takabo](https://zenn.dev/takabo/articles/ai-guardrails-with-tests)).
+
 ## What the Evidence Does Not Promise
 
 Run these loops for what they demonstrably do — fix who owns the spec, give the agent a
@@ -308,8 +314,7 @@ Every claim, quote, tool name, and link above traces to `ai-generated-tests-rese
 - Alexander Opalic, "A Claude Code TDD Skill: Forcing Red-Green-Refactor" (2025-11) —
   isolated test-writer/implementer/refactorer contexts: https://alexop.dev/posts/custom-tdd-workflow-claude-code-vue
 - Mark Seemann, "AI-Generated Tests as Ceremony" (2026-01): https://blog.ploeh.dk/2026/01/26/ai-generated-tests-as-ceremony/
-- Kent Beck — The Pragmatic Engineer #31 (2025-06):
-  https://newsletter.pragmaticengineer.com/p/tdd-ai-agents-and-coding-with-kent ;
+- Kent Beck — The Pragmatic Engineer #31 (2025-06): https://newsletter.pragmaticengineer.com/p/tdd-ai-agents-and-coding-with-kent ;
   "Augmented Coding: Beyond the Vibes": https://newsletter.kentbeck.com/p/augmented-coding-beyond-the-vibes
 - Quarkus Insights #249, "Using Coding Agents with Quarkus" (2026-06): https://quarkus.io/blog/quarkus-insights-249-coding-agents
 - Birgitta Böckeler, "TDD inside the agent loop – theater or actual value?" (2026-08): https://martinfowler.com/articles/exploring-gen-ai/tdd-in-the-agent-loop.html
@@ -329,8 +334,7 @@ Every claim, quote, tool name, and link above traces to `ai-generated-tests-rese
   Tests?" (2023): https://arxiv.org/abs/2307.04346
 - Lobsters, "Static types and shovels" (2026-06) — mordae field report:
   https://lobste.rs/s/eiknm1/static_types_shovels
-- Lobsters, "Most Tests Should Be Generated" (2023-07):
-  https://lobste.rs/s/saaiyd/most_tests_should_be_generated
+- Lobsters, "Most Tests Should Be Generated" (2023-07): https://lobste.rs/s/saaiyd/most_tests_should_be_generated
 - Dan Luu, "How well do agents use test and verification techniques?": https://danluu.com/agentic-testing/
 - Hacker News, "Test-driven development with an LLM for fun and profit" (2025-01): https://news.ycombinator.com/item?id=42726584
 - GitHub Blog, "How to generate unit tests with GitHub Copilot" (2024-12) — the review
@@ -341,7 +345,5 @@ Every claim, quote, tool name, and link above traces to `ai-generated-tests-rese
 - Codium-ai/AlphaCodium — generated tests as the iterative driver: https://github.com/Codium-ai/AlphaCodium
 - Cursor forum, "End to End Testing... A tricky area for current gen LLMs?" (2025-08) —
   tests that match the code: https://forum.cursor.com/t/end-to-end-testing-a-tricky-area-for-current-gen-llms/130697
-- Drew DeVault, "The Cults of TDD and GenAI" (2026-01):
-  https://drewdevault.com/blog/Cult-of-TDD-and-LLMs/
-- Jan Van Wassenhove, "TDD is Dead. Long Live the Test." (2025-05):
-  https://mityjohn.com/blog/tdd-is-dead-long-live-the-test/
+- Drew DeVault, "The Cults of TDD and GenAI" (2026-01): https://drewdevault.com/blog/Cult-of-TDD-and-LLMs/
+- Jan Van Wassenhove, "TDD is Dead. Long Live the Test." (2025-05): https://mityjohn.com/blog/tdd-is-dead-long-live-the-test/

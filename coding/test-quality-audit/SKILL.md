@@ -22,7 +22,7 @@ This skill treats the suite itself as the thing under test: measure what the tes
 Coverage counts executed lines, not checked behavior. For agent-written suites it is systematically inflated:
 
 - MUTGEN (IEEE TSE 2025): suites achieving "100% coverage but only 4% mutation score."
-- juejin field measurements on a real Vitest project: 90%+ coverage, roughly 40-60% "nonsense assertions," a ~34% mutation-kill score, and an effective-assertion ratio of 0.31.
+- juejin field measurements on a real Vitest project: 90%+ coverage, roughly 40-60% "nonsense assertions," a ~34% mutation-kill score, and an "effective-assertion ratio" of 0.31 - the author's own metric; its numerator and denominator are not spelled out in the source.
 - Habr/Netology: "The number of cases, a green run, and high code coverage show the scale of the test suite - they do not prove that it catches errors."
 - TestGenEval: on real repository code, the best model (GPT-4o) managed "an average coverage of only 35.2%" of statements - generated suites are shallower than demos suggest.
 - Thorsten Ball, "A Few Words on Testing" (Register Spill): "I never believed in testing coverage as a metric."
@@ -87,6 +87,21 @@ Rules block - mutation gate:
 - Nightly full mutation run; per-module thresholds; never a single global number.
 ```
 
+### 2.4 A Second AI Pass - Humans Hold the Verdict
+
+A second AI pass can grade test quality beyond pass/fail, but design it against the recorded skepticism: practitioners explicitly distrust AI reviewing AI ([V2EX](https://www.v2ex.com/t/1233025)). What worked in the field is a fixed adversarial persona panel - "seven mean-spirited QAs" embedded in Claude Code with a structured schema so the perspectives stay reproducible - because, per the author, "Having AI 'write' test cases is something anyone can do now. The hard part was making it write them with the same perspectives and the same quality every time" ([Zenn/nexta_](https://zenn.dev/nexta_/articles/be13a2395a5d2a)). The research version judges exactly what this skill audits for: "generated tests are often runnable but frequently lack strong assertions and meaningful behavioral coverage" ([VibeCheck](https://arxiv.org/abs/2609.05978)).
+
+Rules block - AI-assisted review:
+
+```text
+- An AI reviewer grades test quality (assertion strength, perspective coverage);
+  it never decides pass/fail - humans keep execution and acceptance.
+- Reviewer personas are fixed and versioned, so perspective coverage is
+  reproducible rather than whatever the model feels like that day.
+- Every AI-review verdict is a smell hint (section 3), confirmed by a mutation
+  probe or a human before any test is deleted or promoted.
+```
+
 ## 3. Smell Checklist: Mirroring and Implementation Coupling
 
 The best-documented failure of agent-written tests is that they restate the code instead of checking it. Habr names it "tautological testing": the AI reads the implementation and re-states it as assertions, and cites a real Copilot case where green tests hid fired requests in prod. A user on the Cursor forum thread "End to End Testing... A tricky area for current gen LLMs?": "They are obsessed with writing tests to match the code - whatever the code does." The research receipt: "36% of commits made by coding agents add mocks to tests, compared with 26% by non-agents" (MSR 2026) - agents favor easy mocked tests over tests of real interactions. And the test-oracle study "Understanding LLM-Driven Test Oracle Generation" (AIware 2025) says generators cannot fix this alone: they "only encode what the code currently does," so unless assertions derive from intent, the generator "can never manage separating correct from buggy behavior."
@@ -118,7 +133,7 @@ A fast coupling probe on suspect areas: make a behavior-preserving internal chan
 
 ## 4. Judge the Mix: "Not Too Many, Mostly Integration"
 
-Volume is the audit's enemy. The maxim to audit against is Kent C. Dodds' "Write tests. Not too many. Mostly integration." (known via a verified search snippet). Mark Larah's anti-slop prescriptions operationalize it: fewer high-ratio tests, test at the edges, avoid mocking, mostly integration - and make the agent itself read the maxim. For a concrete shape, the awesome-agv ruleset ships a 70/20/10 pyramid (mandatory TDD, AAA pattern).
+Volume is the audit's enemy. The maxim to audit against is Kent C. Dodds' "Write tests. Not too many. Mostly integration." (known via a verified search snippet). Mark Larah's anti-slop prescriptions operationalize it: fewer high-ratio tests, test at the edges, avoid mocking, mostly integration - and make the agent itself read the maxim. Know the opposite camp too: the record's maximally pro-test counterpoint, awesome-agv's packaged ruleset, mandates TDD with a 70/20/10 test pyramid (AAA pattern) - "Code without a corresponding test does not exist." The record never defines the ratio's components, and a unit-majority pyramid is the opposite bet from "mostly integration" - read it as the far end of the spectrum, not as this audit's target shape.
 
 Two failures the mix check catches:
 
@@ -132,15 +147,15 @@ Audit action: count tests by level per module. Where trivial unit tests dominate
 Audit findings should reallocate effort, not just delete. Risk-based patterns from the record:
 
 - iTerm2's CLAUDE.md mandates a live harness against real vendor APIs after any AI-assisted change, because "unit tests passing alone is not sufficient evidence" - and prices it so the mandate survives review: "Full sweep: ~95 sec, ~70 API calls, under $0.50."
-- Zenn/QDHE pairs FMEA-style risk ranking (what deserves tests at all, ranked by failure severity) with SHA256 hash-freezing the approved suite so agents cannot silently rewrite it.
+- Zenn/QDHE pairs FMEA-style risk ranking of what deserves tests at all with SHA256 hash-freezing the approved suite so agents cannot silently rewrite it.
 - ClickHouse treats CI cost as a first-class design constraint: integration tests are "about 40% of its cost, and the suite barely fits in its timeout" - so expensive tests must justify their slot; cheap tests must justify their volume.
 - Top solution comments on an r/webdev thread about shipping agent-written code (dead link per the research document) argue for end-to-end coverage of critical user flows on every deploy, with the suite as "the actual source of truth for 'does this still work'" when nobody fully understands the shipped code.
 
 Rules block - risk allocation:
 
 ```text
-- Rank modules FMEA-style (severity x likelihood) before writing or pruning tests;
-  the top-ranked modules get mutation gates and integration coverage first.
+- Rank modules FMEA-style (what deserves tests at all) before writing or pruning
+  tests; the top-ranked modules get mutation gates and integration coverage first.
 - Critical user flows get end-to-end checks that run on every merge, not
   unit-of-unit confidence.
 - Anything talking to external systems gets a live round-trip check; mocked-only
@@ -169,7 +184,7 @@ What the record shows is deletable:
 - Never-red ceremony tests (Seemann) that fail the mutation probe.
 - Tautological/mirroring tests (Habr) - proven by the coupling probe.
 - Noise tests pinning absence (ClickHouse) and corner-case matrices users will not hit.
-- Whole scrapped suites: mordae's field report - a vibe-coded suite that only "documented current behavior" was "totally unmaintainable and had to be scrapped," rebuilt around property-based and model-based tests that survive.
+- Whole scrapped suites: mordae's field report - juniors generated tests to "document current behavior," and the resulting suite was "totally unmaintainable and had to be scrapped," rebuilt around property-based and model-based tests that survive.
 
 Safety rails while pruning:
 
