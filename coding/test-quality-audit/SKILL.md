@@ -104,7 +104,7 @@ Rules block - AI-assisted review:
 
 ## 3. Smell Checklist: Mirroring and Implementation Coupling
 
-The best-documented failure of agent-written tests is that they restate the code instead of checking it. Habr names it "tautological testing": the AI reads the implementation and re-states it as assertions, and cites a real Copilot case where green tests hid fired requests in prod. A user on the Cursor forum thread "End to End Testing... A tricky area for current gen LLMs?": "They are obsessed with writing tests to match the code - whatever the code does." The research receipt: "36% of commits made by coding agents add mocks to tests, compared with 26% by non-agents" (MSR 2026) - agents favor easy mocked tests over tests of real interactions. And the test-oracle study "Understanding LLM-Driven Test Oracle Generation" (AIware 2025) says generators cannot fix this alone: they "only encode what the code currently does," so unless assertions derive from intent, the generator "can never manage separating correct from buggy behavior."
+The best-documented failure of agent-written tests is that they restate the code instead of checking it. Habr names it "tautological testing": the AI reads the implementation and re-states it as assertions, and cites a real Copilot case where green tests hid fired requests in prod. A user on the Cursor forum thread "End to End Testing... A tricky area for current gen LLMs?": "They are obsessed with writing tests to match the code - whatever the code does." The research receipt: "36% of commits made by coding agents add mocks to tests, compared with 26% by non-agents" (MSR 2026) - agents favor easy mocked tests over tests of real interactions. And the test-oracle study "Understanding LLM-Driven Test Oracle Generation" (AIware 2025) says generators cannot fix this alone: they only encode what the code currently does, so unless assertions derive from intent, the generator can never manage "separating correct from buggy behavior."
 
 Checklist - flag any test that:
 
@@ -124,7 +124,7 @@ Checklist - flag any test that:
   and meaningful behavioral coverage" (VibeCheck, POVC '26).
 - Is an empty or stub body, e.g. "// your test logic here" (JetBrains YouTrack
   GO-15896 caught AI Assistant emitting these).
-- Assumes execution or collection order - the dominant flakiness source in generated
+- Assumes collection order - the dominant flakiness source in generated
   tests for databases (ICSE 2026), which also documents "flakiness transfer": models
   copy flaky patterns from surrounding context into new tests.
 ```
@@ -238,10 +238,13 @@ All claims, quotes, tool names, and links below are from `ai-generated-tests-res
 - Habr/Netology on LLM test generation (2026-08): https://habr.com/ru/articles/1070438/ - scale of suite is not proof it catches errors.
 - Kent C. Dodds, "Write tests. Not too many. Mostly integration." (verified search snippet per the research document): https://kentcdodds.com/blog/write-tests
 - Mark Larah, "Preventing LLM unit test spam," blog.larah.me (2026-07): https://blog.larah.me/test-slop/ - fewer high-ratio tests, test at the edges, avoid mocking.
+- awesome-agv packaged agent ruleset (irahardianto/awesome-agv, 2026): https://github.com/irahardianto/awesome-agv - the maximally pro-test counterpoint: mandatory TDD, 70/20/10 test pyramid, AAA pattern - "Code without a corresponding test does not exist."
+- Zenn/ababup1192, each test level's distinct role (2026-09): https://zenn.dev/ababup1192/articles/77b844dcfc1529 - "Each kind of test detects different defects, and that role doesn't change just because AI arrived."
 - Zenn/shune, nine Claude Code agents, 1,310 green tests, broken app (2026-10): https://zenn.dev/shune/articles/54501fc4fd6398 - the all-unit-suite failure.
 - Zenn/belka_dolphin (QDHE), test freezing + FMEA (2026-04): https://zenn.dev/belka_dolphin/articles/c885376e01b59d - SHA256 freeze, FMEA ranking, 43.89% kill score on 102 green tests.
 - iTerm2 CLAUDE.md testing rules: https://github.com/gnachman/iTerm2/blob/master/CLAUDE.md - live harness, costed at under $0.50, "unit tests passing alone is not sufficient evidence."
 - ClickHouse .claude/CLAUDE.md: https://github.com/ClickHouse/ClickHouse/blob/master/.claude/CLAUDE.md - anti-noise rules; integration tests ~40% of CI cost.
+- r/webdev, "Developers shipping AI-generated code they can't debug is becoming a real liability" (2026-04, dead link per the research document; PullPush archive content) - end-to-end coverage of critical user flows on every deploy: https://www.reddit.com/r/webdev/comments/1sh5ug1/developers_shipping_aigenerated_code_they_cant/
 - TDD Buddy, "Characterization Tests Are How Agents Enter Legacy Code" (2026-06): https://tddbuddy.com/blog/characterization-tests-are-the-on-ramp/ - Promote / Flag / Delete triage; "The agent generates the captures. The human does the promotion."
 - GitHub Blog, "How to generate unit tests with GitHub Copilot" (2024-12): https://github.blog/ai-and-ml/github-copilot/how-to-generate-unit-tests-with-github-copilot-tips-and-examples/ - review-generated-tests rule; the pruned duplicate test.
 - Lobsters, "Static types and shovels" (mordae's scrapped suite): https://lobste.rs/s/eiknm1/static_types_shovels - "totally unmaintainable and had to be scrapped"; property/model-based survives.
@@ -252,5 +255,7 @@ All claims, quotes, tool names, and links below are from `ai-generated-tests-res
 - Thorsten Ball, "A Few Words on Testing," Register Spill (2024-03): https://registerspill.thorstenball.com/p/a-few-words-on-testing - "I never believed in testing coverage as a metric."
 - JetBrains YouTrack GO-15896: https://youtrack.jetbrains.com/issue/GO-15896 - stub test bodies from AI Assistant.
 - ICSE 2026 SEIP, "On the Flakiness of LLM-Generated Tests for DBMSs": https://arxiv.org/abs/2601.08998 - order assumptions; "flakiness transfer."
-- "Understanding LLM-Driven Test Oracle Generation," AIware 2025 / arXiv: https://arxiv.org/abs/2601.05542 - generators "only encode what the code currently does"; oracles must derive from intent.
+- "Understanding LLM-Driven Test Oracle Generation," AIware 2025 / arXiv: https://arxiv.org/abs/2601.05542 - generators only encode what the code currently does; oracles must derive from intent.
 - r/ExperiencedDevs, "My teammates are generating enormous test suites now" (dead link per the research document; PullPush archive content) - regenerating easier than maintaining; PRs over half tests: https://www.reddit.com/r/ExperiencedDevs/comments/1po8uud/my_teammates_are_generating_enormous_test_suites/
+- Meta's Hermes CLAUDE.md, the anti-gaming fence (2026-08): https://github.com/facebook/hermes/blob/static_h/CLAUDE.md - "Do not blindly regenerate tests to make them pass."
+- LinkedInLearning ralph-loop CLAUDE.md, tests as read-only acceptance criteria (2026-03): https://github.com/LinkedInLearning/mastering-ai-assisted-development-10666010/blob/main/4.1-demo-ralph-loop/CLAUDE.md - "Do NOT modify tests - they are your acceptance criteria."

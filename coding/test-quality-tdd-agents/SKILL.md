@@ -123,8 +123,8 @@ overfitting.
 ## Tests as Spec: Humans Own the Tests
 
 The strongest division of labor named in the research comes from Seemann: instead of
-letting the LLM generate tests for existing code, "humans writing tests while the LLM
-implements". The test suite is the spec; the agent is the implementation engine. Three
+letting the LLM generate tests for existing code, humans write the tests while the LLM
+implements. The test suite is the spec; the agent is the implementation engine. Three
 published patterns implement this:
 
 - **The ralph loop.** A CLAUDE.md from a published autonomous-loop demo declares: "Do NOT
@@ -165,9 +165,9 @@ Copy-paste rules block for spec mode:
 ```
 
 One more grounding detail for whoever writes the tests: agents imitate the test context
-they are given, so point the implementer at your best-maintained tests as exemplars
-rather than raw repo history — the flakiness study's practical takeaway is "tailored,
-flakiness-aware context rather than raw repo history."
+they are given, so point the implementer at your best-maintained tests as exemplars —
+per the research document's summary of the flakiness study, the practical takeaway is
+to give agents tailored, flakiness-aware context rather than raw repo history.
 
 ## Characterization Tests for Legacy Code
 
@@ -217,11 +217,11 @@ verdict.
 ## Property-Based Testing: the Better Agent Assignment
 
 Example tests written by an agent about the agent's own code trend toward mirrors. A
-Lobsters thread saw the inversion coming before ChatGPT: "I'd rather have ChatGPT write
-test cases for code I write, than have to write tests for code ChatGPT writes."
-Property-based testing is that inversion made practical: the human states the invariant,
-the machine searches for violations, and the agent's job becomes writing the harness —
-work that cannot be done by re-reading the implementation.
+2023 Lobsters thread on Weisberger's pre-ChatGPT essay stated the inversion: "I'd
+rather have ChatGPT write test cases for code I write, than have to write tests for
+code ChatGPT writes". Property-based testing is that inversion made practical: the
+human states the invariant, the machine searches for violations, and the agent's job
+becomes writing the harness — work that cannot be done by re-reading the implementation.
 
 Why it is the better assignment, from the field and the lab:
 
@@ -268,7 +268,7 @@ counterexample and stop.
 
 The record's cousin family moves the source of truth out of code the agent reads and into specs, types, and schemas it must satisfy. Worked examples: AWS Kiro's spec workflow — requirements with acceptance criteria, a design document with an explicit "Error handling and testing strategy," then executable tasks ([kiro.dev/docs/specs](https://kiro.dev/docs/specs/)); GitHub Spec Kit's "Define what and why before deciding how to build it" ([github/spec-kit](https://github.com/github/spec-kit)); Flightplanner's durable E2E_TESTS.md specs with disposable generated test code — "The spec is the single source of truth: when specs and tests disagree, the spec wins" ([endor.dev](https://endor.dev/blog/introducing-flightplanner)).
 
-Two cautions travel with them. Böckeler's field survey watched elaborate spec workflows produce sixteen acceptance criteria for a small bug — "a sledgehammer to crack a nut" ([martinfowler.com](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html)); and LLM-written formal specs "compile poorly and assert trivially-true properties" — "being easily able to write specifications doesn't help with correctness if the specs don't actually verify anything" ([Hillel Wayne](https://buttondown.com/hillelwayne/archive/llms-are-bad-at-vibing-specifications/)). The field-proven modest form sits closest to this skill: promote the rules that must not be luck into executable tests plus type boundaries — "Even if you write 'always cite your sources' in CLAUDE.md, whether it's obeyed is luck. Write it as a test and it's obeyed — because it fails" ([Zenn/takabo](https://zenn.dev/takabo/articles/ai-guardrails-with-tests)).
+Two cautions travel with them. Böckeler's field survey watched elaborate spec workflows produce sixteen acceptance criteria for a small bug — "a sledgehammer to crack a nut" ([martinfowler.com](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html)); and LLM-written formal specs compile poorly and assert trivially-true properties — "being easily able to write specifications doesn't help with correctness if the specs don't actually verify anything" ([Hillel Wayne](https://buttondown.com/hillelwayne/archive/llms-are-bad-at-vibing-specifications/)). The field-proven modest form sits closest to this skill: promote the rules that must not be luck into executable tests plus type boundaries — "Even if you write 'always cite your sources' in CLAUDE.md, whether it's obeyed is luck. Write it as a test and it's obeyed — because it fails" ([Zenn/takabo](https://zenn.dev/takabo/articles/ai-guardrails-with-tests)).
 
 ## What the Evidence Does Not Promise
 
@@ -282,9 +282,9 @@ guarantees the research does not support:
   refactor/review loop was the lever.
 - Dan Luu's eval found methodology prompting did not beat default prompting.
 - Drew DeVault on green-test worship: "The project has 99.9% coverage on a thousand
-  beautiful green tests, and, inside, the foundations are still rotten."
+  beautiful green tests, and, inside, the foundations are still rotten"
 - Jan Van Wassenhove's summary: "Instead of dogma, we need testing strategies that match
-  our tooling."
+  our tooling"
 
 Kent Beck still runs tests-first with agents — "You can see from the first commits that I
 was trying to get the genie to use TDD" — because tests are the verification harness that
