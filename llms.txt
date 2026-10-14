@@ -9,10 +9,12 @@ every other top-level directory (`copy/`, …) is a cross-harness skill
 category that applies to every harness. To install, follow
 [install.md](install.md) (ZCode kit + categories) or
 [harness/codex/install.md](harness/codex/install.md) (Codex kit +
-categories) — plain copies into `~/.zcode/agents/`, `~/.agents/skills/`,
-and `~/.codex/`. Agent definitions must be regular files — ZCode's
-discovery silently skips symlinks; `find ~/.zcode/agents -type l`
-printing nothing confirms none.
+categories) — plain copies into `~/.zcode/agents/`,
+`~/.zcode/skills/` (the seven z-flow skills and the engine — harness
+skills never go to `~/.agents/`), `~/.agents/skills/` (cross-harness
+category skills only), and `~/.codex/`. Agent definitions must be
+regular files — ZCode's discovery silently skips symlinks; `find
+~/.zcode/agents -type l` printing nothing confirms none.
 
 ## ZCode kit (`harness/zcode/`)
 
@@ -62,6 +64,5 @@ authentication reads that file, and the key never enters Git or
 
 - [README.md](README.md): full documentation — layout, categories, install paths, how to add skills/kits/harnesses.
 - [install.md](install.md): the ZCode-kit + categories install procedure an AI agent executes.
-- [.zcode-plugin/plugin.json](.zcode-plugin/plugin.json): install as a ZCode plugin (Settings → Plugin Management → Discover → + → this Git URL).
-- [.claude-plugin/marketplace.json](.claude-plugin/marketplace.json): Claude Code marketplace manifest; also makes skills.sh discovery deterministic.
+- [.zcode-plugin/plugin.json](.zcode-plugin/plugin.json): install as a ZCode plugin (Settings → Plugin Management → Discover → + → this Git URL) — the only plugin route; the ZCode kit's agents and skills are harness-specific and are never published to other harnesses' plugin/marketplace systems.
 - [AGENTS.md](AGENTS.md): orientation for AI agents working IN this repository (layout, conventions, extension rules).

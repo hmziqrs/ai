@@ -49,9 +49,14 @@ skills, and uninstall.
 npx skills add hmziqrs/ai -g -a zcode -y
 ```
 
-Installs the SKILL.md packs into `~/.zcode/skills/` (other `-a`
-targets: claude-code, cursor, universal, …). Skills only — the
-sub-agent definitions under `harness/zcode/agents/` still need the
+Installs SKILL.md packs into `~/.zcode/skills/` (other `-a` targets:
+claude-code, cursor, universal, …). Scope what you install: this is for
+the cross-harness category packs — the z-flow skills belong to the ZCode
+kit (step 2), and the four same-named Codex-native ports under
+`harness/codex/plugins/zai-workflows/skills/` (z-workflow, z-proflow,
+z-flashflow, z-liteflow) must never land in `~/.zcode/skills/`, where
+they would clobber the ZCode kit's skills by folder name. Skills only —
+the sub-agent definitions under `harness/zcode/agents/` still need the
 ZCode-kit steps above.
 
 ## Verify (ZCode)

@@ -169,10 +169,12 @@ built-ins, SendMessage-as-flow-step) — blocker if found.
 
 - Workspace: `zflow-port/zflow-engine.dwf.ts`, `zflow-port/skills/<name>/SKILL.md` × 5,
   `zflow-port/PORT-REPORT.md` (assembled at the end).
-- Install (final phase): `mkdir -p ~/.agents/skills-backup-2026-09-21/` → copy the five
-  originals in → deploy the five ported SKILL.md files over
-  `/Users/hmziq/.agents/skills/<name>/SKILL.md` → verify with `diff -q`. The engine is
-  NOT installed by the run (the main agent saves it via SaveWorkflow afterwards).
+- Install (final phase): `mkdir -p ~/.zcode/archive/skills-backup-2026-09-21/` → copy
+  the five originals in → deploy the five ported SKILL.md files to
+  `/Users/hmziq/.zcode/skills/<name>/SKILL.md` → verify with `diff -q`. ZCode-harness
+  skills and their backups live only under `~/.zcode/`, never `~/.agents/`. The engine
+  is NOT installed by the run (the main agent saves it via SaveWorkflow to
+  `~/.zcode/workflows/`).
 - If a write is permission-blocked, escalate or report — never fake an install.
 
 ## 6. Audit protocol (the rounds)

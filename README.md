@@ -42,8 +42,10 @@ seventh, z-super-rustflow, composes its own main-tier-only runs inline
 (`harness/zcode/workflows/zflow-engine.dwf.ts`, contract in
 `zflow-SPEC.md` beside it) runs the mechanical gates as `world.run`
 behind a literal-command allowlist and enforces the POLICY exits as
-loop conditions in code. Skills copy to `~/.agents/skills/`; the
-engine to `~/.zcode/workflows/`.
+loop conditions in code. Skills copy to `~/.zcode/skills/` — ZCode-harness
+skills never go to `~/.agents/skills/` (useless in other harnesses, and
+mirroring them doubles every ZCode session's skill index); the engine to
+`~/.zcode/workflows/`.
 
 - **z-workflow:** mixed-tier chain for complex multi-phase tasks. Pro implement and judge runs with a flash run-level vision node chained between rounds.
 - **z-proflow:** the all-pro depth-first variant. Every run pinned to the pro tier, no router, no pixel vision (pro is image-blind; ocu AX-text structural audits allowed because text is tier-blind).
