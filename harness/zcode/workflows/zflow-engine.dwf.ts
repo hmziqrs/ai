@@ -1,5 +1,5 @@
 /* zcode-workflow
-description: "zflow chain engine: one parameterized chain node - implement, vision, or judge - over a set of task areas, with allowlisted gate dispatch, serialized git commits drafted by a shared Committer agent, independently confirmed findings, a live status board, and a primary markdown report."
+description: "zflow chain engine: one parameterized chain node - implement, vision, or judge - over a set of task areas, with allowlisted gate dispatch, serialized git commits drafted by a shared Committer agent, a script-enforced per-area size budget (one commit per green round, never a multi-round union commit), AGENTS.md injected into every spawned subagent, independently confirmed findings, a live status board, and a primary markdown report."
 whenToUse: "Launched by a zflow chain coordinator once per chain node (implement, vision, or judge) over a set of task areas. The launcher picks the tier for the node and must set subagent_model to the tier matching the tier argument; the script never pins models."
 args:
   mode:
@@ -33,9 +33,28 @@ args:
     default: 3
   commit:
     type: boolean
-    description: "implement mode only. Default true: green areas with changes are committed. When false, the commit phase is skipped entirely — green work stays on disk, uncommitted, and the report says so."
+    description: "implement mode only. Default true: each green round is committed (one commit per green round, size-budgeted). When false, commits are skipped entirely — work stays on disk, uncommitted, and the report says so."
     required: false
     default: true
+  agentsMd:
+    type: string
+    description: "Path to the repo's AGENTS.md, injected into every spawned subagent's ask: its hard rules bind the task, and every skill it requires is read and followed too (inherited on top of the routing-map skills). Default \"AGENTS.md\"; an empty string disables the injection."
+    required: false
+    default: "AGENTS.md"
+  baseSha:
+    type: string
+    description: "The chain's starting commit sha, recorded by the coordinator at prep (git rev-parse HEAD). When present, judge asks carry per-area numstat vs this base as size evidence: an area over its budget is a HIGH finding regardless of correctness."
+    required: false
+  maxLines:
+    type: number
+    description: "Default size budget: max changed lines per commit and per uncommitted area delta, measured by the script via git numstat. An area over budget is a red (size) round — shrink it or split the area; two consecutive size-red rounds stop the area. Per-area budget overrides this."
+    required: false
+    default: 400
+  maxFiles:
+    type: number
+    description: "Default size budget: max changed files per commit and per uncommitted area delta. Per-area budget overrides this."
+    required: false
+    default: 10
 */
 
 // zflow-engine: the single workflow behind the z-*flow skill ports (contract: harness/zcode/workflows/zflow-SPEC.md).
@@ -79,6 +98,8 @@ interface AreaSpec {
   lane?: "web" | "desktop";
   /** Names of areas that must finish before this one starts. */
   dependsOn: string[];
+  /** Optional per-area size budget overriding the run's maxLines/maxFiles: this area's commits and uncommitted deltas must stay within it, or the round goes red with reason "size". */
+  budget?: { maxLines: number; maxFiles: number };
 }
 
 /** The dynamic-workflows Finding convention; the shape every mode reports and returns. */
@@ -211,14 +232,20 @@ interface AreaOutcome {
   summary: string;
   /** The implementer's notes worth carrying (blocked parts, surprises); "" when there were none. */
   notes: string;
-  /** Short sha of this area's commit, parsed from git commit stdout; "" when no commit was made or the sha could not be parsed. */
+  /** Short sha of this area's most recent commit, parsed from git commit stdout; "" when no commit was made or the sha could not be parsed. One commit is made per green round — the full list is commitShas. */
   commitSha: string;
+  /** Short shas of this area's commits, one per green round, in commit order; empty when none was made. */
+  commitShas: string[];
   /** Files the implementer changed, minus excludedPaths. */
   changedFiles: string[];
   /** Things the implementer deliberately left undone. */
   skipped: string[];
-  /** Commit outcome note (made, skipped, or failed); empty when the area had nothing committable. */
+  /** Commit outcome note (per-round notes, or made/skipped/failed); empty when the area had nothing committable. */
   commitNote: string;
+  /** True when the area stopped because it stayed over its size budget — the coordinator splits it, it is not a gates problem. */
+  overBudget: boolean;
+  /** One-line size summary of the last script-measured delta ("6 file(s), +120/−40 — budget 400 lines / 10 files"); "" when nothing was measured. */
+  sizeNote: string;
   /** Final-round red gates as findings. */
   findings: EngineFinding[];
   /** Error that cost this area, when one did. */
@@ -261,8 +288,10 @@ interface ImplementAreaHandoff {
   changedFiles: string[];
   /** The implementer's final summary for the area. */
   summary: string;
-  /** Short sha of the area's commit, parsed from git commit stdout; "" when no commit was made or the sha could not be parsed. */
+  /** Short sha of the area's most recent commit, parsed from git commit stdout; "" when no commit was made or the sha could not be parsed. One commit is made per green round — the full list is commitShas. */
   commitSha: string;
+  /** Short shas of this area's commits, one per green round, in commit order; empty when none was made. */
+  commitShas: string[];
   /** The implementer's notes worth carrying (blocked parts, surprises); "" when there were none. */
   notes: string;
 }
@@ -306,6 +335,10 @@ const READ_ONLY_GIT_SUBCOMMANDS = [
   "status", "log", "diff", "show", "rev-parse", "ls-files", "check-ignore", "describe", "shortlog", "blame",
 ];
 
+/** Default size budget: the largest diff one commit — or one area's uncommitted delta — may carry. Tune per run via maxLines/maxFiles, per area via AreaSpec.budget. */
+const DEFAULT_MAX_LINES = 400;
+const DEFAULT_MAX_FILES = 10;
+
 /** Keep only the string entries of an unknown array; every non-string entry is recorded as a parse problem instead of being silently dropped. */
 function stringArray(raw: unknown, problems: string[], label: string): string[] {
   if (!Array.isArray(raw)) return [];
@@ -314,6 +347,21 @@ function stringArray(raw: unknown, problems: string[], label: string): string[] 
     problems.push(`${label}: non-string entry ${JSON.stringify(x)} dropped`);
     return false;
   });
+}
+
+/** Parse one area's optional size budget; malformed budgets become problems, never crashes. */
+function parseBudget(raw: unknown, problems: string[], label: string): { maxLines: number; maxFiles: number } | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (typeof raw !== "object") {
+    problems.push(`${label}: budget is not an object — ignored, the run's default budget applies`);
+    return undefined;
+  }
+  const b = raw as Record<string, unknown>;
+  if (typeof b.maxLines !== "number" || typeof b.maxFiles !== "number" || b.maxLines < 1 || b.maxFiles < 1) {
+    problems.push(`${label}: budget needs numeric maxLines and maxFiles ≥ 1 — ignored, the run's default budget applies`);
+    return undefined;
+  }
+  return { maxLines: Math.floor(b.maxLines), maxFiles: Math.floor(b.maxFiles) };
 }
 
 /** Last ~1200 characters of a command's output, whitespace-trimmed. */
@@ -414,6 +462,19 @@ function gateFinding(area: AreaSpec, round: number, g: GateOutcome): EngineFindi
   };
 }
 
+/** An over-budget diff as a verified finding: the numstat numbers are the confirmation. */
+function sizeFinding(area: AreaSpec, round: number, s: { files: number; added: number; deleted: number }, budget: { maxLines: number; maxFiles: number }): EngineFinding {
+  return {
+    where: area.paths.length > 0 ? area.paths[0] : area.name,
+    what: `Area over size budget: ${s.files} file(s), +${s.added}/−${s.deleted} against a budget of ${budget.maxLines} lines / ${budget.maxFiles} files — split the area, do not commit big`,
+    evidence: `script-run git diff --numstat measured ${s.files} file(s), +${s.added}/−${s.deleted} against the budget`,
+    status: "verified",
+    severity: "high",
+    area: area.name,
+    round,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Git discipline: mutations only through world.run("git", ...), serialized by
 // the script, explicit paths only, never --no-verify, never push.
@@ -437,6 +498,56 @@ async function gitRun(gitArgs: string[]): Promise<GitResult> {
   } catch (error) {
     return { ran: false, exitCode: -1, output: String(error) };
   }
+}
+
+/** Parse `git diff --numstat` output: one row per changed file as "added<TAB>deleted<TAB>path" ("-" for binary), summed. */
+function parseNumstat(output: string): { files: number; added: number; deleted: number } {
+  let files = 0;
+  let added = 0;
+  let deleted = 0;
+  for (const line of output.split("\n")) {
+    const m = /^(\d+|-)\t(\d+|-)\t/.exec(line.trim());
+    if (m === null) continue;
+    files += 1;
+    added += m[1] === "-" ? 0 : parseInt(m[1], 10);
+    deleted += m[2] === "-" ? 0 : parseInt(m[2], 10);
+  }
+  return { files, added, deleted };
+}
+
+/** The script's own size measurement of an uncommitted delta vs a base sha — never trusted to an agent. Untracked files are intent-added first (explicit paths, serialized queue) so new work is counted; a pre-chain dirty file the implementer also touches counts toward the budget, which is the conservative direction. */
+async function measureSize(files: string[], base: string): Promise<{ files: number; added: number; deleted: number }> {
+  const others = await gitRun(["ls-files", "--others", "--exclude-standard", "--", ...files]);
+  const untracked = others.output.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+  if (others.ran && others.exitCode === 0 && untracked.length > 0) {
+    await serializedGit(() => gitRun(["add", "--intent-to-add", "--", ...untracked]));
+  }
+  const numstat = await gitRun(["diff", "--numstat", base, "--", ...files]);
+  return parseNumstat(numstat.output);
+}
+
+/** Per-area diff size vs the chain's starting sha — the blind judge's size evidence. Untracked files are intent-added first so committed-or-not work is counted. */
+async function numstatVsBase(base: string, area: AreaSpec): Promise<{ files: number; added: number; deleted: number }> {
+  const spec = area.paths.length > 0 ? ["--", ...area.paths] : [];
+  const others = await gitRun(["ls-files", "--others", "--exclude-standard", ...spec]);
+  const untracked = others.output.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+  if (others.ran && others.exitCode === 0 && untracked.length > 0) {
+    await serializedGit(() => gitRun(["add", "--intent-to-add", "--", ...untracked]));
+  }
+  const numstat = await gitRun(["diff", "--numstat", base, ...spec]);
+  return parseNumstat(numstat.output);
+}
+
+// ---------------------------------------------------------------------------
+// AGENTS.md injection: every spawned subagent's ask carries the repo's hard
+// rules and inherits the skills AGENTS.md requires, on top of routing-map
+// skills. The path rides the ask; the subagent reads the file itself.
+// ---------------------------------------------------------------------------
+
+/** The AGENTS.md line every spawned subagent's ask carries; empty when the arg disabled it or the file was not found (recorded in notCovered, never silent). */
+function agentsMdLine(): string {
+  if (agentsMdPath === "" || !agentsMdLoaded) return "";
+  return `Read ${agentsMdPath} first — the repo's hard rules bind this task, and every skill it requires you must read and follow too (on top of any skills named here).`;
 }
 
 // ---------------------------------------------------------------------------
@@ -508,13 +619,15 @@ function auditPersona(tier: string): { system: string } {
 // ---------------------------------------------------------------------------
 
 /** The initial (or fix-round) ask for one area's implementer. Fix targets are confirmed findings only; unconfirmed ones ride along labelled as context. */
-function implementAsk(area: AreaSpec, task: string, fixTargets: EngineFinding[], advisory: EngineFinding[], round: number): string {
+function implementAsk(area: AreaSpec, task: string, fixTargets: EngineFinding[], advisory: EngineFinding[], round: number, budget: { maxLines: number; maxFiles: number }): string {
   return [
     `Implement the area "${area.name}" of this task.`,
     `Task (verbatim): ${task}`,
     area.paths.length > 0 ? `Scope paths: ${area.paths.join(", ")}` : "Scope paths: the whole workspace",
     area.excludedPaths.length > 0 ? `Never touch: ${area.excludedPaths.join(", ")}` : "",
     area.skills.length > 0 ? `Read and follow these skill files first: ${area.skills.join(", ")}` : "",
+    agentsMdLine(),
+    `Size budget: this area's rounds must stay within ${budget.maxLines} changed lines across ${budget.maxFiles} files (the script measures each round with git numstat). If the area cannot be completed within one budget-sized round, finish one coherent slice within budget and note the split the coordinator needs to make.`,
     area.complexity === "complex" ? "The coordinator routed this area as complex: be deliberate, and check the edges before handing off." : "",
     area.dependsOn.length > 0 ? `These areas finished before you started: ${area.dependsOn.join(", ")}` : "",
     fixTargets.length > 0
@@ -527,25 +640,36 @@ function implementAsk(area: AreaSpec, task: string, fixTargets: EngineFinding[],
   ].filter((line) => line !== "").join("\n");
 }
 
-/** The ask that sends a red gate round back to the same implementer. */
-function fixAsk(area: AreaSpec, task: string, gates: GateOutcome[]): string {
+/** The ask that sends a red round back to the same implementer: red gates, an over-budget diff, or both. */
+function fixAsk(area: AreaSpec, task: string, gates: GateOutcome[], budget: { maxLines: number; maxFiles: number }, size?: { files: number; added: number; deleted: number }): string {
   const red = gates.filter((g) => !(g.ran && g.exitCode === 0)).map(describeGate);
+  const over = size !== undefined && (size.added + size.deleted > budget.maxLines || size.files > budget.maxFiles);
   return [
-    `The gates for "${area.name}" are still red. Fix the failures with the smallest coherent change.`,
+    red.length > 0
+      ? `The gates for "${area.name}" are still red. Fix the failures with the smallest coherent change.`
+      : `The gates for "${area.name}" are green, but the area's uncommitted diff is over its size budget.`,
     `Task (verbatim): ${task}`,
-    `Red gates:\n${red.join("\n")}`,
+    red.length > 0 ? `Red gates:\n${red.join("\n")}` : "",
+    over && size !== undefined
+      ? `Size budget: at most ${budget.maxLines} changed lines across ${budget.maxFiles} files; this round measures ${size.files} file(s), +${size.added}/−${size.deleted}. Shrink the change to budget or report exactly how the coordinator should split this area — do not grow it further.`
+      : "",
+    agentsMdLine(),
     "Do not run the gates yourself — the script re-runs them after you hand off. Do not run git.",
-  ].join("\n");
+  ].filter((line) => line !== "").join("\n");
 }
 
-/** The blind judge's ask for one area. */
-function judgeAsk(area: AreaSpec, task: string, evidencePaths: string[], round: number): string {
+/** The blind judge's ask for one area, with the script-measured size evidence vs the chain's start. */
+function judgeAsk(area: AreaSpec, task: string, evidencePaths: string[], round: number, size?: { files: number; added: number; deleted: number }, budget?: { maxLines: number; maxFiles: number }): string {
   return [
     `Judge the current state of area "${area.name}" (round ${round}). You have not seen this work before.`,
     `Task (verbatim): ${task}`,
     area.paths.length > 0 ? `Paths in scope: ${area.paths.join(", ")}` : "Paths in scope: the whole workspace",
     area.excludedPaths.length > 0 ? `Out of scope: ${area.excludedPaths.join(", ")}` : "",
     evidencePaths.length > 0 ? `Evidence from earlier rounds: ${evidencePaths.join(", ")}` : "",
+    agentsMdLine(),
+    size !== undefined && budget !== undefined
+      ? `Size evidence vs the chain's start (script-run git numstat): ${size.files} file(s), +${size.added}/−${size.deleted}. This area's budget: ≤${budget.maxLines} changed lines / ≤${budget.maxFiles} files. An area whose diff exceeds its budget is a HIGH finding regardless of correctness — if these numbers exceed it, report that finding (where: the area's first path; what: over size budget; evidence: these numbers).`
+      : "",
     "Find what is wrong, missing, or half-done relative to the task. Each finding needs a where (path, with a line when it applies), a one-sentence what, and evidence showing it.",
     "Do not edit any file. Do not run the area gates — the script runs them itself after you.",
   ].filter((line) => line !== "").join("\n");
@@ -556,11 +680,12 @@ function confirmerAsk(finding: Finding, gateNotes: string): string {
   return [
     "Reproduce this finding from its evidence alone; read the files it names. Do not edit anything.",
     `Finding:\n${JSON.stringify(finding)}`,
+    agentsMdLine(),
     gateNotes.length > 0
       ? `The script already ran this area's gates — do not re-run them:\n${gateNotes}`
       : "This area declares no gates; confirm from code and text evidence alone.",
     "reproduced is true only if you saw the problem yourself.",
-  ].join("\n");
+  ].filter((line) => line !== "").join("\n");
 }
 
 /** The capture ask for the web lane (agent-browser with an isolated session). */
@@ -579,6 +704,7 @@ function captureAskWeb(area: AreaSpec, round: number, url: string, priorEvidence
       ? `Prior-round shots for this area — capture the same states again so the rounds are comparable: ${priorEvidence.join(", ")}`
       : "",
     `Create ${EVIDENCE_DIR} first. You may also save a structure snapshot via "agent-browser --session ${session} snapshot -i --json" to ${EVIDENCE_DIR}/${area.name}-r${round}-ax.json.`,
+    agentsMdLine(),
     "Always close the session when you are done.",
     "Return the exact paths you wrote. Do not fix anything you see — you only capture evidence.",
   ]
@@ -598,6 +724,7 @@ function captureAskDesktop(area: AreaSpec, task: string, round: number, priorEvi
       ? `Prior-round shots for this area — capture the same states again so the rounds are comparable: ${priorEvidence.join(", ")}`
       : "",
     `Create ${EVIDENCE_DIR} first. Inspect the JSON to find the base64 field; never invent a screenshot.`,
+    agentsMdLine(),
     "If ocu or the application is unavailable, say so plainly and return whatever you did capture.",
     "Return the exact paths you wrote. Do not fix anything you see — you only capture evidence.",
   ]
@@ -626,6 +753,7 @@ function auditAsk(
       ? `Prior-round audit findings for this area — advisory context; this re-shoot is their check, no judge sits between: ${JSON.stringify(priorFindings)}`
       : "",
     `Capture notes: ${captureNotes}`,
+    agentsMdLine(),
     "Report what the evidence shows is wrong or missing: each finding needs a where (the evidence path, or the code path it implicates), a one-sentence what, and evidence naming the file that shows it. Also give an overall verdict.",
     "Do not edit any file.",
   ]
@@ -691,6 +819,7 @@ function parseAreas(raw: unknown): { areas: AreaSpec[]; problems: string[] } {
       hasUI: e.hasUI === true,
       lane,
       dependsOn: stringArray(e.dependsOn, problems, `${e.name}: dependsOn`),
+      budget: parseBudget(e.budget, problems, `${e.name}: budget`),
     });
   });
   breakCycles(areas, problems);
@@ -810,6 +939,22 @@ const maxRounds = Math.max(1, Math.floor(typeof args.maxRounds === "number" ? ar
 const round = prior.length > 0 ? Math.max(...prior.map((f) => f.round)) + 1 : 1;
 // commit defaults to true; only an explicit false skips the implement-mode commit phase.
 const doCommit = args.commit !== false;
+// Size budget: the script measures diffs itself (git numstat) — an agent never vouches for its own size.
+const maxLines = Math.max(1, Math.floor(typeof args.maxLines === "number" ? args.maxLines : DEFAULT_MAX_LINES));
+const maxFiles = Math.max(1, Math.floor(typeof args.maxFiles === "number" ? args.maxFiles : DEFAULT_MAX_FILES));
+// AGENTS.md: its path rides every spawned subagent's ask; the file must exist for the injection to be honest.
+const agentsMdPath = typeof args.agentsMd === "string" ? args.agentsMd : "AGENTS.md";
+let agentsMdLoaded = false;
+if (agentsMdPath !== "") {
+  try {
+    const text = await files.read(agentsMdPath);
+    agentsMdLoaded = text.trim().length > 0;
+  } catch {
+    agentsMdLoaded = false;
+  }
+}
+// The chain's starting sha, recorded by the coordinator at prep; judge size evidence is measured against it.
+const baseSha = typeof args.baseSha === "string" ? args.baseSha.trim() : "";
 
 if (areas.length === 0) {
   return {
@@ -847,6 +992,68 @@ if (mode === "implement") {
   const byName = new Map(areas.map((a) => [a.name, a] as const));
   const running = new Map<string, Promise<AreaOutcome>>();
 
+  // Commits happen per green round inside each area's loop — one shared Committer, one serialized
+  // git queue, one commit per green round (never a multi-round union commit), each within the
+  // area's size budget. A fix round is defined by confirmed findings — unconfirmed ones never
+  // drive fix semantics. commit=false skips every commit: work stays on disk, and the report says so.
+  const fixRound = prior.some((f) => f.status === "verified");
+  const committer = doCommit ? agent("Committer", COMMITTER_PERSONA) : undefined;
+  // The repo's own recent history, so the Committer can match its message style.
+  const recentLog = await gitRun(["log", "--oneline", "-10"]);
+  const logBlock =
+    recentLog.ran && recentLog.exitCode === 0 && recentLog.output.trim().length > 0
+      ? recentLog.output.trim()
+      : "(no usable git log output — draft from the task and file list alone)";
+  const commitFailures: string[] = [];
+
+  // One commit per green round: the shared Committer drafts, the script mutates git — explicit
+  // paths only, serialized, never --no-verify, never push. Returns the commit's short sha ("" when
+  // git failed; the round's work then stays on disk, uncommitted) and a one-line note for the report.
+  const commitRound = async (
+    area: AreaSpec,
+    roundNo: number,
+    files: string[],
+    summary: string,
+  ): Promise<{ sha: string; note: string }> => {
+    if (committer === undefined) throw new Error("commit phase disabled (commit=false)");
+    const draft = await committer.ask<CommitDraft>(
+      [
+        `Draft one commit message for area "${area.name}", round ${roundNo}, of this task.`,
+        `Task: ${task}`,
+        `What was done this round: ${summary}`,
+        `Files (exact paths, in this order): ${files.join(", ")}`,
+        fixRound ? "This is a fix round; start the subject with \"fix: \"." : "This is an implementation round; match the repo's conventional style.",
+        `Recent commits in this repo (match their style):\n${logBlock}`,
+        agentsMdLine(),
+        "Return the message only.",
+      ]
+        .filter((line) => line !== "")
+        .join("\n"),
+    );
+    // Runtime guard: the type says string, but a malformed reply must fall through to the
+    // fallback, not throw on .trim() before the fallback can run.
+    const draftText = typeof draft.message === "string" ? draft.message.trim() : "";
+    let message = draftText;
+    if (message === "") message = `${area.name} r${roundNo}: ${task.slice(0, 60)}`;
+    if (fixRound && !message.startsWith("fix:")) message = `fix: ${message}`;
+    const add = await serializedGit(() => gitRun(["add", ...files]));
+    let note = `r${roundNo}: git add (${files.join(", ")}) → ${add.ran ? `exit ${add.exitCode}` : "did not run"}`;
+    if (!(add.ran && add.exitCode === 0)) {
+      note += ` — ${add.output}`;
+      return { sha: "", note };
+    }
+    const commit = await serializedGit(() => gitRun(["commit", "-m", message, "--", ...files]));
+    note += `; git commit ("${message}") → ${commit.ran ? `exit ${commit.exitCode}` : "did not run"}`;
+    if (commit.ran && commit.exitCode !== 0) note += ` — ${commit.output}`;
+    let sha = "";
+    if (commit.ran && commit.exitCode === 0) {
+      // The short sha rides the typed return (ImplementAreaHandoff.commitShas); it comes from commit stdout.
+      sha = shortSha(commit.output);
+      note += sha === "" ? " — commit sha could not be parsed from git's output" : `; sha ${sha}`;
+    }
+    return { sha, note };
+  };
+
   const runArea = (area: AreaSpec): Promise<AreaOutcome> => {
     const started = running.get(area.name);
     if (started !== undefined) return started;
@@ -863,46 +1070,107 @@ if (mode === "implement") {
         // Only confirmed findings are fix targets; unconfirmed ones stay labelled context (unverified stays unverified).
         const fixTargets = areaPrior.filter((f) => f.status === "verified");
         const advisory = areaPrior.filter((f) => f.status === "unconfirmed");
+        // Size budget: the per-area override when the coordinator set one, else the run's defaults.
+        const budget = area.budget ?? { maxLines, maxFiles };
         let work: AreaWork | undefined;
-        // Union of every round's changedFiles, first-seen order: the area's commit must carry all of
-        // its work, not just the last round's delta (AreaWork.changedFiles is per-round by JSDoc).
+        // Every round's changed files, first-seen order, exclusions applied: what the report and handoff carry.
         const changedUnion: string[] = [];
         // Same union for skipped items: an earlier round's left-undone list must survive later rounds.
         const skippedUnion: string[] = [];
+        // Files changed since this area's last commit: the per-round commit set and the size gate's subject.
+        // Cleared when a green round commits; red rounds let it accumulate so the budget bounds uncommitted work.
+        let pendingFiles: string[] = [];
+        const commitShas: string[] = [];
+        const areaCommitNotes: string[] = [];
+        const sizeFindings: EngineFinding[] = [];
         let gates: GateOutcome[] = [];
         let gatesGreen = false;
         let stagnated = false;
+        let overBudget = false;
         let roundsUsed = 0;
         let prevFailing = Number.MAX_SAFE_INTEGER;
         let stagnantRun = 0;
+        let sizeStall = 0;
+        let lastSize: { files: number; added: number; deleted: number } | undefined;
+        let lastOver = false;
         for (let r = 1; r <= maxRounds; r++) {
           roundsUsed = r;
-          const ask = r === 1 ? implementAsk(area, task, fixTargets, advisory, round) : fixAsk(area, task, gates);
+          const ask = r === 1 ? implementAsk(area, task, fixTargets, advisory, round, budget) : fixAsk(area, task, gates, budget, lastSize);
           work = await implementer.ask<AreaWork>(ask);
           for (const p of work.changedFiles) {
-            if (!changedUnion.includes(p)) changedUnion.push(p); // earlier rounds' files stay in the commit set
+            if (area.excludedPaths.includes(p)) continue;
+            if (!changedUnion.includes(p)) changedUnion.push(p); // earlier rounds' files stay in the reported set
+            if (!pendingFiles.includes(p)) pendingFiles.push(p); // uncommitted work accumulates only across red rounds
           }
           for (const s of work.skipped) {
             if (!skippedUnion.includes(s)) skippedUnion.push(s); // earlier rounds' skipped items stay visible
           }
           gates = await runAllGates(area);
           const failing = gates.filter((g) => !(g.ran && g.exitCode === 0)).length;
-          log(`${area.name}: round ${r}, ${failing} of ${gates.length} gate(s) red`);
-          if (gates.length === 0) break; // no gates declared: nothing to gate rounds on
-          if (failing === 0) {
+          // Size gate: the script measures the uncommitted delta itself (git numstat vs this round's start sha).
+          const head = await gitRun(["rev-parse", "HEAD"]);
+          const roundStartSha = head.ran && head.exitCode === 0 ? head.output.split("\n")[0].trim() : "";
+          lastSize = roundStartSha !== "" && pendingFiles.length > 0 ? await measureSize(pendingFiles, roundStartSha) : undefined;
+          lastOver = lastSize !== undefined && (lastSize.added + lastSize.deleted > budget.maxLines || lastSize.files > budget.maxFiles);
+          log(
+            `${area.name}: round ${r}, ${failing} of ${gates.length} gate(s) red` +
+              (lastSize !== undefined
+                ? `, size ${lastSize.files} file(s) +${lastSize.added}/−${lastSize.deleted} (budget ${budget.maxLines} lines / ${budget.maxFiles} files)${lastOver ? " — OVER BUDGET" : ""}`
+                : ""),
+          );
+          if (gates.length === 0) break; // no gates declared: nothing to gate rounds on, and the engine commits only gate-verified areas
+          if (failing === 0 && !lastOver) {
             gatesGreen = true;
+            // One commit per green round — this round's delta only, never a multi-round union commit.
+            if (doCommit && pendingFiles.length > 0) {
+              try {
+                const done = await commitRound(area, r, pendingFiles, work.summary);
+                areaCommitNotes.push(done.note);
+                if (done.sha !== "") {
+                  commitShas.push(done.sha);
+                  pendingFiles = []; // committed: the next round's size gate measures only new work
+                } else {
+                  commitFailures.push(`${area.name}: round ${r} commit failed — its green work stays on disk, uncommitted`);
+                }
+              } catch (error) {
+                const note = `round ${r} commit not made — ${String(error)}; its green work stays on disk, uncommitted`;
+                areaCommitNotes.push(note);
+                commitFailures.push(`${area.name}: ${note}`);
+                log(`${area.name}: ${note}`);
+              }
+            }
             break;
+          }
+          if (lastOver && lastSize !== undefined) {
+            // Over budget is a red round in its own right: verified finding, shrink-or-split ask, stall-counted exit.
+            overBudget = true;
+            const f = sizeFinding(area, round, lastSize, budget);
+            sizeFindings.push(f);
+            report(f);
+            sizeStall = sizeStall + 1;
+          } else {
+            sizeStall = 0;
           }
           stagnantRun = failing < prevFailing ? 0 : stagnantRun + 1;
           prevFailing = failing;
-          if (stagnantRun >= 2) {
-            stagnated = true; // two rounds without a shrinking failure count: stop, report honestly
+          if (stagnantRun >= 2 || sizeStall >= 2) {
+            stagnated = stagnantRun >= 2; // two rounds without a shrinking failure count — or two consecutive over-budget rounds: stop, report honestly
             break;
           }
         }
-        const changed = changedUnion.filter((p) => !area.excludedPaths.includes(p));
-        const finalFindings = gates.filter((g) => g.ran && g.exitCode !== 0).map((g) => gateFinding(area, round, g));
+        const changed = changedUnion;
+        const finalFindings = [...gates.filter((g) => g.ran && g.exitCode !== 0).map((g) => gateFinding(area, round, g)), ...sizeFindings];
         for (const f of finalFindings) report(f);
+        const sizeNote =
+          lastSize === undefined
+            ? ""
+            : `${lastSize.files} file(s), +${lastSize.added}/−${lastSize.deleted} — budget ${budget.maxLines} lines / ${budget.maxFiles} files${lastOver ? " — OVER BUDGET" : ""}`;
+        let commitNote = areaCommitNotes.join("; ");
+        if (commitNote === "" && pendingFiles.length > 0 && gates.length > 0) {
+          commitNote = doCommit
+            ? "not committed — gates still red or over size budget; work stays on disk, uncommitted"
+            : "skipped (commit=false) — work stays on disk, uncommitted";
+        }
         report(
           statusCard(
             area.name,
@@ -914,7 +1182,9 @@ if (mode === "implement") {
                 ? "all gates green"
                 : stagnated
                   ? "stopped: two rounds without improvement"
-                  : "stopped: round cap reached",
+                  : overBudget
+                    ? "stopped: over size budget two rounds — split the area"
+                    : "stopped: round cap reached",
           ),
           "status",
         );
@@ -926,10 +1196,13 @@ if (mode === "implement") {
           stagnated,
           summary: work?.summary ?? "no summary reported",
           notes: work?.notes ?? "",
-          commitSha: "",
+          commitSha: commitShas.length > 0 ? commitShas[commitShas.length - 1] : "",
+          commitShas,
           changedFiles: changed,
           skipped: skippedUnion,
-          commitNote: "",
+          commitNote,
+          overBudget,
+          sizeNote,
           findings: finalFindings,
         };
       } catch (error) {
@@ -943,9 +1216,12 @@ if (mode === "implement") {
           summary: "",
           notes: "",
           commitSha: "",
+          commitShas: [],
           changedFiles: [],
           skipped: [],
           commitNote: "",
+          overBudget: false,
+          sizeNote: "",
           findings: [],
           error: String(error),
         };
@@ -957,95 +1233,15 @@ if (mode === "implement") {
 
   const outcomes = await Promise.all(areas.map(runArea));
 
-  // Commits: only green areas, only explicit paths, one shared Committer, one git queue.
-  // A fix round is defined by confirmed findings to fix — unconfirmed ones never drive fix semantics.
-  // commit=false (coordinator opt-out) skips the phase entirely: green work stays on disk, uncommitted.
-  const fixRound = prior.some((f) => f.status === "verified");
-  const committable = outcomes.filter((o) => o.error === undefined && o.gatesGreen && o.changedFiles.length > 0);
-  const commits: string[] = [];
-  const commitFailures: string[] = [];
-  let commitSkipNote = "";
-  if (!doCommit && committable.length > 0) {
-    commitSkipNote = `${committable.map((o) => o.area).join(", ")}: commit phase skipped (commit=false) — their green work stays on disk, uncommitted`;
-    for (const o of committable) o.commitNote = "skipped (commit=false) — green work stays on disk, uncommitted";
-    log(`commit phase skipped (commit=false): ${committable.map((o) => o.area).join(", ")}`);
-  }
-  if (committable.length > 0 && doCommit) {
-    phase("Commit the finished work");
-    const committer = agent("Committer", COMMITTER_PERSONA);
-    // The repo's own recent history, so the Committer can match its message style.
-    const recentLog = await gitRun(["log", "--oneline", "-10"]);
-    const logBlock =
-      recentLog.ran && recentLog.exitCode === 0 && recentLog.output.trim().length > 0
-        ? recentLog.output.trim()
-        : "(no usable git log output — draft from the task and file list alone)";
-    const outcomeByArea = new Map(outcomes.map((o) => [o.area, o] as const));
-    for (const area of areas) {
-      const outcome = outcomeByArea.get(area.name);
-      if (outcome === undefined) continue;
-      if (outcome.error !== undefined || !outcome.gatesGreen) {
-        log(`${area.name}: not committing — gates still red or area errored; work stays on disk`);
-        continue;
-      }
-      if (outcome.changedFiles.length === 0) {
-        log(`${area.name}: nothing to commit`);
-        continue;
-      }
-      // One malformed CommitDraft or one failed ask costs this area's commit, never the run:
-      // implementation work is already on disk and the report must still be published.
-      try {
-        const draft = await committer.ask<CommitDraft>(
-          [
-            `Draft one commit message for area "${area.name}" of this task.`,
-            `Task: ${task}`,
-            `What was done: ${outcome.summary}`,
-            `Files (exact paths, in this order): ${outcome.changedFiles.join(", ")}`,
-            fixRound ? "This is a fix round; start the subject with \"fix: \"." : "This is the initial implementation round.",
-            `Recent commits in this repo (match their style):\n${logBlock}`,
-            "Return the message only.",
-          ].join("\n"),
-        );
-        // Runtime guard: the type says string, but a malformed reply must fall through to the
-        // fallback, not throw on .trim() before the fallback can run.
-        const draftText = typeof draft.message === "string" ? draft.message.trim() : "";
-        let message = draftText;
-        if (message === "") message = `${area.name}: ${task.slice(0, 60)}`;
-        if (fixRound && !message.startsWith("fix:")) message = `fix: ${message}`;
-        const add = await serializedGit(() => gitRun(["add", ...outcome.changedFiles]));
-        let note = `git add (${outcome.changedFiles.join(", ")}) → ${add.ran ? `exit ${add.exitCode}` : "did not run"}`;
-        if (add.ran && add.exitCode === 0) {
-          const commit = await serializedGit(() => gitRun(["commit", "-m", message, "--", ...outcome.changedFiles]));
-          note += `; git commit ("${message}") → ${commit.ran ? `exit ${commit.exitCode}` : "did not run"}`;
-          if (commit.ran && commit.exitCode !== 0) note += ` — ${commit.output}`;
-          if (commit.ran && commit.exitCode === 0) {
-            // The short sha rides the typed return (ImplementAreaHandoff.commitSha); it comes from commit stdout.
-            outcome.commitSha = shortSha(commit.output);
-            if (outcome.commitSha === "") note += " — commit sha could not be parsed from git's output";
-            else note += `; sha ${outcome.commitSha}`;
-          }
-          log(`committed ${area.name}: ${message}`);
-        } else {
-          note += ` — ${add.output}`;
-        }
-        commits.push(note);
-        outcome.commitNote = note;
-      } catch (error) {
-        const note = `commit not made — drafting or git step failed: ${String(error)}`;
-        outcome.commitNote = note;
-        commitFailures.push(`${area.name}: ${note} (its green work stays on disk, uncommitted)`);
-        log(`${area.name}: ${note}`);
-      }
-    }
-  }
-
   const green = outcomes.filter((o) => o.gatesGreen);
   const errored = outcomes.filter((o) => o.error !== undefined);
   const gateless = outcomes.filter((o) => o.gates.length === 0 && o.error === undefined);
   const red = outcomes.filter((o) => o.gates.length > 0 && !o.gatesGreen);
   const allFindings = outcomes.flatMap((o) => o.findings);
   const notCovered: string[] = [...problems, ...commitFailures];
-  if (commitSkipNote !== "") notCovered.push(commitSkipNote);
+  if (agentsMdPath !== "" && !agentsMdLoaded) notCovered.push(`${agentsMdPath}: not found or empty — the repo's hard rules were not injected into subagent asks`);
   for (const o of outcomes) {
+    if (o.commitNote.startsWith("skipped")) notCovered.push(`${o.area}: ${o.commitNote}`);
     for (const g of o.gates) {
       if (!g.ran) notCovered.push(`${o.area}: gate ${g.argv} did not run — ${g.failure}`);
     }
@@ -1067,15 +1263,16 @@ if (mode === "implement") {
       `# zflow implement — round ${round} of at most ${maxRounds}`,
       "",
       `Task: ${task}`,
-      `Tier: ${tier}. Areas: ${areas.length} (${green.length} green, ${red.length} red, ${gateless.length} unverified — no gates declared${errored.length > 0 ? `, ${errored.length} errored` : ""}). ${commits.length} commit(s).`,
+      `Tier: ${tier}. Areas: ${areas.length} (${green.length} green, ${red.length} red, ${gateless.length} unverified — no gates declared${errored.length > 0 ? `, ${errored.length} errored` : ""}). ${outcomes.reduce((n, o) => n + o.commitShas.length, 0)} commit(s) — one per green round, size-budgeted.`,
       "",
       "## Areas",
       ...outcomes.flatMap((o) => [
-        `### ${o.area} — ${o.error !== undefined ? "errored" : o.gatesGreen ? "all gates green" : o.gates.length === 0 ? "unverified (no gates declared)" : "gates red"}`,
-        `- Rounds used: ${o.rounds}${o.stagnated ? " (stopped early: two rounds without improvement)" : ""}`,
+        `### ${o.area} — ${o.error !== undefined ? "errored" : o.gatesGreen ? "all gates green" : o.gates.length === 0 ? "unverified (no gates declared)" : o.overBudget ? "gates red / over size budget" : "gates red"}`,
+        `- Rounds used: ${o.rounds}${o.stagnated ? " (stopped early: two rounds without improvement)" : o.overBudget && !o.gatesGreen ? " (stopped early: over size budget two rounds — split the area)" : ""}`,
         `- Summary: ${o.summary}`,
         ...(o.notes.trim().length > 0 ? [`- Notes: ${o.notes.trim()}`] : []),
         ...o.gates.map((g) => `- Gate ${g.argv}: ${g.ran ? `exit ${g.exitCode}` : "did not run"}${g.failure === "" ? "" : ` — ${g.failure}`}`),
+        ...(o.sizeNote !== "" ? [`- Size: ${o.sizeNote}`] : []),
         o.changedFiles.length > 0 ? `- Changed: ${o.changedFiles.join(", ")}` : "- No file changes reported",
         o.commitNote !== ""
           ? `- Commit: ${o.commitNote}`
@@ -1105,19 +1302,21 @@ if (mode === "implement") {
     changedFiles: o.changedFiles,
     summary: o.summary,
     commitSha: o.commitSha,
+    commitShas: o.commitShas,
     notes: o.notes,
   }));
 
+  const sizeStopped = outcomes.filter((o) => o.overBudget && !o.gatesGreen);
   const result: WorkflowReport = {
     conclusion:
       areas.length - green.length === 0
-        ? `Implemented all ${areas.length} area(s) with every gate green on round ${round}; ${commits.length} commit(s) made. ${allFindings.length} finding(s) stand.`
-        : `${green.length} of ${areas.length} area(s) finished with all gates green; ${red.length} still red after their round budgets — their half-done work stays on disk and is listed, never claimed clean; ${gateless.length} unverified (no gates declared)${errored.length > 0 ? `; ${errored.length} errored during implementation` : ""}. ${commits.length} commit(s) made.`,
+        ? `Implemented all ${areas.length} area(s) with every gate green on round ${round}; ${outcomes.reduce((n, o) => n + o.commitShas.length, 0)} size-budgeted commit(s) made — one per green round. ${allFindings.length} finding(s) stand.`
+        : `${green.length} of ${areas.length} area(s) finished with all gates green; ${red.length} still red after their round budgets — their half-done work stays on disk and is listed, never claimed clean${sizeStopped.length > 0 ? `; ${sizeStopped.length} stopped over their size budget — split them before relaunching` : ""}; ${gateless.length} unverified (no gates declared)${errored.length > 0 ? `; ${errored.length} errored during implementation` : ""}. ${outcomes.reduce((n, o) => n + o.commitShas.length, 0)} size-budgeted commit(s) made — one per green round.`,
     findings: allFindings,
     areas: handoffs,
     verified: [
       ...outcomes.flatMap((o) => o.gates.filter((g) => g.ran).map((g) => `${g.argv} → exit ${g.exitCode} (area ${o.area})`)),
-      ...commits,
+      ...outcomes.flatMap((o) => (o.commitShas.length > 0 ? [`${o.area}: ${o.commitNote}`] : [])),
     ],
     notCovered,
   };
@@ -1199,6 +1398,7 @@ if (mode === "vision") {
   const allFindings = visionResults.flatMap((r) => r.findings);
   const captured = visionResults.filter((r) => r.onDisk);
   const notCovered: string[] = [...problems, ...skippedAreas];
+  if (agentsMdPath !== "" && !agentsMdLoaded) notCovered.push(`${agentsMdPath}: not found or empty — the repo's hard rules were not injected into subagent asks`);
   for (const r of visionResults) {
     if (!r.onDisk) notCovered.push(`${r.area}: no evidence confirmed on disk — nothing this run can vouch for was audited`);
   }
@@ -1278,8 +1478,12 @@ const judgeResults = await Promise.all(
       const persona = judgePersona(tier);
       // Evidence is per-area, anchored to this area's file prefix: one area's screenshots never leak into another's ask.
       const areaEvidence = evidence.filter((p) => p.startsWith(`${EVIDENCE_DIR}/${area.name}-r`));
+      // Size evidence, measured by the script vs the chain's start: the blind judge cannot flag
+      // magnitude drift it was never shown. No baseSha, no numbers — the line is dropped honestly.
+      const size = baseSha !== "" ? await numstatVsBase(baseSha, area) : undefined;
+      const budget = area.budget ?? { maxLines, maxFiles };
       const judged = await agent(`judge-${area.name}-r${round}`, persona).ask<JudgeFindings>(
-        judgeAsk(area, task, areaEvidence, round),
+        judgeAsk(area, task, areaEvidence, round, size, budget),
       );
       // Gates run once, by the script, after the blind judge has spoken.
       const gates = await runAllGates(area);
@@ -1326,6 +1530,7 @@ const verifiedCount = allFindings.filter((f) => f.status === "verified").length;
 const unconfirmedCount = allFindings.length - verifiedCount;
 const redGates = judgeResults.flatMap((r) => r.gates.filter((g) => g.ran && g.exitCode !== 0));
 const notCovered: string[] = [...problems];
+if (agentsMdPath !== "" && !agentsMdLoaded) notCovered.push(`${agentsMdPath}: not found or empty — the repo's hard rules were not injected into subagent asks`);
 for (const r of judgeResults) {
   for (const g of r.gates) {
     if (!g.ran) notCovered.push(`${r.area}: gate ${g.argv} did not run — ${g.failure}`);

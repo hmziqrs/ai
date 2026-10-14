@@ -43,7 +43,10 @@ cross-apply; hand off by finishing the run and relaunching the sibling (no nesti
 prep (coordinator): build areas[] — paths, excludedPaths, skills (absolute SKILL.md paths matched
   against THIS session's skills list; if none fits, route bare and note the gap), gates
   (non-mutating: no --fix/--write; must exist in repo tooling — a hallucinated gate fails
-  forever), complexity, hasUI, dependsOn. Gitignore .zflow/. Then run every area's gates
+  forever), complexity, hasUI, dependsOn. Slice under the size budget: a slice predicted
+  over ~400 changed lines / ~10 files is split into sibling areas ordered by dependsOn
+  (per-area budget tunes it). Record the AGENTS.md path and baseSha (git rev-parse HEAD) —
+  every launch carries agentsMd + baseSha. Gitignore .zflow/. Then run every area's gates
   once yourself (Bash, exit code + last error line only); record pre-existing reds as the
   gate baseline and OMIT those gates from areas[].gates at every launch — they stay in the
   baseline record for POLICY + report, never riding findings= (the engine cannot detect
@@ -91,12 +94,20 @@ Exit conditions are loop conditions — engine script inside each run (inner fix
 3. maxRounds (default 3) reached → stop; same honest report.
 4. Otherwise continue only while findings strictly shrink.
 5. Never claim clean while a non-baseline gate is red; baseline reds (probed at prep, omitted from areas[].gates at every launch, never merged into findings=) are pre-existing — burn no fix rounds on them; the engine never runs them, so they hold no area red and block no commit: report them from the baseline record, don't fight them.
+6. Size budget: a round whose delta exceeds the area's budget is a red (size) round; two consecutive → that area stops and the report says the split needed. An area over budget is a high finding regardless of correctness — an over-budget area is split, never committed big.
 
 ## Preserved conventions
 
-- **Commit discipline**: small commits, one logical unit each — cheap revert is the point. Commit after gates pass; fix
-  rounds commit separately (`fix:`); explicit paths only, never `git add -A`; match `git log` style; never `--no-verify`;
-  never push. Mutations run inside the engine via serialized `world.run("git", …)` — coordinator and implementers never touch git.
+- **Commit discipline**: one logical unit = one revertable review — ≤400 changed lines / ≤10 files per
+  commit (the engine's default size budget; per-area `budget` tunes it). The engine commits each green
+  round separately, never one commit folding several rounds; an area over budget is split, not committed
+  big. Commit after gates pass; fix rounds commit separately (`fix:`); explicit paths only, never
+  `git add -A`; match `git log` style; never `--no-verify`; never push. Mutations run inside the engine
+  via serialized `world.run("git", …)` — coordinator and implementers never touch git.
+- **AGENTS.md binds every subagent**: every launch passes `agentsMd` (default `AGENTS.md`) and `baseSha`;
+  each spawned role — implementer, capture, auditor, judge, confirmer, Committer — reads it first; its
+  hard rules bind the task, and every skill it requires is read and followed on top of the routing-map
+  skills.
 - **Gates re-run for every area touched so far** each round; fixes regress earlier passes; claimed green vs red in-script run: red wins.
 - **Fresh auditors never judge fixes they inspired** — judges fresh and blind each round; fixers are the original implementers (same named agents — context survives within a run only; every fresh CreateWorkflow launch starts empty).
 - **Vision findings are never self-confirmed** — the vision node stamps every finding `unconfirmed`; the judge

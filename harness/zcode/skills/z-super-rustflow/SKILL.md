@@ -71,6 +71,12 @@ text evidence covers it, or it is marked not-covered and said so.
 | auditor (both phases) | main-tier, fresh each round | blind audit verdicts need depth |
 | gates + bench compare | nobody — script-run | mechanical, exit codes |
 
+**Fresh-context rule — universal:** every node above is a fresh agent per task;
+confirmers are fresh per finding. The single exception is `implementer-<area>`,
+reused only within its own area's convergence loop — never across areas, never
+across campaigns. Freshness is not an auditor-only discipline; it is the default
+for every role, and reuse is the named exception, not the habit.
+
 ## Chain blueprint
 
 Node runs are composed inline from this blueprint via CreateWorkflow
@@ -81,12 +87,15 @@ scripts, offer ONCE to save the engine as `rustflow-engine` for reuse
 thereafter; saving is the user's call, never silent.
 
 1. **Route (coordinator)**: slice the optimization surface — one hot-path
-   family or one profiling bucket per area; split any slice over ~4 files
-   or mixing kinds. Per area: bucket (compute|memory|lock|io, provisional
+   family or one profiling bucket per area; split any slice over ~4 files,
+   a predicted diff over the size budget (~400 changed lines / ~10 files —
+   per-area `budget` tunes it), or mixing kinds. Per area: bucket (compute|memory|lock|io, provisional
    — Phase R refines it), paths, excludedPaths, skills (absolute SKILL.md
    paths), gates (non-mutating: `cargo fmt --check`,
    `cargo clippy --all-targets -- -D warnings`, `--manifest-path` where
-   the workspace needs it), complexity, dependsOn.
+   the workspace needs it), complexity, dependsOn. Record `baseSha`
+   (`git rev-parse HEAD`) — the audit runs' size evidence is measured
+   against it.
 2. **Phase R run**: parallel explorers map code, deps, build profiles,
    existing benches (read-only); researchers triage per rust-superopt
    Step 2 evidence rules; fresh auditors per area hunt findings — perf
@@ -101,16 +110,22 @@ thereafter; saving is the user's call, never silent.
    lever, stop the moment the Phase R target is met — a satisfied target
    is a finished optimization. The script runs gates +
    `cargo bench -- --baseline main` itself; implementers never run gates
-   or git; no pass/fail claim is trusted. The Committer drafts and the
-   script commits: one logical unit per area, `perf:` style matching
-   `git log --oneline -10`.
+   or git; no pass/fail claim is trusted. The script also runs a numstat
+   size check after every round: a round whose delta exceeds the area's
+   budget is a red round with reason `size` — shrink it or report the
+   split needed; two consecutive size-reds stop the area. The Committer
+   drafts and the script commits each green round separately, `perf:`
+   style matching `git log --oneline -10` — never one commit folding
+   several rounds' work.
 4. **Phase I audit run**: fresh blind `auditor-<area>-r<round>` per area —
    fresh auditors never judge fixes they inspired. Two jobs: score this
    round's fixes against the rust-superopt "done" rubric — parity story,
    codegen check (cargo-show-asm evidence path; every runtime-dispatch
    variant, not just the entry point), regression gate, honest number
    (ratio vs baseline, outside the noise band) — missing any one keeps
-   the finding open; AND hunt for NOVEL findings.
+   the finding open; AND hunt for NOVEL findings. Each audit ask carries
+   the area's numstat vs `baseSha` as size evidence: an area over its
+   budget is a HIGH finding regardless of correctness.
 5. **Convergence loop** — the registry lives in the coordinator between
    runs; exit conditions live in code, models cannot misjudge them:
    - **exit clean**: a full audit round with zero NOVEL registry findings
@@ -152,9 +167,17 @@ A skill page is the door, not the room.
   are no-change. asm-or-it-didn't-happen.
 - Never ship `-C target-cpu=native` — experiments only; the distributable
   floor is `-C target-cpu=x86-64-v2/v3/v4` when the CPU floor is known.
-- Small `perf:` commits keep findings cheap to revert; never `--no-
-  verify`, never `git add -A`, never push unless asked. Half-done work
-  stays on disk, listed in the final report with evidence paths.
+- Small `perf:` commits keep findings cheap to revert — one logical unit
+  = one revertable review, ≤400 changed lines / ≤10 files (the size
+  budget; per-area `budget` tunes it); one commit per green round, never
+  one area-folding commit; an area over budget is split, not committed
+  big. Never `--no-verify`, never `git add -A`, never push unless asked.
+  Half-done work stays on disk, listed in the final report with evidence
+  paths.
+- AGENTS.md binds every subagent: every composed agent ask carries the
+  AGENTS.md read-first line — its hard rules bind the task, and every
+  skill it requires is read and followed on top of the bucket's skill
+  menu.
 - Unverified stays unverified — checks you could only request are
   reported as such, never "used".
 - Skills are dynamic: match by capability against the session's

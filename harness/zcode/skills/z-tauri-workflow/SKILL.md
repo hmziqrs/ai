@@ -47,20 +47,25 @@ ResumeWorkflowRun. Never nest — no run spawns another.
    area: Rust core in `src-tauri/` (commands, state, events, plugins, tray/windows);
    frontend (components/routes/IPC bindings); capabilities/config
    (`src-tauri/capabilities/`, `src-tauri/tauri.conf.json`) — split any slice over
-   ~4 files or mixing kinds. Per area: kind, paths, excludedPaths, skills (absolute
+   ~4 files, a predicted diff over the size budget (~400 changed lines / ~10 files —
+   per-area `budget` tunes it), or mixing kinds. Per area: kind, paths, excludedPaths,
+   skills (absolute
    SKILL.md paths), gates, complexity, dependsOn, hasUI. Gates: non-mutating,
    engine-allowlisted, right manifest/dir — Rust: `cargo fmt --check` and
    `cargo clippy --all-targets -- -D warnings`, both with
    `--manifest-path src-tauri/Cargo.toml`; frontend: typecheck only when repo
    tooling (`npx tsc --noEmit`, `vue-tsc --noEmit`; never in a JS-only frontend) and
    lint when configured, via the repo's package manager; no Tauri-CLI lint exists —
-   never gate on one.
+   never gate on one. Record `baseSha` (`git rev-parse HEAD`) — every launch carries
+   `agentsMd` + `baseSha`.
 2. **Implement node** (`mode=implement`, tier=pro): one `implementer-<area>` per
    area, routing-map order, dependencies chained per item; the script runs the
    gates itself (world.run exit codes) — implementers never run gates or git; no
-   pass/fail claim is trusted. The Committer drafts and the script commits: one
-   logical unit per area, explicit paths; the coordinator gitignores `.zflow/` on
-   round 1.
+   pass/fail claim is trusted. The Committer drafts and the script commits each
+   green round separately — one logical unit = ≤400 changed lines / ≤10 files
+   (the engine's default budget; per-area `budget` tunes it), explicit paths;
+   never a multi-round union commit; an area over budget is split, not committed
+   big. The coordinator gitignores `.zflow/` on round 1.
 3. **Vision node** (`mode=vision`, tier=flash) per has-UI area: pin `lane`
    (AreaSpec; the engine's URL-regex guess applies only when absent). Frontend
    areas → `lane: "web"`: agent-browser audits the dev-server URL (`build.devUrl`,
@@ -86,6 +91,10 @@ ResumeWorkflowRun. Never nest — no run spawns another.
    - **stop honestly**: two consecutive rounds without findings/failing gates
      strictly shrinking, or `maxRounds` (default 3) reached — report what passes,
      fails, why.
+   - **size red**: a round whose delta exceeds the area's budget is a red (size)
+     round; two consecutive → that area stops and the report says the split
+     needed. An area over budget is a high finding regardless of correctness —
+     split it, never commit it big.
    - **continue**: findings strictly shrinking → fix round REUSES the same
      `implementer-<area>` agents, then gates → vision re-shoot (same checklist) →
      `fix:` commit → fresh judge.
@@ -108,10 +117,17 @@ ResumeWorkflowRun. Never nest — no run spawns another.
 - Never claim clean while a gate is red. Never claim a screen verified that was not
   shot and audited this run. Unverified stays unverified — tiers you could only
   request are reported as such, never "used".
-- Small commits keep findings cheap to revert; never `--no-verify`, never `git add
+- Size-budgeted small commits keep findings cheap to revert — one logical unit =
+  ≤400 changed lines / ≤10 files (the engine's default budget; one commit per
+  green round, never a multi-round union commit; an area over budget is split,
+  not committed big); never `--no-verify`, never `git add
   -A`, match `git log --oneline -10` style (else `feat:`/`fix:`), never push unless
   asked; half-done work stays on disk, listed in the final report with evidence
   paths.
+- AGENTS.md binds every subagent: every launch passes `agentsMd` (default
+  `AGENTS.md`) and `baseSha`; each spawned role — implementer, capture, auditor,
+  judge, confirmer, Committer — reads it first; its hard rules bind the task, and
+  every skill it requires is read and followed on top of the routing-map skills.
 - Skills are dynamic: match by capability against the session's available-skills
   list; a gap is noted, not a blocker.
 - Skill menu by area kind: Rust commands/state/events → tauri-v2,

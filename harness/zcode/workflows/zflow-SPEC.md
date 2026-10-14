@@ -76,12 +76,18 @@ ONE saved workflow, launched once per chain node. Declared args (validated by th
 - `areas`: array of { name, paths[], excludedPaths[], skills[] (absolute SKILL.md paths),
   gates: { tool, args[] }[], complexity: "straightforward"|"complex", hasUI: boolean,
   dependsOn: string[], lane: "web"|"desktop" (optional; overrides vision-mode routing —
-  without it the engine falls back to a URL heuristic over the task text) }.
+  without it the engine falls back to a URL heuristic over the task text),
+  budget: { maxLines, maxFiles } (optional; overrides the run's size budget for this area) }.
 - `evidence`: string[] (screenshot/evidence paths for judge/vision modes).
 - `findings`: prior-round findings array (fix rounds).
 - `maxRounds`: number, default 3.
-- `commit`: boolean, default true (implement mode only). False skips the commit
-  phase entirely — green work stays on disk, uncommitted, and the report says so.
+- `commit`: boolean, default true (implement mode only). False skips commits entirely —
+  work stays on disk, uncommitted, and the report says so.
+- `agentsMd`: string, default "AGENTS.md" (empty string disables). Injected into every
+  spawned subagent's ask; see hard rules below.
+- `baseSha`: string, optional. The chain's starting commit sha, recorded by the
+  coordinator at prep; judge size evidence is measured against it.
+- `maxLines` / `maxFiles`: numbers, default 400 / 10 — the size budget; see hard rules below.
 
 Hard rules:
 
@@ -93,15 +99,31 @@ Hard rules:
 - **Git discipline in code**: commit messages drafted by a shared named "Committer"
   agent; mutations executed by `world.run("git", ["add", ...explicit paths])` /
   `world.run("git", ["commit", "-m", msg, "--", ...paths])` — serialized by the script;
-  separate `fix:` commits for fix rounds; explicit paths only; NEVER `--no-verify`;
-  never push.
+  explicit paths only; NEVER `--no-verify`; never push.
+- **Size budget enforced in code**: default ≤400 changed lines / ≤10 files per commit
+  and per uncommitted area delta (args `maxLines`/`maxFiles`; per-area `budget`
+  overrides). After each implement round the script measures the area's uncommitted
+  delta itself (`git diff --numstat` vs the round-start sha; untracked files
+  intent-added first so new work is counted). Over budget = a red round with reason
+  `size`: the fix ask says shrink to budget or report the split needed; two consecutive
+  size-red rounds stop the area exactly like stagnation does. **One commit per green
+  round** — never a commit folding several rounds' work; red or over-budget areas never
+  commit, so no more than one budget of uncommitted work can pile up per area.
+- **AGENTS.md injected into every spawned subagent**: every role's ask — implementer,
+  fixer, judge, confirmer, capture, vision auditor, Committer — carries the read-first
+  line: the repo's hard rules bind the task, and every skill AGENTS.md requires is read
+  and followed on top of the routing-map skills. A missing or empty file is recorded in
+  notCovered, never silent.
 - Implement mode: one implementer agent per area (name `implementer-<area>`), routing-map
   order, dependencies chained per-item; fix rounds REUSE the same implementer agent.
+  Commits happen per green round inside the area's loop through the shared Committer.
 - Vision mode (flash): web → `agent-browser --session zflow-<area>`; desktop → `ocu`
   (AX text + decoded pixel PNGs). Evidence to `.zflow/evidence/<area>-r<n>-*.png`.
 - Judge mode (pro): fresh blind judge per area (`judge-<area>-r<round>`), findings
   confirmed by a separate confirmer or a world.run gate; unconfirmed findings labelled,
-  never dropped.
+  never dropped. Judge asks carry per-area numstat vs `baseSha` as size evidence: an
+  area over its budget is a HIGH finding regardless of correctness — a blind judge
+  cannot flag magnitude drift it was never shown.
 - Typed interfaces with JSDoc on every field; Finding/WorkflowReport shapes per the
   dynamic-workflows conventions; `report()` findings as they land; a status board
   artifact; final markdown report artifact (primary) + WorkflowReport return.
@@ -133,9 +155,15 @@ built-ins, SendMessage-as-flow-step) — blocker if found.
   on the web lane (tauri dev-server URL), window/tray/native on the desktop lane
   (ocu); main-thread computer-use plugin = interactive fallback lane only.
 - Cross-flow hand-offs = finish the run, relaunch as the sibling flow (no nesting).
-- Preserve verbatim in spirit: small commits / cheap revert; never claim clean while a
-  gate is red; never `--no-verify`; fresh auditors never judge fixes they inspired;
-  unverified stays unverified; half-done work stays on disk and is listed in the report.
+- Every launch carries `agentsMd` (default `AGENTS.md`) and `baseSha` (recorded at
+  prep, `git rev-parse HEAD`); every skill states the AGENTS.md injection rule and the
+  numbered commit budget; a flow whose Route step has no split rule gains the slice
+  budget (~400 changed lines / ~10 files — a slice predicted over budget is split).
+- Preserve verbatim in spirit: size-budgeted small commits (one logical unit =
+  ≤400 changed lines / ≤10 files by default — one commit per green round, cheap
+  revert is the point) / never claim clean while a gate is red; never `--no-verify`;
+  fresh auditors never judge fixes they inspired; unverified stays unverified;
+  half-done work stays on disk and is listed in the report.
 
 ## 5. Files and install
 

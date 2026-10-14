@@ -48,7 +48,9 @@ counters. Evidence never transits the coordinator — it lives in files under
 `.zflow/evidence/` and in each run's typed return.
 
 1. **Init + survey** (coordinator): survey the repo and extract project
-   rules (AGENTS.md / CLAUDE.md / CONTRIBUTING.md); build `areas[]` — name,
+   rules (AGENTS.md / CLAUDE.md / CONTRIBUTING.md — the AGENTS.md path
+   rides every launch via `agentsMd`, its hard rules binding every
+   spawned subagent); build `areas[]` — name,
    paths, excludedPaths, skills (absolute SKILL.md paths, matched live
    against the session's available-skills list — never hardcoded; if
    nothing fits, route without a skill and note the gap), gates
@@ -59,7 +61,11 @@ counters. Evidence never transits the coordinator — it lives in files under
    skipped-and-red forever — no round can turn it green, so its area
    never commits; correct it at launch (swap the tool or drop the
    gate), never mid-chain; non-mutating (no `--fix`/`--write`); must
-   exist in repo tooling), complexity, hasUI, dependsOn.
+   exist in repo tooling), complexity, hasUI, dependsOn. Slice under the
+   size budget — a slice predicted over ~400 changed lines / ~10 files
+   is split into sibling areas ordered by `dependsOn` (per-area
+   `budget` tunes it); record `baseSha` (`git rev-parse HEAD`) — every
+   launch carries `agentsMd` + `baseSha`.
 2. **Implement node**: `CreateWorkflow` zflow-engine `mode=implement
    tier=pro`. One `implementer-<area>` per area in routing-map order,
    dependencies chained per-item; the SCRIPT runs each area's gates in
@@ -75,6 +81,10 @@ counters. Evidence never transits the coordinator — it lives in files under
    - findings strictly shrinking → continue;
    - two consecutive rounds with no meaningful progress (open findings or
      failing gates not shrinking) → stop, report honestly;
+   - a round whose delta exceeds the area's size budget is a red (size)
+     round; two consecutive → that area stops and the report says the
+     split needed — an area over budget is a high finding regardless of
+     correctness, and is split, never committed big;
    - round cap: `maxRounds` (default 3). Never claim clean while a gate is red.
 5. **Fix rounds**: relaunch the implement node with `findings=` (prior
    round's array); the engine REUSES the named `implementer-<area>` agent —
@@ -88,13 +98,21 @@ counters. Evidence never transits the coordinator — it lives in files under
 
 ## Conventions (preserved from the original flow)
 
-- Small commits, one logical unit each — cheap revert is the point; never
-  one mega-commit at the end.
+- Size-budgeted small commits: one logical unit = one revertable review —
+  ≤400 changed lines / ≤10 files (the engine's default budget; per-area
+  `budget` tunes it); the engine commits each green round separately,
+  never one mega-commit at the end; an area over budget is split, not
+  committed big.
 - The Committer owns ALL git mutations; implementers never touch git.
   Explicit paths only, never `git add -A`. Commit after gates pass, not
   before. Match repo style (`git log --oneline -10`; conventional `feat:`/
   `fix:` in a fresh repo). Never `--no-verify` — a hook rejection is
   reported verbatim and routed to a fix round. Never push unless asked.
+- AGENTS.md binds every subagent: every launch passes `agentsMd` (default
+  `AGENTS.md`) and `baseSha`; each spawned role — implementer, judge,
+  confirmer, Committer — reads it first; its hard rules bind the task,
+  and every skill it requires is read and followed on top of the
+  routing-map skills.
 - Fresh auditors never judge fixes they inspired.
 - Gate failures skip the judge and go straight to a fix round — but red
   gates count toward the stagnation counter; no run loops forever.

@@ -53,6 +53,7 @@ ListModels) at every launch — the script cannot pin models itself.
 
 ONE saved `zflow-engine` workflow, launched once per node, all flash-pinned:
 
+0. **Plan (coordinator, before any launch)** — the survey this file's rules reference, made a step so it can never be skipped: extract the repo's AGENTS.md path, hard rules, and the skills it requires; slice the task into areas (paths, excludedPaths, skills, gates, complexity, dependsOn, hasUI, lane) under the size budget — a slice predicted over ~400 changed lines / ~10 files is split into sibling areas ordered by `dependsOn`; run the survey-time gate baseline; record `baseSha` (`git rev-parse HEAD`) — every launch carries `agentsMd` + `baseSha`.
 1. **`mode=implement tier=flash`** — one implementer agent per area
    (`implementer-<area>`), routing-map order; independent areas run
    concurrently (chain per-item, join once), dependencies chain. Gates
@@ -86,14 +87,26 @@ ONE saved `zflow-engine` workflow, launched once per node, all flash-pinned:
      (fresh contexts; context survives only in-run or via AmendWorkflow
      — fixes ride the args); re-run vision with prior evidence, re-judge.
    - Two stagnant rounds → stop; report honestly what passes, what fails, why. No run loops forever.
+   - Size budget: a round whose delta exceeds the area's budget is a red
+     (size) round; two consecutive → that area stops and the report says
+     the split needed. An area over budget is a high finding regardless
+     of correctness — an over-budget area is split, never committed big.
 
 ## Preserved conventions
 
 - Never claim clean while a gate is red. A gate red at the survey baseline is dropped from the launch gates and reported as a pre-existing red — no run burns fix rounds on it.
-- Small commits, one logical unit each — that makes a finding cheap to
-  revert. Fix rounds commit separately (`fix: ...`). Explicit paths only;
-  never `git add -A`; never `--no-verify`; never push. Match repo style
-  (`git log --oneline -10`) first.
+- Size-budgeted small commits: one logical unit = one revertable review —
+  ≤400 changed lines / ≤10 files (the engine's default budget; per-area
+  `budget` tunes it). The engine commits each green round separately,
+  never one commit folding several rounds; an area over budget is split,
+  not committed big. Fix rounds commit separately (`fix: ...`). Explicit
+  paths only; never `git add -A`; never `--no-verify`; never push. Match
+  repo style (`git log --oneline -10`) first.
+- AGENTS.md binds every subagent: every launch passes `agentsMd` (default
+  `AGENTS.md`) and `baseSha`; each spawned role — implementer, capture,
+  auditor, judge, confirmer, Committer — reads it first; its hard rules
+  bind the task, and every skill it requires is read and followed on top
+  of the routing-map skills.
 - Fresh auditors never judge fixes they inspired; flash judges never
   soften findings — false positives are absorbed by confirmation + re-audit.
 - Unverified stays unverified — a check that could not actually be examined is labelled so, never narrated as reviewed.

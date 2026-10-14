@@ -2,7 +2,7 @@
 name: explore-flash
 description: "Read-only agent (glm-5.3-flash) for broad fan-out searches and read-only code audits — flash-tier variant of the built-in Explore agent. Use when sweeping many files, directories, or naming conventions and you only need the conclusion, not the file dumps; also use it as a fresh read-only auditor reporting findings on a change against its task and repo conventions — it reports; the orchestrator or a general-pro judge decides. It reads excerpts rather than whole files, so it locates and verifies code cheaply; it never edits. Specify search breadth: \"medium\" for moderate exploration, \"very thorough\" for multiple locations and naming conventions. (Tools: Read, Bash, Glob, Grep, WebFetch, WebSearch, TodoWrite)"
 color: cyan
-injectAgentsMd: false
+injectAgentsMd: true
 tools: ["Read", "Bash", "Glob", "Grep", "WebFetch", "WebSearch", "TodoWrite"]
 model: account:zai-individual-coding-plan/GLM-5.3-Flash
 thoughtLevel: low

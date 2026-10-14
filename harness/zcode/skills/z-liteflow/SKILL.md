@@ -21,7 +21,7 @@ report.** Evidence lives under `.zflow/evidence/`.
 
 | Work | Tier / model |
 |---|---|
-| Scoping, baseline gate pass + record, between-run routing, report; hand commits — only when the user asked AND the loop ended clean | Main agent (coordinator, host model) |
+| Scoping, baseline gate pass + record, between-run routing, report; hand commits at hand-off — only when the user asked AND the loop ended clean — one commit per area, never one end-of-chain blob | Main agent (coordinator, host model) |
 | Implement + gate fix loop (`implementer-<area>`) | implement node — launcher pins `subagent_model` = GLM-5.3-Flash |
 | Audit: fresh blind `judge-<area>-r<round>` + per-finding `confirmer-*` | judge node — GLM-5.3-Flash, fresh every round |
 | Vision, only if the user asks | vision node — GLM-5.3-Flash reads PNGs natively |
@@ -51,7 +51,8 @@ run and relaunch as the sibling flow — never a mid-run model swap.
 ```
 
 Launch each node with `CreateWorkflow` (saved `zflow-engine`, args `{mode,
-tier, task, areas, evidence?, findings?, commit?, maxRounds}`). Between
+tier, task, areas, evidence?, findings?, commit?, maxRounds, agentsMd?,
+baseSha?, maxLines?, maxFiles?}`). Between
 runs the coordinator holds ONLY: task, areas + gates, baseline record,
 round number, verified high/medium counts, evidence paths — never file bodies.
 
@@ -59,7 +60,12 @@ round number, verified high/medium counts, evidence paths — never file bodies.
 
 - **Allowed paths** — files in play, incl. ones the task requires creating,
   named explicitly. **At most one skill**, verified against the session's
-  available-skills list.
+  available-skills list. If the predicted diff exceeds the size budget
+  (~400 changed lines / ~10 files), the task does not fit liteflow — say
+  so and hand off to a sibling flow instead of routing it big.
+- **Size evidence** — record `baseSha` (`git rev-parse HEAD`) at scope
+  time; every launch carries `agentsMd` + `baseSha`, so the judge sees
+  the area's numstat vs the chain's start.
 - **Gates** from the repo's tooling, non-mutating variants (`--check`
   forms). No gates? **Audit-only mode**: the judge judges gateless areas on
   code and text evidence alone — the done-criterion; the report must state
@@ -98,12 +104,21 @@ the gates, never the agents; a red gate is itself a finding.
 - Unverified stays unverified; half-done work stays on disk and is listed
   in the report; revert only on request.
 - **Commits** — the engine's commit phase (`commit`, default true) commits
-  each gates-green area: explicit paths, Committer-drafted, `fix:` on fix
-  rounds, never `--no-verify`, never push; red or gateless areas get none.
-  Liteflow passes `commit: false` on every launch — loop cleanliness is
-  never known in advance — so the warranted commit is the coordinator's
-  hand (audit-only's only route): only when the user asked AND the loop
-  ended clean; explicit paths, log style, never push.
+  each gates-green area per green round: explicit paths, Committer-drafted,
+  size-budgeted (one logical unit = ≤400 changed lines / ≤10 files),
+  `fix:` on fix rounds, never `--no-verify`, never push; red or gateless
+  areas get none. Liteflow passes `commit: false` on every launch — loop
+  cleanliness is never known in advance — so the warranted commits are the
+  coordinator's hand at hand-off (audit-only's only route): only when the
+  user asked AND the loop ended clean; **one commit per area, keyed to the
+  scope list, each within budget** — never one end-of-chain blob; explicit
+  paths, log style, never push.
+- **AGENTS.md binds every subagent** — every launch passes `agentsMd`
+  (default `AGENTS.md`); each spawned role — implementer, judge,
+  confirmer, capture — reads it first; its hard rules bind the task, and
+  every skill it requires is read and followed on top of the scoped skill
+  (AGENTS.md-required skills are not a routing choice, so they do not
+  count against the one-skill cap).
 
 ## Fallback lanes
 
