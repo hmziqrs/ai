@@ -152,8 +152,7 @@ Validation: existing check passes; no controlled fault was evaluated.
 ```
 
 Finish with scope examined, checks performed, changes made, and limitations.
-Do not present a sampled review as a whole-suite judgment. Maintainers evaluating
-this skill can use [the scenarios](evals/scenarios.md); they are not runtime steps.
+Do not present a sampled review as a whole-suite judgment.
 
 ## Grounded in
 

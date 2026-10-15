@@ -158,9 +158,6 @@ Deliver the requested proposal or policy diff, with the chosen generation mode,
 verification responsibilities, and any enforcement limitations. Do not claim
 that writing the policy proves it will be followed.
 
-Maintainers can evaluate behavior using [evals/scenarios.md](evals/scenarios.md).
-Those scenarios are authoring checks, not extra runtime steps for coding tasks.
-
 ## Grounded in
 
 These policy adaptations use the repository's AI-generated-tests research:

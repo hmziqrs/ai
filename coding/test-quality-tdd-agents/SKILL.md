@@ -145,7 +145,6 @@ diagnosis, or another unresolved verification question.
 
 Testing guidance is distilled from the repository's supplied research dossier.
 The skill is self-contained; using it does not require reading that archive.
-Maintainers can evaluate its behavior with [scenarios](evals/scenarios.md).
 Key sources are:
 
 - [Seemann: AI-Generated Tests as Ceremony](https://blog.ploeh.dk/2026/01/26/ai-generated-tests-as-ceremony/).
