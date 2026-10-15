@@ -197,7 +197,8 @@ commit per green round) hold everywhere.
   engine saves to `~/.zcode/workflows/` via SaveWorkflow. The installed
   engine and this source copy must stay **byte-identical** — verify with
   `diff -q` after every change; any difference is drift and a blocker.
-- History, explicitly not live: `zflow-port/` (the Sep-21 v1 multi-run port),
+- History, explicitly not live: `research/harness/zcode/history/zflow-port/`
+  (the Sep-21 v1 multi-run port),
   `.zcode/workflow-probes/` (platform probes and v2.2 development snapshots),
   `~/.zcode/archive/` (pre-port skill backups). They describe past platform
   facts and must never be installed from.

@@ -5,12 +5,16 @@ given this repo completes it with its own file tools, and a human can
 follow the same steps. Everything is plain copies — no build, no
 dependencies.
 
-Content comes in two kinds (see [README.md](README.md)):
+Installable content comes in two kinds (see [README.md](README.md)):
 
 - `harness/<name>/` — a harness-specific kit. Only the kit for your
   harness applies.
-- every other top-level directory (`copy/`, …) — a cross-harness skill
-  category. **All of them apply to every harness.**
+- other top-level directories except `research/` (`copy/`, …) are
+  cross-harness skill categories. **All categories apply to every harness.**
+
+`research/` contains source reports and historical snapshots. Exclude it from
+all discovery and copy operations. Installation does not authorize reading it;
+follow the research-access rule in [AGENTS.md](AGENTS.md).
 
 ## ZCode kit
 
@@ -24,7 +28,8 @@ Content comes in two kinds (see [README.md](README.md)):
      keeping the folder name. Never `~/.agents/skills/` — they are
      useless in other harnesses and double every ZCode session's skill
      index when mirrored there.
-   - Every skill folder in every category directory, nested to any depth
+   - Every skill folder in every category directory, excluding `research/`
+     and nested to any depth
      (`copy/antislop-copy`, `languages/rust/rust-superopt`, …), is
      cross-harness: copy those to `~/.agents/skills/`, keeping the
      folder name.
@@ -48,6 +53,9 @@ skills, and uninstall.
 ```sh
 npx skills add hmziqrs/ai -g -a zcode -y
 ```
+
+Archived definitions under `research/` use `SKILL.snapshot.md`; never select
+research material for installation.
 
 Installs SKILL.md packs into `~/.zcode/skills/` (other `-a` targets:
 claude-code, cursor, universal, …). Scope what you install: this is for

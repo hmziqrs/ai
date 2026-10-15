@@ -21,7 +21,9 @@ steps directly; everything the kit needs is under `harness/codex/`.
    `~/.codex/model-catalogs/zai-models.json`.
 4. **Skills.** Copy each skill folder in `plugins/zai-workflows/skills/`
    and each skill folder in every top-level category directory of the
-   repo (`copy/`, …) to `~/.agents/skills/`, keeping folder names.
+   repo (`copy/`, …), excluding `research/`, to `~/.agents/skills/`, keeping
+   folder names. Never browse or install research archives during installation;
+   follow the repository AGENTS.md research-access rule.
 5. **Secret.** Import `ZAI_API_KEY` from the environment into
    `~/.codex/secrets/zai-api-key`: create `~/.codex/secrets/` with
    mode `0700` if needed, write the file with mode `0600`, and never

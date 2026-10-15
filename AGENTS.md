@@ -4,6 +4,23 @@ Repo: `hmziqrs/ai` — harness kits and cross-harness skill categories.
 There is no installer: agents install this repo by following
 `install.md`, and humans can follow the same steps.
 
+## Research access (hard rule)
+
+`research/` contains source reports, design studies, and historical experiments.
+Never browse, enumerate, search, index, or read it on your own. Access is allowed
+only in these two cases:
+
+1. The user's prompt explicitly asks to inspect or use research material.
+2. The task itself is research-related and the material is relevant to that work.
+
+For every other task, exclude `research/` from recursive searches, file discovery,
+audits, and delegated exploration. A link or citation pointing there does not
+grant access. When access is allowed, read only what the task needs.
+
+`research/` is never a skill category or installation source. Do not install
+archived skills, agents, or workflows from it. Historical skill definitions use
+`SKILL.snapshot.md` so discovery cannot mistake them for active skills.
+
 ## Layout
 
 ```
@@ -13,14 +30,16 @@ harness/<name>/              harness-SPECIFIC kits (only what depends on a harne
   zcode/workflows/             dynamic-workflow sources (zflow-engine.dwf.ts + zflow-SPEC.md)
   codex/                       Codex kit (agents, profiles, plugin, model-catalogs, scripts)
 <category>/[<group>/]<skill>/SKILL.md  cross-harness skill categories (copy/, languages/rust/, ...): plain SKILL.md skills, optionally grouped
+research/                    source reports and historical material; access restricted above, never installed
 install.md                   ZCode-kit + categories install procedure
 llms.txt                     entry point for consuming agents
 ```
 
 ## Conventions
 
-- Two content kinds: `harness/<name>/` kits (harness-specific layout)
-  and top-level category directories holding skill folders directly.
+- Installable content has two kinds: `harness/<name>/` kits
+  (harness-specific layout) and top-level category directories holding
+  skill folders directly. `research/` is excluded from both.
   Litmus test: if content references CreateWorkflow, model pins, Codex
   TOML, or any harness mechanism, it belongs in a harness kit;
   otherwise it belongs in a category.
@@ -35,8 +54,8 @@ llms.txt                     entry point for consuming agents
   Model IDs resolve against zai / zai-coding-plan providers
   (`glm-5.3-flash`, `glm-5.3`).
 - New skills, agents, or categories need no registration — every
-  install path picks up whatever is in the tree. A new category is a
-  new top-level directory; a new harness is a new `harness/<name>/`
+  install path picks up active content, excluding `research/`. A new category
+  is a new top-level directory; a new harness is a new `harness/<name>/`
   folder plus its install documentation.
 - Keep the repo root as flat as possible: prefer grouping skills under
   an existing category (categories may nest sub-groups, e.g.

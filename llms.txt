@@ -5,8 +5,8 @@
 > pointed at this repo installs it by following the procedures below.
 
 Layout: harness-specific kits under `harness/` (`zcode/`, `codex/`);
-every other top-level directory (`copy/`, …) is a cross-harness skill
-category that applies to every harness. To install, follow
+other top-level directories except `research/` (`copy/`, …) are cross-harness
+skill categories that apply to every harness. To install, follow
 [install.md](install.md) (ZCode kit + categories) or
 [harness/codex/install.md](harness/codex/install.md) (Codex kit +
 categories) — plain copies into `~/.zcode/agents/`,
@@ -15,6 +15,10 @@ skills never go to `~/.agents/`), `~/.agents/skills/` (cross-harness
 category skills only), and `~/.codex/`. Agent definitions must be
 regular files — ZCode's discovery silently skips symlinks; `find
 ~/.zcode/agents -type l` printing nothing confirms none.
+
+`research/` is excluded from installation and routine exploration. Read it only
+when the user explicitly requests research material or the task is research-related.
+Follow the hard rule in [AGENTS.md](AGENTS.md).
 
 ## ZCode kit (`harness/zcode/`)
 
@@ -32,9 +36,9 @@ regular files — ZCode's discovery silently skips symlinks; `find
 
 ## Cross-harness skill categories
 
-Every top-level directory except `harness/` is a category holding
-plain-SKILL.md skills (no harness tooling). All of them install for
-every harness.
+Every top-level directory except `harness/` and `research/` is a category
+holding plain-SKILL.md skills (no harness tooling). Category skills install
+for every harness; research archives never install.
 
 - [copy/antislop-copy/SKILL.md](copy/antislop-copy/SKILL.md): cuts consumer-facing website copy to the shortest version that still answers the visitor's questions, without inventing or bending facts.
 - [coding/code-comments/SKILL.md](coding/code-comments/SKILL.md): hard comment discipline for agent-written code — use whenever writing or editing code in any language, even when the request never mentions comments. Zero comments by default; names, types, structure, and tests carry the meaning. Only public-API contract docs, convention-required SAFETY blocks, and link-carrying last-resort constraint notes survive, never longer than 2 lines (3 absolute max). Bans narration, section banners, change-log and AI-voice comments.

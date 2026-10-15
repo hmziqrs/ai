@@ -137,7 +137,7 @@ Layer these under the rules. Whether instructions alone can stop test-gaming is 
 
 ## Grounded in
 
-All claims, quotes, and links trace to `ai-generated-tests-research.md` (workspace root). Key sources:
+All claims, quotes, and links trace to `research/coding/test-quality/ai-generated-tests-research.md`. Key sources:
 
 - derekross/podstr .cursorrules, "Writing Tests vs Running Tests" — https://github.com/derekross/podstr/blob/main/.cursorrules
 - hellsquirrel.dev, "Calibrating the Spherical Developer" — https://hellsquirrel.dev/blog/dx-dp-1

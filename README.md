@@ -1,9 +1,13 @@
 # ai: harness kits and cross-harness skills
 
 Harness-specific kits live under `harness/`, one subfolder per harness.
-Every other top-level directory is a cross-harness skill category. There
-is no installer: an AI agent pointed at this repo installs it from
+Other top-level directories except `research/` are cross-harness skill
+categories. There is no installer: an AI agent pointed at this repo installs it from
 [install.md](install.md); `llms.txt` is the agent entry point.
+
+`research/` holds source reports and historical material. It is excluded from
+installation. Agents may read it only on an explicit user request or during
+research-related work, as required by [AGENTS.md](AGENTS.md).
 
 ```
 ai/
@@ -17,6 +21,7 @@ ai/
 │   └── test-quality-*/   the 3 test-quality skills, listed below
 ├── languages/            cross-harness skill category: language ecosystems
 │   └── rust/             Rust performance (the 5 rust-* skills, listed below)
+├── research/             source reports, design studies, and historical experiments
 └── install.md            the install procedure
 ```
 

@@ -48,10 +48,6 @@ args:
     default: false
 */
 
-// shipflow-queue: ONE queue cycle per run (plan: skills/shipflow/research/shipflow-plan.md section 6; contract:
-// zflow-SPEC.md section 3). The coordinator polls pipeline:ready, launches this per issue with subagent_model
-// pinned to the tier, and relaunches for the next issue - the infinity lives outside any single run (SPEC 1.2).
-
 // ---- Types. JSDoc on every field: it is the field description the subagent reads. ----
 
 /** One planned area of the issue (the task-planner's shape). */

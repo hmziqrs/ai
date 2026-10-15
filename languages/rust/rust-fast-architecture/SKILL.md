@@ -15,7 +15,7 @@ numbers from the same shape taken further: one thread per replica, zero dynamic
 allocation, batching instead of intra-replica parallelism.
 
 This skill turns those systems into a decision framework. Everything here is
-sourced from the research report (simd-research/report.md, 2026-09-29, itself
+sourced from the research report (research/languages/rust/simd-research/report.md, 2026-09-29, itself
 sourced from SpacetimeDB/TigerBeetle blogs and a clone of clockworklabs/
 SpacetimeDB@master, 2026-09-28); measured TPS figures are **vendor-published,
 not independently reproduced**, and single-blog migration numbers (Iggy,

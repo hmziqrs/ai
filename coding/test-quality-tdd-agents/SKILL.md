@@ -294,8 +294,7 @@ whether a suite catches faults, run mutation testing as covered in `test-quality
 
 ## Grounded in
 
-Every claim, quote, tool name, and link above traces to `ai-generated-tests-research.md`
-(workspace root), the single source for this skill. Key sources:
+Every claim, quote, tool name, and link above traces to `research/coding/test-quality/ai-generated-tests-research.md`, the single source for this skill. Key sources:
 
 - Anthropic, "Claude Code: Best practices for agentic coding" (archived 2025) —
   write-tests/commit/code/iterate workflow, clear-target quote, overfit-checking

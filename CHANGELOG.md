@@ -25,13 +25,13 @@ versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
   this one-launch architecture, and the engine source in
   `harness/zcode/workflows/` is byte-identical to the installed
   `~/.zcode/workflows/zflow-engine.dwf.ts`. Development snapshots live
-  only in the parent repo's archives (`zflow-port/`, `.zcode/workflow-probes/`)
-  — never install from those.
+  in `research/harness/zcode/history/zflow-port/` and the parent repo's
+  `.zcode/workflow-probes/` archive. Never install from those.
 
 ### Added
 - **`coding/` category: three `test-quality-*` skills.** Test-discipline
   suite for AI-heavy development, every claim, quote, and link traced to
-  a 133-source research sweep (`ai-generated-tests-research.md`):
+  a 133-source research sweep (`research/coding/test-quality/ai-generated-tests-research.md`):
   `test-quality-guardrails` — stop the bloat with rules-file policies
   (default-off test generation, read-only failing tests, targeted
   in-loop runs with the full suite in CI/hooks) shipped as copy-paste

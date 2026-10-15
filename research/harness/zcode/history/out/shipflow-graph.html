@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shipflow</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    darkMode: true,
+    flowchart: { useMaxWidth: false },
+    state: { useMaxWidth: false },
+    themeVariables: {
+      background: '#0d1117',
+      primaryColor: '#1c2a3a',
+      primaryBorderColor: '#58a6ff',
+      primaryTextColor: '#e6edf3',
+      lineColor: '#8b949e',
+      secondaryColor: '#1c2a3a',
+      secondaryBorderColor: '#30363d',
+      tertiaryColor: '#161b22',
+      tertiaryBorderColor: '#30363d',
+      clusterBkg: '#161b22',
+      clusterBorder: '#30363d',
+      noteBkgColor: '#1c2a3a',
+      noteTextColor: '#e6edf3',
+      noteBorderColor: '#30363d',
+      edgeLabelBackground: '#0d1117',
+      fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+    }
+  });
+</script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0d1117; color: #e6edf3;
+         font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 36px 24px 90px; }
+  header h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: .4px; }
+  header p.sub { margin: 0; color: #8b949e; font-size: 14px; }
+  section { background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+            padding: 20px 24px 24px; margin-top: 26px; }
+  h2 { font-size: 18px; color: #58a6ff; margin: 0 0 4px; font-weight: 600; }
+  p.lead { margin: 0 0 14px; color: #8b949e; font-size: 13.5px; }
+  pre.mermaid { display: block; margin: 8px 0 0;
+                overflow-x: auto; background: transparent; }
+  .mermaid svg { max-width: none; }
+  p.cap { color: #8b949e; font-size: 12.5px; margin: 12px 0 0; line-height: 1.6; }
+  p.cap b { color: #e6edf3; font-weight: 600; }
+  .legend ul { margin: 10px 0 6px; padding-left: 20px; }
+  .legend li { margin: 8px 0; font-size: 14px; line-height: 1.55; color: #c9d1d9; }
+  .legend li b { color: #e6edf3; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 12px; }
+  th, td { border: 1px solid #30363d; padding: 7px 10px; text-align: left; vertical-align: top; line-height: 1.5; }
+  thead th { background: #1c2a3a; color: #58a6ff; position: sticky; top: 0; font-weight: 600; }
+  tbody tr:nth-child(even) { background: #11151c; }
+  td code, li code, p code { color: #93c5fd; background: #111a2e; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  .dot { display: inline-block; width: .72em; height: .72em; border-radius: 50%;
+         margin-right: .45em; border: 1px solid rgba(0,0,0,.45); vertical-align: middle; }
+  .tier-W { color: #fdba74; font-weight: 600; }
+  .tier-J { color: #fca5a5; font-weight: 600; }
+  .tier-C { color: #6ee7b7; font-weight: 600; }
+  .mono { font-variant-numeric: tabular-nums; color: #8b949e; }
+  p.note { color: #8b949e; font-size: 12.5px; margin: 12px 0 0; line-height: 1.6; }
+  p.note b { color: #e6edf3; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Shipflow</h1>
+  <p class="sub">Graph view of <code>shipflow-plan.md</code> (compiled 2026-10-08). Mermaid loads from a CDN — if the diagram blocks show raw text, the CDN is blocked.</p>
+</header>
+
+<section>
+  <h2>1 · One issue's journey</h2>
+  <p class="lead">The runtime path of a single <code>pipeline:ready</code> issue, including the fix loop back to the gates and the escalation edge to <code>pipeline:failed</code>.</p>
+  <pre class="mermaid">
+flowchart TD
+    Q["GitHub issue — pipeline:ready"]:::gh
+    CLAIM["claim — gh-ops flips ready to in-progress (T2)"]:::dispatch
+    TRIAGE["triage — issue-triage builds the Contract; frozen (T3 stamp)"]:::engine
+    PLANNER["task-planner — typed task graph; every AC gets task + verification"]:::engine
+    PLANAUD["plan-auditor — coverage, no scope creep, real gates; one replan"]:::engine
+    IMPL["implement node — Committer branches pipeline/issue-N; rust-impl parallel svelte-impl; qa-writer stage; perf stage"]:::engine
+    GATES["script gates — cargo build, cargo test, svelte-check, unit tests, path gates vs baseline"]:::script
+    JUDGE["judge node — fresh blind rust-review, svelte-review, injection re-screen, security-audit via broker; every finding confirmed"]:::engine
+    FIX["fix loop — fixer; ROUTE-TO-QA to qa-writer; one budget per issue, maxRounds 3"]:::engine
+    PUSH["finalize — Committer pushes the branch once (launch-amended grammar)"]:::engine
+    PR["PR create — script-drafted body: goal, Closes #N, AC table"]:::script
+    PREV["preview — script-owned: ports 4100+2N / 4101+2N, per-preview SQLite, tunnel best-effort"]:::script
+    BR["browser node — browser-tester via agent-browser CLI, session issue-N"]:::engine
+    VIS["vision node — vision-judge on Flash; findings UNCONFIRMED"]:::engine
+    CONF["judge confirm round over the same screenshots (z-workflow 92, 115)"]:::engine
+    COPY["copywriter — PR text ships via gh pr edit (T8)"]:::dispatch
+    AUDIT["pr-reviewer audit — cumulative baseSha..HEAD satisfies every AC; tests cover every AC; SQL binding"]:::dispatch
+    DRIFT["edit re-audit — any PR push triggers queue-monitor DRIFT and a re-audit run"]:::script
+    MERGER["pr-merger — conjunctive checklist; emits the T10 merge directive"]:::dispatch
+    MERGE["gh-ops merges — squash, delete-branch, match-head-commit"]:::dispatch
+    BOARD["Projects board sync — Merged column; sweep, preview teardown, reconcile"]:::script
+    ESC["gh-ops escalation issue (T11)"]:::dispatch
+    FAILED["pipeline:failed — terminal; honest report; reconcile"]:::fail
+
+    Q --> CLAIM --> TRIAGE --> PLANNER --> PLANAUD --> IMPL --> GATES --> JUDGE
+    TRIAGE -->|"reject or quarantine (T4, T4-Q)"| FAILED
+    PLANAUD -->|"plan-fail after one replan"| ESC
+    JUDGE -->|"findings above zero"| FIX
+    FIX -->|"gates re-run, then a fresh blind judge"| GATES
+    FIX -->|"cap exceeded or two stagnant rounds"| ESC
+    ESC --> FAILED
+    JUDGE -->|"zero open findings, non-baseline gates green"| PUSH
+    PUSH --> PR --> PREV
+    PREV --> BR
+    PREV --> VIS
+    BR --> CONF
+    VIS --> CONF
+    BR -->|"FAIL lines converted to findings by script"| FIX
+    CONF -->|"confirmed vision findings"| FIX
+    CONF --> COPY --> AUDIT
+    AUDIT -->|"PR pushed: head sha changed"| DRIFT
+    DRIFT -->|"re-audited"| AUDIT
+    AUDIT --> MERGER --> MERGE --> BOARD
+    BOARD -.->|"sleep, next poll"| Q
+
+    classDef engine fill:#12212f,stroke:#58a6ff,color:#e6edf3
+    classDef dispatch fill:#12212f,stroke:#a371f7,color:#e6edf3
+    classDef script fill:#241c10,stroke:#f0883e,stroke-dasharray:5 4,color:#e6edf3
+    classDef gh fill:#0d1117,stroke:#8b949e,color:#e6edf3
+    classDef fail fill:#2d1416,stroke:#f85149,color:#e6edf3
+  </pre>
+  <p class="cap"><b>Checkpoint ids</b> follow plan §8: PR create = CP1, pr-reviewer = CP2, drift/edit re-audit = CP3, pr-merger = CP4. Order follows the plan's G1 loop reorder: the PR is created <b>before</b> preview/browser/vision, and copywriter text ships as <code>gh pr edit</code> on that open PR. Orange dashed nodes are script-owned (no model role); blue are engine-run nodes; purple are main-thread dispatches; red is terminal failure.</p>
+</section>
+
+<section>
+  <h2>2 · Component graph</h2>
+  <p class="lead">Static topology: who talks to what. The thin coordinator launches tier-pure engine runs and dispatches; GitHub holds the machine truth; state lives on disk.</p>
+  <pre class="mermaid">
+flowchart TB
+    COORD["main thread — thin coordinator (Doctrine 1): task, areas, counts, verdicts, shas, evidence paths only; never reads diffs, gates, screens; never edits files"]
+    SKILL["shipflow coordinator skill + launch conventions (Committer push grammar, lifecycle allowlist, watchdog exception)"]
+    subgraph ENGINE["shipflow-engine — tier-pure engine runs (CreateWorkflow)"]
+        direction TB
+        R1["run 1 triage + plan — GLM-5.3"]
+        R2["run 2 implement, 2b fix, 2c finalize — GLM-5.3"]
+        R3["run 3 judge — GLM-5.3; lease granted with jobId null"]
+        R4["run 4 preview — script-owned, no model role"]
+        R5["run 5 browser — GLM-5.3"]
+        R6["run 6 vision — GLM-5.3-Flash"]
+        R1 ~~~ R2 ~~~ R3 ~~~ R4 ~~~ R5 ~~~ R6
+    end
+    subgraph DISP["main-thread dispatches — the 20 harness files pin model + thoughtLevel"]
+        direction TB
+        DA["claim, sweep, board sync — GLM-5.3-Flash low (gh-ops, queue-monitor)"]
+        DB["PR create + copy edit — gh-ops Flash low executes; copywriter GLM-5.3 high"]
+        DC["injection re-screen max; pr-reviewer GLM-5.3 max; pr-merger GLM-5.3 high"]
+        DA ~~~ DB ~~~ DC
+    end
+    subgraph GH["GitHub"]
+        direction TB
+        ISSUES["issues — pipeline labels are the machine truth"]
+        PRS["PRs — create, edit, comment, merge; gh-ops is the sole agent mutator"]
+        BOARD["Projects board — projection only (item-edit)"]
+        ISSUES ~~~ PRS ~~~ BOARD
+    end
+    TUN["preview tunnels — cloudflared quick tunnel, best-effort; local 127.0.0.1 URL is canonical for browser + vision"]
+    MIM["mimosa MCP — two-phase broker, jobId-keyed"]
+    subgraph DISK["state and evidence on disk"]
+        direction TB
+        EV[".zflow/evidence/issue-N — rounds, preview, security; referenced by path only (Doctrine 3)"]
+        REG["previews/registry.json — keyed by issue N; atomic writes; TTL"]
+        LEASE["mcp-leases.json — mimosa serialization"]
+        JRNL["workflow journal — run labels shipflow-#N; guard A + watchdog input"]
+        ST[".zflow/state — issues/N.json, active-run.json, events.jsonl, contracts cache"]
+        EV ~~~ REG ~~~ LEASE ~~~ JRNL ~~~ ST
+    end
+
+    COORD --- SKILL
+    COORD -->|"CreateWorkflow launch"| ENGINE
+    COORD -->|"Agent dispatch"| DISP
+    ISSUES -->|"read-only poll"| COORD
+    R1 --> EV
+    R2 -->|"push once; PR via gh-ops"| PRS
+    R3 <--> LEASE
+    LEASE <--> MIM
+    R3 --> EV
+    R4 --> REG
+    R4 --> TUN
+    TUN -->|"public URL in PR comment"| PRS
+    R5 --> EV
+    R6 --> EV
+    DA --> ISSUES
+    DA --> PRS
+    DA --> BOARD
+    DB --> PRS
+    DC --> PRS
+    COORD --> JRNL
+    COORD --> ST
+    R6 ~~~ ISSUES
+    BOARD ~~~ TUN
+    TUN ~~~ MIM
+    MIM ~~~ EV
+  </pre>
+  <p class="cap"><b>Degraded mode (plan §4.1):</b> if the model catalog is unavailable on the shipping host, all engine launches omit <code>subagent_model</code> and the run report header states <code>mode: degraded-single-model</code> — every correctness invariant is tier-independent.</p>
+</section>
+
+<section>
+  <h2>3 · Issue label states</h2>
+  <p class="lead">The label state machine. Machine truth = exactly one <code>pipeline:*</code> label per open issue; only <code>ready</code> is human-set (plan §6.1).</p>
+  <pre class="mermaid">
+stateDiagram-v2
+    direction LR
+    state "pipeline:ready — the only human-set label" as ready
+    state "pipeline:in-progress" as inp
+    state "pipeline:triaged" as tri
+    state "pipeline:in-review" as rev
+    state "pipeline:failed — terminal" as fail
+    state "merged — issue closed, label removed; Merged lives on the board" as merged
+
+    [*] --> ready: human labels the issue
+    ready --> inp: claim T2 (gh-ops)
+    inp --> tri: triage PASS T3 (Contract stamped and frozen)
+    inp --> fail: triage REJECT or quarantine T4, T4-Q
+    tri --> rev: PR created T6b
+    tri --> fail: fix-cap or unrecoverable T11
+    rev --> merged: merge T10 (Closes N auto-close)
+    rev --> fail: fix-cap or unrecoverable T11
+    fail --> ready: requeue T12 (rule-id + comment)
+    merged --> [*]
+  </pre>
+  <p class="cap">There is no <code>pipeline:rejected</code> (G13): injection quarantine routes to <code>pipeline:failed</code> with a <code>Quarantined:</code> comment. There is no <code>pipeline:merged</code> label either — merged means the issue closed. The claim order is <b>ready → in-progress → triaged</b> (claim first, then the triage PASS flip), per transitions T2/T3 in plan §6.5.</p>
+</section>
+
+<section>
+  <h2>4 · The Contract through its four checkpoints</h2>
+  <p class="lead">The frozen Contract is the single source of truth; it is consumed at four points: plan, PR create, PR edit, pre-merge.</p>
+  <pre class="mermaid">
+flowchart TD
+    C["Contract — frozen at triage: Goal, Requirements, ACs with verifiedBy, Out of scope, Areas. Cached at .zflow/state/contracts/N.json; every dispatch receives the frozen object"]:::contract
+    K1["Checkpoint 1 (plan) — task-planner + plan-auditor: union of task acIds equals all ACs; every AC has a task and a verification; one replan allowed"]:::cp
+    K2["Checkpoint 2 (PR create) — gh pr create with a script-drafted body: goal, Closes #N, AC table; never model-composed at create time"]:::cp
+    K3["Checkpoint 3 (PR edit) — gh pr edit carries the copywriter text; must keep Closes #N; sections map to AC IDs and evidence paths"]:::cp
+    K4["Checkpoint 4 (pre-merge) — pr-reviewer cites a diff hunk plus a test path per AC; pr-merger checklist requires Contract satisfied"]:::cp
+    M["squash merge — body Closes #N auto-closes the issue"]:::done
+
+    C --> K1 --> K2 --> K3 --> K4 --> M
+
+    classDef contract fill:#122b1c,stroke:#3fb950,color:#e6edf3
+    classDef cp fill:#12212f,stroke:#58a6ff,color:#e6edf3
+    classDef done fill:#122b1c,stroke:#3fb950,color:#e6edf3
+  </pre>
+  <p class="cap"><b>Numbering note:</b> this diagram shows the Contract's four touchpoints as requested (plan, PR create, PR edit, pre-merge). Plan §8 separately numbers its merge-gate checkpoints CP1 PR create, CP2 pr-reviewer audit, CP3 drift/edit re-audit, CP4 pr-merger — the pre-merge box here covers CP2 + CP4.</p>
+</section>
+
+<section class="legend">
+  <h2>Legend</h2>
+  <ul>
+    <li><b>1 · Journey</b> — the runtime path one issue takes through the chain. Includes the fix-loop edge (findings above zero → fixer → gates re-run → fresh blind judge) and the escalation edge (cap exceeded → gh-ops escalation issue → <code>pipeline:failed</code>). Orange dashed = script-owned step (no model); blue = engine-run node; purple = main-thread dispatch; red = terminal failure.</li>
+    <li><b>2 · Components</b> — the static topology: the thin coordinator and its skill launch tier-pure engine runs (each pinned to a <code>subagent_model</code>) and harness-file dispatches; GitHub holds machine truth (labels) plus the board projection; preview tunnels are best-effort for humans while the local URL stays canonical for machine consumers; state lives in the four on-disk artifacts plus <code>.zflow/state</code>.</li>
+    <li><b>3 · Label states</b> — the issue-label state machine, exactly one <code>pipeline:*</code> per open issue; merged is a closed issue, not a label; failed can requeue (T12) after an honest report.</li>
+    <li><b>4 · Contract</b> — the frozen Contract (Goal / Requirements / ACs with <code>verifiedBy</code> / Out of scope / Areas) consumed at its four checkpoints: plan, PR create, PR edit, pre-merge.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Agent roster — the 20 harness files</h2>
+  <p class="lead">Tier, model, thoughtLevel, tools, and live-resolved skills per agent, from plan §4.3. Files live at <code>~/.zcode/agents/&lt;name&gt;.md</code> and are the only per-agent pin — run-wide <code>subagent_model</code> cannot pin per agent.</p>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Agent</th><th>Tier</th><th>Model</th><th>thoughtLevel</th><th>Tools</th><th>Skills (live-resolved)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="mono">1</td><td><span class="dot" style="background:orange"></span>rust-impl</td><td class="tier-W">worker</td><td>GLM-5.3</td><td>high</td><td>Read, Edit, Write, Bash, Glob, Grep</td><td>rust-best-practices, axum-web-framework, better-auth</td></tr>
+      <tr><td class="mono">2</td><td><span class="dot" style="background:red"></span>svelte-impl</td><td class="tier-W">worker</td><td>GLM-5.3</td><td>high</td><td>Read, Edit, Write, Bash, Glob, Grep</td><td>shadcn-svelte, starwind-ui, tailwind, storybook, svelte-code-writer, svelte-core-bestpractices</td></tr>
+      <tr><td class="mono">3</td><td><span class="dot" style="background:yellow"></span>fixer</td><td class="tier-W">worker</td><td>GLM-5.3</td><td>high</td><td>Read, Edit, Write, Bash, Glob, Grep</td><td>test-quality-guardrails, rust-best-practices, svelte-core-bestpractices</td></tr>
+      <tr><td class="mono">4</td><td><span class="dot" style="background:magenta"></span>perf-engineer</td><td class="tier-W">worker</td><td>GLM-5.3</td><td>max</td><td>Read, Edit, Write, Bash, Glob, Grep</td><td>rust-superopt, rust-string-perf, rust-async-patterns, rust-parallel-cache, rust-fast-architecture, rust-simd-crates, rust-simd-kernels, rust-succinct-structures</td></tr>
+      <tr><td class="mono">5</td><td><span class="dot" style="background:pink"></span>copywriter</td><td class="tier-W">worker</td><td>GLM-5.3</td><td>high</td><td>Read, Edit, Write</td><td>antislop-copy, humanize-writing, humanizer</td></tr>
+      <tr><td class="mono">6</td><td><span class="dot" style="background:green"></span>qa-writer</td><td class="tier-W">worker</td><td>GLM-5.3</td><td>high</td><td>Read, Edit, Write, Bash</td><td>rust-testing, playwright-testing, test-quality-tdd-agents, test-quality-audit</td></tr>
+      <tr><td class="mono">7</td><td><span class="dot" style="background:chocolate"></span>rust-review</td><td class="tier-J">judge</td><td>GLM-5.3</td><td>max</td><td>Read, Bash, Glob, Grep</td><td>axum-code-review, rust-best-practices (+ perf skills iff perf-scoped)</td></tr>
+      <tr><td class="mono">8</td><td><span class="dot" style="background:orangered"></span>svelte-review</td><td class="tier-J">judge</td><td>GLM-5.3</td><td>max</td><td>Read, Bash, Glob, Grep</td><td>svelte-core-bestpractices</td></tr>
+      <tr><td class="mono">9</td><td><span class="dot" style="background:goldenrod"></span>security-auditor</td><td class="tier-J">judge</td><td>GLM-5.3</td><td>max</td><td>Read, Bash</td><td>inline policy — no skill attach; mimosa via the two-phase broker only</td></tr>
+      <tr><td class="mono">10</td><td><span class="dot" style="background:crimson"></span>injection-auditor</td><td class="tier-J">judge</td><td>GLM-5.3</td><td>max</td><td>Read, Bash</td><td>inline policy, zero skills</td></tr>
+      <tr><td class="mono">11</td><td><span class="dot" style="background:steelblue"></span>browser-tester</td><td class="tier-J">judge</td><td>GLM-5.3</td><td>max</td><td>Read, Bash</td><td>agent-browser, playwright-testing</td></tr>
+      <tr><td class="mono">12</td><td><span class="dot" style="background:violet"></span>vision-judge</td><td class="tier-J">judge</td><td>GLM-5.3-Flash</td><td>high</td><td>Read, Bash</td><td>none — dispatched screenshot paths only</td></tr>
+      <tr><td class="mono">13</td><td><span class="dot" style="background:orange"></span>issue-triage</td><td class="tier-C">control</td><td>GLM-5.3</td><td>high</td><td>Read, Bash</td><td>none — Contract field policy</td></tr>
+      <tr><td class="mono">14</td><td><span class="dot" style="background:indigo"></span>task-planner</td><td class="tier-C">control</td><td>GLM-5.3</td><td>max</td><td>Read, Bash</td><td>none</td></tr>
+      <tr><td class="mono">15</td><td><span class="dot" style="background:magenta"></span>plan-auditor</td><td class="tier-C">control</td><td>GLM-5.3</td><td>max</td><td>Read, Bash</td><td>none</td></tr>
+      <tr><td class="mono">16</td><td><span class="dot" style="background:gray"></span>queue-monitor</td><td class="tier-C">control</td><td>GLM-5.3-Flash</td><td>low</td><td>Read, Bash</td><td>none — rules only, line grammar out</td></tr>
+      <tr><td class="mono">17</td><td><span class="dot" style="background:red"></span>gh-ops</td><td class="tier-C">control</td><td>GLM-5.3-Flash</td><td>low</td><td>Read, Bash</td><td>none — zero-discretion allowlist executor</td></tr>
+      <tr><td class="mono">18</td><td><span class="dot" style="background:teal"></span>scout</td><td class="tier-C">control</td><td>GLM-5.3-Flash</td><td>low</td><td>Read, Bash, Glob, Grep, WebFetch</td><td>none — bounded evaluator</td></tr>
+      <tr><td class="mono">19</td><td><span class="dot" style="background:pink"></span>pr-reviewer</td><td class="tier-C">control</td><td>GLM-5.3</td><td>max</td><td>Read, Bash</td><td>axum-code-review, svelte-core-bestpractices, test-quality-audit</td></tr>
+      <tr><td class="mono">20</td><td><span class="dot" style="background:green"></span>pr-merger</td><td class="tier-C">control</td><td>GLM-5.3</td><td>high</td><td>Read, Bash</td><td>none — fixed T10 directive template</td></tr>
+    </tbody>
+  </table>
+  <p class="note"><b>20, not 19:</b> the graph request said 19; the plan's canonical roster is <b>20</b> — G9 corrects the earlier undercount (qa-writer was missing from the level map), so all 20 are listed. Engine-internal roles — Committer, confirmer agents, wrappers — have no harness file (plan §4.1). Model ids come from <code>~/.zcode/agents/general-pro.md:7</code> and <code>explore-flash.md:7</code>, catalog-unverified; if <code>ListModels</code> is unavailable at Phase 0, launches omit <code>subagent_model</code> and run in announced degraded mode.</p>
+</section>
+
+</div>
+</body>
+</html>
