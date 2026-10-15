@@ -26,8 +26,10 @@ llms.txt                     entry point for consuming agents
   otherwise it belongs in a category.
 - Skill folder name MUST equal the frontmatter `name` (lowercase
   alphanumerics and hyphens). Names must be unique across all
-  categories and kits — skills install flat into
-  `~/.agents/skills/` by folder name.
+  categories and kits. Category skills install flat into
+  `~/.agents/skills/` by folder name; harness-kit skills install only
+  into their own harness's path (ZCode kit skills → `~/.zcode/skills/`)
+  and never into `~/.agents/skills/`.
 - Agent frontmatter: `name`, `description`, `model`, `tools`, `color`.
   Valid colors: red, blue, green, yellow, purple, orange, pink, cyan.
   Model IDs resolve against zai / zai-coding-plan providers

@@ -34,23 +34,29 @@ Both flash agents read images natively; GLM-5.3-Flash is the multimodal tier.
 
 ### Skills (`harness/zcode/skills/`)
 
-Six of the seven z-flow skills are thin coordinators over one saved
-workflow: they launch tier-pure `zflow-engine` runs (implement / vision /
-judge) via CreateWorkflow with `subagent_model` pinned per run — the
-seventh, z-super-rustflow, composes its own main-tier-only runs inline
-(no vision, no flash anywhere) over the rust-* skill family. The engine
+Six of the seven z-flow skills are thin coordinators over ONE saved
+workflow: a single `CreateWorkflow saved: zflow-engine` launch with
+`mode: "chain"` runs every area as its own state machine (plan →
+implement → vision → judge, looping per area until clean or honestly
+stopped) — the seventh, z-super-rustflow, composes its own
+main-tier-only runs inline (no vision, no flash anywhere) over the
+rust-* skill family. The engine
 (`harness/zcode/workflows/zflow-engine.dwf.ts`, contract in
-`zflow-SPEC.md` beside it) runs the mechanical gates as `world.run`
-behind a literal-command allowlist and enforces the POLICY exits as
-loop conditions in code. Skills copy to `~/.agents/skills/`; the
-engine to `~/.zcode/workflows/`.
+`zflow-SPEC.md` beside it) pins models per subagent in one run
+(`modelProfile`: balanced = pro judgment + flash capture/audit; flash =
+every role on flash), runs the mechanical gates as `world.run` behind a
+literal-command allowlist, and enforces the POLICY exits as loop
+conditions in code. Skills copy to `~/.zcode/skills/` — ZCode-harness
+skills never go to `~/.agents/skills/` (useless in other harnesses, and
+mirroring them doubles every ZCode session's skill index); the engine to
+`~/.zcode/workflows/`, byte-identical to this source copy.
 
-- **z-workflow:** mixed-tier chain for complex multi-phase tasks. Pro implement and judge runs with a flash run-level vision node chained between rounds.
-- **z-proflow:** the all-pro depth-first variant. Every run pinned to the pro tier, no router, no pixel vision (pro is image-blind; ocu AX-text structural audits allowed because text is tier-blind).
-- **z-flashflow:** the all-flash variant. Every run pinned to flash, pixel vision included; gates, fresh blind judges, fix rounds, and code-enforced POLICY exits compensate for flash judgment, with hand-off to z-proflow when a complex area stalls.
-- **z-liteflow:** lightweight chain for small single-domain tasks. Flash implement and judge runs looping between runs per finding, plus an optional flash vision node.
-- **z-gpui-workflow:** fine-grained GPUI desktop chain. Pro implement/judge runs, a flash vision node for pixel design audits via ocu capture (AX text + decoded PNGs), and the main-thread computer-use plugin as the interactive fallback lane only.
-- **z-tauri-workflow:** fine-grained Tauri v2 desktop chain. Pro implement/judge runs, a flash vision node with two lanes (web lane on the tauri dev-server URL for frontend areas, desktop lane via ocu for window/tray/native), and the main-thread computer-use plugin as the interactive fallback lane only.
+- **z-workflow:** the general entry point — one-launch parallel chain for complex multi-phase tasks; contention decides each area's topology (shared checkout, own worktree + port + browser session, or the serialized device lane).
+- **z-proflow:** the depth-first variant — balanced profile (all-pro judgment, flash only for pixel capture/audit); ocu AX-text structural audits ride the judge's evidence.
+- **z-flashflow:** the all-flash variant (`modelProfile=flash`). Pixel vision included; gates, fresh blind judges, per-finding confirmers, and code-enforced POLICY exits compensate for flash judgment, with hand-off to z-proflow when a complex area stalls.
+- **z-liteflow:** one-launch lightweight chain for small single-domain tasks — one area, flash profile, `commit=false`; the coordinator commits by hand at hand-off.
+- **z-gpui-workflow:** fine-grained GPUI desktop chain — pro implement/judge in-run, flash vision through the ocu device lane (AX text + decoded PNGs) for pixel design audits, and the main-thread computer-use plugin as the interactive fallback lane only.
+- **z-tauri-workflow:** fine-grained Tauri v2 desktop chain — pro implement/judge in-run, flash vision with two lanes (web lane on the tauri dev-server URL for frontend areas, desktop lane via ocu for window/tray/native), and the main-thread computer-use plugin as the interactive fallback lane only.
 - **z-super-rustflow:** Rust super-optimization chain over the rust-* skill family. Main-tier only — no vision node, no flash agents anywhere. Phase-gated: a read-only research phase (explorer/researcher/auditor → Amdahl-ranked findings dossier) is the default; the implement phase (instrumentation round 0, then implement → gates → fresh blind audit) runs only on explicit user opt-in and loops until an audit round surfaces zero novel findings.
 
 ## Cross-harness skills
