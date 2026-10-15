@@ -1,506 +1,461 @@
 /* zcode-workflow
-description: "zflow chain engine: one parameterized chain node - implement, vision, or judge - over a set of task areas, with allowlisted gate dispatch, serialized git commits drafted by a shared Committer agent, a script-enforced per-area size budget (one commit per green round, never a multi-round union commit), AGENTS.md injected into every spawned subagent, independently confirmed findings, a live status board, and a primary markdown report."
-whenToUse: "Launched by a zflow chain coordinator once per chain node (implement, vision, or judge) over a set of task areas. The launcher picks the tier for the node and must set subagent_model to the tier matching the tier argument; the script never pins models."
+description: "zflow engine: the parallel chain — one launch, everything in-run.
+  Every area its own state machine (plan, implement, vision, judge, looping per
+  area until clean or honestly stopped) over channels with a counted close, so
+  areas sit at different stages and rounds at once. Contention decides topology:
+  terminal areas run parallel in the shared checkout; web areas each in their
+  own git worktree with a deterministic port and isolated browser session (a
+  dev-server URL named in the task overrides the port); desktop and mobile areas
+  implement in worktrees but serialize the whole device phase through a
+  single-worker device lane. Worktree branches merge back along the dependsOn
+  DAG, then the merged worktree and branch are cleaned up automatically. Models
+  per profile: balanced (default) pins pro judgment + flash capture/audit; flash
+  pins every role on flash. All commands anchor to repoRoot (git/make/go/pnpm
+  via -C, npm via --prefix, yarn/bun via --cwd, cargo via a gate's own honored
+  manifest path; python3/pytest via absolute path; npx refuses honestly); fresh
+  judges with a confirmer per finding; gates re-run by the script;
+  script-enforced size budgets; AGENTS.md injection; implementer notes surfaced
+  in the report; live status board and a primary markdown report. commit=false
+  skips every commit and merge."
+whenToUse: Launched by a zflow chain coordinator with mode=chain, a task, and
+  areas classified by contention (terminal, web, desktop, or mobile) — one
+  launch per chain, never relaunching to fix (AmendWorkflow revises,
+  ResumeWorkflowRun continues). This is the only zflow engine. The launcher
+  passes no subagent_model and no max_concurrency unless the user asks for a
+  width limit; models are pinned in-script per modelProfile.
 args:
-  mode:
-    type: string
-    description: "Behavior switch: implement, vision, or judge."
-    required: true
-  tier:
-    type: string
-    description: "flash or pro - behavior switch only. vision assumes native image reading on flash; judge escalates image needs on pro. The launcher must set subagent_model to the matching tier."
-    required: true
-  task:
-    type: string
-    description: "The user's task, verbatim."
-    required: true
-  areas:
-    type: json
-    description: "Array of areas: { name, paths, excludedPaths, skills (absolute SKILL.md paths), gates: [{ tool, args }], complexity: straightforward|complex, hasUI, dependsOn, lane }. lane is optional (\"web\" or \"desktop\") and overrides vision-mode routing; without it the engine falls back to a URL heuristic over the task text. Gate tools must be non-mutating (no --fix/--write) and one of: npm, pnpm, yarn, bun, cargo, make, go, python3, pytest, npx, git (read-only subcommands only: status, log, diff, show, rev-parse, ls-files, check-ignore, describe, shortlog, blame)."
-    required: true
-  evidence:
-    type: json
-    description: "Evidence paths (screenshots, AX text) from earlier rounds, for judge and vision modes."
-    required: false
-  findings:
-    type: json
-    description: "Prior-round findings (fix rounds). implement attaches the confirmed (verified) ones to the fix ask as fix targets, and the unconfirmed ones as labelled context only; judge uses the round numbers only, never the content, to stay blind."
-    required: false
-  maxRounds:
-    type: number
-    description: "Round cap enforced in code (stagnation + cap); default 3."
-    required: false
-    default: 3
-  commit:
-    type: boolean
-    description: "implement mode only. Default true: each green round is committed (one commit per green round, size-budgeted). When false, commits are skipped entirely — work stays on disk, uncommitted, and the report says so."
-    required: false
-    default: true
   agentsMd:
     type: string
-    description: "Path to the repo's AGENTS.md, injected into every spawned subagent's ask: its hard rules bind the task, and every skill it requires is read and followed too (inherited on top of the routing-map skills). Default \"AGENTS.md\"; an empty string disables the injection."
+    description: Repo hard-rules file injected into every spawned subagent's ask;
+      empty string disables.
     required: false
-    default: "AGENTS.md"
+    default: AGENTS.md
+  areas:
+    type: json
+    description: "AreaSpec array: name, contention (terminal | web | desktop |
+      mobile), paths, excludedPaths, skills, gates ({tool, args[]}), complexity,
+      dependsOn, optional budget ({maxLines, maxFiles}). hasUI/lane fields are
+      ignored with a recorded warning."
+    required: true
+    default: null
   baseSha:
     type: string
-    description: "The chain's starting commit sha, recorded by the coordinator at prep (git rev-parse HEAD). When present, judge asks carry per-area numstat vs this base as size evidence: an area over its budget is a HIGH finding regardless of correctness."
+    description: Chain's starting commit sha; shared-checkout areas' judge size
+      evidence is measured against it (worktree areas measure against their
+      branch point).
     required: false
-  maxLines:
-    type: number
-    description: "Default size budget: max changed lines per commit and per uncommitted area delta, measured by the script via git numstat. An area over budget is a red (size) round — shrink it or split the area; two consecutive size-red rounds stop the area. Per-area budget overrides this."
+    default: ""
+  commit:
+    type: boolean
+    description: False skips every commit and every worktree merge; all work stays
+      on disk and worktree dependents are blocked honestly.
     required: false
-    default: 400
+    default: true
   maxFiles:
     type: number
-    description: "Default size budget: max changed files per commit and per uncommitted area delta. Per-area budget overrides this."
+    description: "Run-level default size budget: max changed files."
     required: false
     default: 10
+  maxLines:
+    type: number
+    description: "Run-level default size budget: max changed lines."
+    required: false
+    default: 400
+  maxRounds:
+    type: number
+    description: Optional per-area round cap. Default unbounded — every area loops
+      until clean, stagnation, or this cap.
+    required: false
+    default: 0
+  mode:
+    type: string
+    description: Chain mode — the full per-area parallel loop.
+    required: false
+    default: chain
+  modelProfile:
+    type: string
+    description: "balanced (default): pro judgment roles + flash capture/audit.
+      flash: every role on flash — judgment compensated mechanically by gates,
+      confirmers, and the in-run POLICY."
+    required: false
+    default: balanced
+  repoRoot:
+    type: string
+    description: Absolute repo root. world.run's cwd is not the workspace root for
+      saved runs — pass git rev-parse --show-toplevel from prep; when empty the
+      engine tries to discover it itself.
+    required: false
+    default: ""
+  task:
+    type: string
+    description: The verbatim task embedded in every subagent ask; a dev-server URL
+      named here overrides the deterministic capture port for web areas.
+    required: true
 */
-
-// zflow-engine: the single workflow behind the z-*flow skill ports (contract: harness/zcode/workflows/zflow-SPEC.md).
+// zflow-engine — the parallel chain. Every area is its own state machine
+// (plan → implement → vision → judge, looping per area until clean or honestly
+// stopped) flowing through channels between stage futures with a counted close:
+// areas sit at different stages and rounds at once, and the run ends exactly
+// when every area reaches a terminal state.
 //
-// One saved workflow, launched once per chain node. The coordinator (the main agent running the
-// skill) calls CreateWorkflow per node, sets `subagent_model` to the node's tier, and passes the
-// args above. Cross-node state is this run's typed WorkflowReport return; evidence lives in files
-// under .zflow/evidence/. Platform facts this script relies on (SPEC section 1): one run = one
-// model (tier is behavior only), no nesting, agent-browser and ocu are driven by subagents with
-// Bash, world.run commands are compile-time literals with runtime values in the args arrays.
+// Invariants:
+// - world.run's cwd is not the workspace root — every command anchors to
+//   repoRoot (passed by the coordinator; git/make/go/pnpm via -C, npm via
+//   --prefix, yarn/bun via --cwd, cargo via --manifest-path, python3/pytest
+//   via an absolute first path; npx refuses honestly).
+// - Worktrees are created lazily at implement entry (after deps merged), as
+//   absolute paths under <repoRoot>/.zflow/worktrees, branch zflow/<area>;
+//   a clean merge removes the worktree and branch again.
+// - One implementer ask per chain round; gate failures drive judge findings
+//   and rework rounds. Rounds are bounded by stagnation or the user's
+//   maxRounds cap.
+// - Desktop and mobile captures serialize through a single-worker device lane
+//   (one screen, one AX tree, one simulator/emulator at a time); web captures
+//   run concurrently, one isolated browser session and port per area.
+// - Stale zflow/<area> branches/worktrees make creation fail loudly; untracked
+//   files in the main checkout under an area's paths make its merge refuse —
+//   both are reported honestly and the coordinator is told to clean first.
+// - Report cleanliness counts settle results, never standing findings alone.
+// Node modes are not part of this engine; the z-*flow ports run their own
+// node workflow.
 
 // ---------------------------------------------------------------------------
-// Types. Every field carries JSDoc: it is the field description the subagent reads.
+// Types.
 // ---------------------------------------------------------------------------
 
-/** A non-mutating check command attached to an area, e.g. { tool: "npm", args: ["test"] }. */
-interface GateSpec {
-  /** Command name; must be in the engine's allowlist (npm, pnpm, yarn, bun, cargo, make, go, python3, pytest, npx, git). */
-  tool: string;
-  /** Fixed argv for the command, runtime values included; never a shell string. */
-  args: string[];
-}
-
-/** One area of the task, as routed in by the chain coordinator. */
 interface AreaSpec {
-  /** Short unique area name; keys subagent names, evidence files, and chain hand-offs. */
   name: string;
-  /** Workspace-relative paths in this area's scope. */
+  contention: "terminal" | "web" | "desktop" | "mobile";
   paths: string[];
-  /** Paths this area must never touch. */
   excludedPaths: string[];
-  /** Absolute SKILL.md paths the implementer must read and follow. */
   skills: string[];
-  /** Non-mutating gate commands; the script dispatches them through the allowlist switch. */
-  gates: GateSpec[];
-  /** Routing hint from the coordinator; complex areas get more careful asks. */
+  gates: { tool: string; args: string[] }[];
   complexity: "straightforward" | "complex";
-  /** True when the area has a UI surface vision mode can capture. */
-  hasUI: boolean;
-  /** Optional vision-lane override: "web" (agent-browser) or "desktop" (ocu); when absent, vision mode falls back to a URL heuristic over the task text. */
-  lane?: "web" | "desktop";
-  /** Names of areas that must finish before this one starts. */
   dependsOn: string[];
-  /** Optional per-area size budget overriding the run's maxLines/maxFiles: this area's commits and uncommitted deltas must stay within it, or the round goes red with reason "size". */
   budget?: { maxLines: number; maxFiles: number };
 }
 
-/** The dynamic-workflows Finding convention; the shape every mode reports and returns. */
-interface Finding {
-  /** Workspace-relative path, with a line when it applies: "src/a.ts:42". */
-  where: string;
-  /** One sentence: what is wrong, or what was found. */
-  what: string;
-  /** What showed it: the lines read, the command and its output, or the evidence path that proves it. */
-  evidence: string;
-  /** "verified" when an independent confirmer or a deterministic gate confirmed it; "unconfirmed" otherwise. */
-  status: "verified" | "unconfirmed";
-  /** How much it matters. Reserve "high" for data loss, a crash, or a wrong result. */
-  severity: "low" | "medium" | "high";
-}
-
-/** A Finding plus the chain keys the coordinator needs for fix rounds. */
-interface EngineFinding extends Finding {
-  /** Area name the finding belongs to. */
-  area: string;
-  /** 1-based engine round the finding landed in. */
-  round: number;
-}
-
-/** What one implementer hands back after a round of work. */
-interface AreaWork {
-  /** One or two sentences: what was done this round. */
-  summary: string;
-  /** Exact workspace-relative paths changed this round. */
-  changedFiles: string[];
-  /** Anything worth carrying into the report (blocked parts, surprises). */
-  notes: string;
-  /** Things deliberately left undone, each with a reason. */
-  skipped: string[];
-}
-
-/** Result of one gate command, as executed by the script (never by a subagent). */
 interface GateOutcome {
-  /** The gate's tool name. */
   tool: string;
-  /** The full command line as run, for the report. */
   argv: string;
-  /** False when the gate was skipped or could not run at all. */
   ran: boolean;
-  /** Process exit code; -1 when the gate never ran. */
   exitCode: number;
-  /** Tail of the failing output, empty on success, or the reason it did not run. */
   failure: string;
 }
 
-/** Result of one git mutation, as executed by the script. */
-interface GitResult {
-  /** False when git could not be spawned at all. */
-  ran: boolean;
-  /** Process exit code; -1 when git never ran. */
-  exitCode: number;
-  /** Tail of git's output, for the report. */
-  output: string;
-}
-
-/** A commit message drafted by the Committer agent. */
-interface CommitDraft {
-  /** The full commit message: a subject line under 72 characters, optionally a blank line and a short body. */
-  message: string;
-}
-
-/** What a fresh judge reports for one area. */
-interface JudgeFindings {
-  /** Each problem found, with where/what/evidence. Empty when the area looks complete. */
-  findings: Finding[];
-  /** Two or three sentences: the overall state of this area. */
-  overallNote: string;
-}
-
-/** What a confirmer reports about one finding. */
-interface Confirmation {
-  /** True only when the confirmer reproduced the finding itself from the evidence. */
-  reproduced: boolean;
-  /** One sentence: what was checked and what was seen. */
-  note: string;
-}
-
-/** What an evidence-capture subagent reports for one area. */
-interface CaptureResult {
-  /** Capture lane used, as instructed: web (agent-browser) or desktop (ocu). */
-  lane: "web" | "desktop";
-  /** Exact paths of evidence files written this round. */
-  evidencePaths: string[];
-  /** Path of the AX text snapshot when one was saved. */
-  axTextPath?: string;
-  /** One or two sentences: what was captured and anything that failed. */
-  notes: string;
-}
-
-/** What the vision auditor reports for one area's evidence. */
-interface VisionAudit {
-  /** Two or three sentences: what the evidence shows overall. */
-  verdict: string;
-  /** Problems the evidence shows, each with where/what/evidence. */
-  findings: Finding[];
-}
-
-/** One card on the status board. */
-interface AreaStatus {
-  /** Stable card key: the area name within this run. */
-  key: string;
-  /** Area name shown on the card. */
-  name: string;
-  /** Column the card sits in; "unverified" is for areas with no gates declared — neither passed nor failed. */
-  status: "working" | "passed" | "unverified" | "failed";
-  /** One line: what happened to this area. */
-  note: string;
-  /** The engine round this status is from. */
+interface EF {
+  where: string;
+  what: string;
+  evidence: string;
+  status: "verified" | "unconfirmed";
+  severity: "low" | "medium" | "high";
+  area: string;
   round: number;
 }
 
-/** Everything the script knows about one area when the implement fan-out settles. */
-interface AreaOutcome {
-  /** Area name. */
-  area: string;
-  /** True when every gate ran and exited 0 on the last round. */
-  gatesGreen: boolean;
-  /** Final-round gate outcomes. */
-  gates: GateOutcome[];
-  /** Gate rounds used (1-based). */
-  rounds: number;
-  /** True when the loop stopped because two rounds passed without improvement. */
-  stagnated: boolean;
-  /** The implementer's final summary. */
-  summary: string;
-  /** The implementer's notes worth carrying (blocked parts, surprises); "" when there were none. */
-  notes: string;
-  /** Short sha of this area's most recent commit, parsed from git commit stdout; "" when no commit was made or the sha could not be parsed. One commit is made per green round — the full list is commitShas. */
-  commitSha: string;
-  /** Short shas of this area's commits, one per green round, in commit order; empty when none was made. */
-  commitShas: string[];
-  /** Files the implementer changed, minus excludedPaths. */
-  changedFiles: string[];
-  /** Things the implementer deliberately left undone. */
-  skipped: string[];
-  /** Commit outcome note (per-round notes, or made/skipped/failed); empty when the area had nothing committable. */
-  commitNote: string;
-  /** True when the area stopped because it stayed over its size budget — the coordinator splits it, it is not a gates problem. */
-  overBudget: boolean;
-  /** One-line size summary of the last script-measured delta ("6 file(s), +120/−40 — budget 400 lines / 10 files"); "" when nothing was measured. */
-  sizeNote: string;
-  /** Final-round red gates as findings. */
-  findings: EngineFinding[];
-  /** Error that cost this area, when one did. */
-  error?: string;
-}
-
-/** Per-area result of the judge fan-out. */
-interface JudgeAreaResult {
-  /** Area name. */
-  area: string;
-  /** The judge's overall note. */
+interface JudgeFindings {
+  findings: { where: string; what: string; evidence: string; severity: "low" | "medium" | "high" }[];
   overallNote: string;
-  /** Gates the script ran for this area. */
-  gates: GateOutcome[];
-  /** Judge findings with confirmation status applied; nothing is dropped. */
-  findings: EngineFinding[];
 }
 
-/** Per-area result of the vision fan-out. */
-interface VisionAreaResult {
-  /** Area name. */
-  area: string;
-  /** Capture lane used. */
-  lane: "web" | "desktop";
-  /** Evidence paths that were audited. */
-  evidence: string[];
-  /** True only when the evidence was confirmed on disk by the script's own glob. */
-  onDisk: boolean;
-  /** The auditor's overall verdict. */
-  verdict: string;
-  /** Audit findings; all unconfirmed — they carry into the next implement round as advisory context, and a re-shoot verifies them; no judge sits between. */
-  findings: EngineFinding[];
+interface Confirmation {
+  reproduced: boolean;
+  note: string;
 }
 
-/** Per-area control data the implement-mode typed return carries for the chain coordinator. */
-interface ImplementAreaHandoff {
-  /** Area name. */
-  area: string;
-  /** Files this run changed for the area: every in-run round unioned, excludedPaths applied. */
-  changedFiles: string[];
-  /** The implementer's final summary for the area. */
+interface AreaWork {
   summary: string;
-  /** Short sha of the area's most recent commit, parsed from git commit stdout; "" when no commit was made or the sha could not be parsed. One commit is made per green round — the full list is commitShas. */
-  commitSha: string;
-  /** Short shas of this area's commits, one per green round, in commit order; empty when none was made. */
-  commitShas: string[];
-  /** The implementer's notes worth carrying (blocked parts, surprises); "" when there were none. */
+  changedFiles: string[];
   notes: string;
+  skipped: string[];
 }
 
-/** Per-area control data the vision-mode typed return carries for the chain coordinator. */
-interface VisionAreaHandoff {
-  /** Area name. */
-  area: string;
-  /** Capture lane used: the area's explicit lane when it declared one, else the URL heuristic's choice. */
-  lane: "web" | "desktop";
-  /** The auditor's verdict on this area's evidence. */
-  verdict: string;
-  /** Exact evidence paths audited for this area — paths, never counts; empty when nothing landed on disk. */
+interface Item {
+  area: AreaSpec;
+  rounds: number;
+  plan?: string;
+  port?: number;
+  worktree?: string;
+  branch?: string;
+  wtBase?: string;
+  gates: GateOutcome[];
+  commitShas: string[];
+  changedFiles: string[];
+  skipped: string[];
+  workSummary?: string;
+  workNotes?: string;
   evidence: string[];
-}
-
-/** The run's handoff, in the dynamic-workflows report shape. */
-interface WorkflowReport {
-  /** Two or three sentences answering what the user asked for. */
-  conclusion: string;
-  /** Everything the run found standing, each keyed by area and round; empty when nothing stands. */
-  findings: EngineFinding[];
-  /** What the run checked and how: the commands it ran, the files it covered. */
-  verified: string[];
-  /** What the run did not look at or could not check, and why. */
-  notCovered: string[];
-  /** Per-area control data for the coordinator: implement returns ImplementAreaHandoff[], vision returns VisionAreaHandoff[]; every area appears, clean/zero-finding ones included. Judge returns omit it. */
-  areas?: ImplementAreaHandoff[] | VisionAreaHandoff[];
+  visionOpen: EF[];
+  carry: EF[];
+  standing: EF[];
+  lastOpen: number;
+  nonShrinking: number;
+  settledOk?: boolean;
+  settle: (ok: boolean) => void;
 }
 
 // ---------------------------------------------------------------------------
-// Shared constants and small helpers.
+// Arguments and validation. Invalid launches refuse honestly, nothing runs.
 // ---------------------------------------------------------------------------
 
-/** Gate timeout: real build/test suites are allowed to be slow. */
-const GATE_TIMEOUT_MS = 900_000;
-/** Evidence directory, per the SPEC; capture agents create it if needed. */
-const EVIDENCE_DIR = ".zflow/evidence";
-/** git subcommands a gate may run: read-only ones only; any other git gate is treated as mutating and never runs. */
-const READ_ONLY_GIT_SUBCOMMANDS = [
-  "status", "log", "diff", "show", "rev-parse", "ls-files", "check-ignore", "describe", "shortlog", "blame",
-];
-
-/** Default size budget: the largest diff one commit — or one area's uncommitted delta — may carry. Tune per run via maxLines/maxFiles, per area via AreaSpec.budget. */
-const DEFAULT_MAX_LINES = 400;
-const DEFAULT_MAX_FILES = 10;
-
-/** Keep only the string entries of an unknown array; every non-string entry is recorded as a parse problem instead of being silently dropped. */
-function stringArray(raw: unknown, problems: string[], label: string): string[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((x): x is string => {
-    if (typeof x === "string") return true;
-    problems.push(`${label}: non-string entry ${JSON.stringify(x)} dropped`);
-    return false;
+const mode = typeof args.mode === "string" ? args.mode : "";
+if (mode !== "chain") {
+  return {
+    conclusion: `Refused to start: this engine runs mode "chain" only (got ${JSON.stringify(mode)}). Nothing ran.`,
+    findings: [],
+    verified: [],
+    notCovered: ["everything — the engine was launched with an invalid mode"],
+  };
+}
+const task = typeof args.task === "string" ? args.task : "";
+if (task.length === 0) {
+  return { conclusion: "Refused to start: task must be a non-empty string. Nothing ran.", findings: [], verified: [], notCovered: ["everything — no task"] };
+}
+const rawAreas: unknown = args.areas;
+if (!Array.isArray(rawAreas) || rawAreas.length === 0) {
+  return { conclusion: "Refused to start: areas must be a non-empty array. Nothing ran.", findings: [], verified: [], notCovered: ["everything — no areas"] };
+}
+const problems: string[] = [];
+const seenNames = new Set<string>();
+const areas: AreaSpec[] = [];
+for (const entry of rawAreas) {
+  if (typeof entry !== "object" || entry === null) continue;
+  const e = entry as Record<string, unknown>;
+  if (typeof e.name !== "string" || e.name.length === 0) {
+    problems.push("an area has no usable name — dropped");
+    continue;
+  }
+  if (seenNames.has(e.name)) {
+    problems.push(`duplicate area name "${e.name}" dropped`);
+    continue;
+  }
+  seenNames.add(e.name);
+  const strArr = (v: unknown, label: string): string[] => {
+    if (!Array.isArray(v)) return [];
+    return v.filter((x): x is string => {
+      if (typeof x === "string") return true;
+      problems.push(`${e.name}: ${label} non-string entry dropped`);
+      return false;
+    });
+  };
+  const gates: { tool: string; args: string[] }[] = [];
+  if (Array.isArray(e.gates)) {
+    e.gates.forEach((g, gi) => {
+      if (typeof g !== "object" || g === null || typeof (g as Record<string, unknown>).tool !== "string") {
+        problems.push(`${e.name}: gates[${gi}] has no tool — dropped`);
+        return;
+      }
+      gates.push({ tool: (g as Record<string, unknown>).tool as string, args: strArr((g as Record<string, unknown>).args, `gates[${gi}].args`) });
+    });
+  }
+  const contention = e.contention === "web" || e.contention === "desktop" || e.contention === "mobile" ? e.contention : "terminal";
+  if (e.contention !== undefined && e.contention !== "terminal" && e.contention !== "web" && e.contention !== "desktop" && e.contention !== "mobile") {
+    problems.push(`${e.name}: contention ${JSON.stringify(e.contention)} invalid — defaulted to terminal`);
+  }
+  let budget: { maxLines: number; maxFiles: number } | undefined = undefined;
+  if (typeof e.budget === "object" && e.budget !== null) {
+    const b = e.budget as Record<string, unknown>;
+    if (typeof b.maxLines === "number" && typeof b.maxFiles === "number" && b.maxLines >= 1 && b.maxFiles >= 1) {
+      budget = { maxLines: Math.floor(b.maxLines), maxFiles: Math.floor(b.maxFiles) };
+    } else {
+      problems.push(`${e.name}: budget invalid — run defaults apply`);
+    }
+  }
+  areas.push({
+    name: e.name,
+    contention,
+    paths: strArr(e.paths, "paths"),
+    excludedPaths: strArr(e.excludedPaths, "excludedPaths"),
+    skills: strArr(e.skills, "skills"),
+    gates,
+    complexity: e.complexity === "complex" ? "complex" : "straightforward",
+    dependsOn: strArr(e.dependsOn, "dependsOn"),
+    budget,
   });
 }
-
-/** Parse one area's optional size budget; malformed budgets become problems, never crashes. */
-function parseBudget(raw: unknown, problems: string[], label: string): { maxLines: number; maxFiles: number } | undefined {
-  if (raw === undefined || raw === null) return undefined;
-  if (typeof raw !== "object") {
-    problems.push(`${label}: budget is not an object — ignored, the run's default budget applies`);
-    return undefined;
+for (const e of rawAreas) {
+  if (typeof e !== "object" || e === null) continue;
+  const o = e as Record<string, unknown>;
+  if (typeof o.name === "string" && (o.hasUI !== undefined || o.lane !== undefined)) {
+    problems.push(`${o.name}: hasUI/lane are not area fields, ignored — classify the area with contention: "terminal" | "web" | "desktop"`);
   }
-  const b = raw as Record<string, unknown>;
-  if (typeof b.maxLines !== "number" || typeof b.maxFiles !== "number" || b.maxLines < 1 || b.maxFiles < 1) {
-    problems.push(`${label}: budget needs numeric maxLines and maxFiles ≥ 1 — ignored, the run's default budget applies`);
-    return undefined;
-  }
-  return { maxLines: Math.floor(b.maxLines), maxFiles: Math.floor(b.maxFiles) };
 }
-
-/** Last ~1200 characters of a command's output, whitespace-trimmed. */
-function tail(text: string): string {
-  const clean = text.trim();
-  return clean.length <= 1200 ? clean : clean.slice(clean.length - 1200);
+if (areas.length === 0) {
+  return { conclusion: `No usable areas (${problems.join("; ")}). Nothing ran.`, findings: [], verified: [], notCovered: ["everything — no usable areas"] };
 }
-
-/** Short commit sha from git commit stdout (the "[branch a1b2c3d] subject" line); "" when no sha can be found there. */
-function shortSha(commitOutput: string): string {
-  const m = /\[[^\]\s]+\s+([0-9a-f]{7,40})\]/.exec(commitOutput);
-  return m === null ? "" : m[1];
+// Drop unknown deps and break cycles so the fan-out can never deadlock.
+const areaNames = new Set(areas.map((a) => a.name));
+for (const a of areas) {
+  const unknown = a.dependsOn.filter((d) => !areaNames.has(d));
+  if (unknown.length > 0) problems.push(`${a.name}: dependsOn names no such area (${unknown.join(", ")}) — ignored`);
+  a.dependsOn = a.dependsOn.filter((d) => areaNames.has(d));
 }
-
-/** True when a gate would mutate the tree (an auto-fix flag, or a git gate whose first non-flag token is outside the read-only allowlist); such gates never run. */
-function gateIsMutating(tool: string, gateArgs: string[]): boolean {
-  if (gateArgs.some((a) => a === "--fix" || a === "--write")) return true;
-  if (tool !== "git") return false;
-  const firstNonFlag = gateArgs.find((a) => !a.startsWith("-")) ?? "";
-  return !READ_ONLY_GIT_SUBCOMMANDS.includes(firstNonFlag);
-}
-
-// ---------------------------------------------------------------------------
-// Gate dispatch: a literal-command allowlist switch. The tool and its args come
-// from `areas` at runtime and ride in the args array; the command names are
-// compile-time literals the user approved, never interpolated.
-// ---------------------------------------------------------------------------
-
-/** Fold a finished world.run into a GateOutcome. */
-function gateDone(tool: string, argv: string, r: { exitCode: number; stdout: string; stderr: string }): GateOutcome {
-  const failureText = r.exitCode === 0 ? "" : tail(r.stderr.length > 0 ? r.stderr : r.stdout);
-  return { tool, argv, ran: true, exitCode: r.exitCode, failure: failureText };
-}
-
-/** Run one gate through the allowlist. Skipped and unspawnable gates return as values, never throw. */
-async function runGate(tool: string, gateArgs: string[]): Promise<GateOutcome> {
-  const argv = [tool, ...gateArgs].join(" ");
-  if (gateIsMutating(tool, gateArgs)) {
-    return { tool, argv, ran: false, exitCode: -1, failure: "skipped: mutating gates (--fix/--write, or a git subcommand outside the read-only allowlist) are not allowed" };
-  }
-  try {
-    switch (tool) {
-      case "npm":
-        return gateDone(tool, argv, await world.run("npm", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      case "pnpm":
-        return gateDone(tool, argv, await world.run("pnpm", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      case "yarn":
-        return gateDone(tool, argv, await world.run("yarn", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      case "bun":
-        return gateDone(tool, argv, await world.run("bun", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      case "cargo":
-        return gateDone(tool, argv, await world.run("cargo", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      case "make":
-        return gateDone(tool, argv, await world.run("make", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      case "go":
-        return gateDone(tool, argv, await world.run("go", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      case "python3":
-        return gateDone(tool, argv, await world.run("python3", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      case "pytest":
-        return gateDone(tool, argv, await world.run("pytest", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      case "npx":
-        return gateDone(tool, argv, await world.run("npx", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      case "git":
-        return gateDone(tool, argv, await world.run("git", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      default:
-        return { tool, argv, ran: false, exitCode: -1, failure: `skipped: "${tool}" is not in the engine's gate allowlist` };
+const resolved = new Set<string>();
+let progress = true;
+while (progress) {
+  progress = false;
+  for (const a of areas) {
+    if (resolved.has(a.name)) continue;
+    if (a.dependsOn.every((d) => resolved.has(d))) {
+      resolved.add(a.name);
+      progress = true;
     }
-  } catch (error) {
-    return { tool, argv, ran: false, exitCode: -1, failure: `did not run: ${String(error)}` };
   }
 }
-
-/** Run every gate of one area, in declared order. */
-async function runAllGates(area: AreaSpec): Promise<GateOutcome[]> {
-  const out: GateOutcome[] = [];
-  for (const gate of area.gates) {
-    out.push(await runGate(gate.tool, gate.args));
-  }
-  return out;
+for (const a of areas) {
+  if (resolved.has(a.name)) continue;
+  problems.push(`${a.name}: dependsOn cycle (${a.dependsOn.join(", ")}) — running without waiting`);
+  a.dependsOn = [];
 }
 
-/** One line describing a gate outcome, for asks and reports. */
-function describeGate(g: GateOutcome): string {
-  const state = g.ran ? `exit ${g.exitCode}` : "did not run";
-  return `- ${g.argv} → ${state}${g.failure === "" ? "" : ` — ${g.failure}`}`;
-}
+const modelProfile = args.modelProfile === "flash" ? "flash" : "balanced";
+const doCommit = args.commit !== false;
+const rawMaxRounds = typeof args.maxRounds === "number" ? args.maxRounds : 0;
+const maxRounds = rawMaxRounds >= 1 ? Math.floor(rawMaxRounds) : Number.POSITIVE_INFINITY;
+const maxLines = Math.max(1, Math.floor(typeof args.maxLines === "number" ? args.maxLines : 400));
+const maxFiles = Math.max(1, Math.floor(typeof args.maxFiles === "number" ? args.maxFiles : 10));
+const agentsMdPath = typeof args.agentsMd === "string" ? args.agentsMd : "AGENTS.md";
+const baseSha = typeof args.baseSha === "string" ? args.baseSha.trim() : "";
+let ROOT = typeof args.repoRoot === "string" ? args.repoRoot.trim() : "";
 
-/** A red gate as a verified finding: the exit code is the confirmation. */
-function gateFinding(area: AreaSpec, round: number, g: GateOutcome): EngineFinding {
-  return {
-    where: area.paths.length > 0 ? area.paths[0] : area.name,
-    what: `Area gate is still red: ${g.argv}`,
-    evidence: `${g.argv} exited ${g.exitCode}${g.failure === "" ? "" : ` — ${g.failure}`}`,
-    status: "verified",
-    severity: "high",
-    area: area.name,
-    round,
-  };
-}
+// The board is the watcher's live view; cards move as areas settle.
+artifact.board("status", {
+  title: "Areas by status",
+  key: "key",
+  status: "status",
+  columns: ["working", "passed", "failed"],
+  cardTitle: "name",
+  detail: [
+    { field: "note", label: "Note" },
+    { field: "round", label: "Round" },
+  ],
+});
 
-/** An over-budget diff as a verified finding: the numstat numbers are the confirmation. */
-function sizeFinding(area: AreaSpec, round: number, s: { files: number; added: number; deleted: number }, budget: { maxLines: number; maxFiles: number }): EngineFinding {
-  return {
-    where: area.paths.length > 0 ? area.paths[0] : area.name,
-    what: `Area over size budget: ${s.files} file(s), +${s.added}/−${s.deleted} against a budget of ${budget.maxLines} lines / ${budget.maxFiles} files — split the area, do not commit big`,
-    evidence: `script-run git diff --numstat measured ${s.files} file(s), +${s.added}/−${s.deleted} against the budget`,
-    status: "verified",
-    severity: "high",
-    area: area.name,
-    round,
-  };
-}
+const EVIDENCE_DIR = ".zflow/evidence";
+const webNames = areas.filter((a) => a.contention === "web").map((a) => a.name).sort();
+const portOf = new Map<string, number>(webNames.map((n, i) => [n, 4100 + i] as const));
+const PRO_MODEL = model("account:zai-individual-coding-plan/GLM-5.3");
+const FLASH_MODEL = model("account:zai-individual-coding-plan/GLM-5.3-Flash");
+/** Judgment roles run pro in the balanced profile and flash in the all-flash profile; capture and audit are always flash. */
+const JUDGE_MODEL = modelProfile === "flash" ? FLASH_MODEL : PRO_MODEL;
 
-// ---------------------------------------------------------------------------
-// Git discipline: mutations only through world.run("git", ...), serialized by
-// the script, explicit paths only, never --no-verify, never push.
-// ---------------------------------------------------------------------------
-
-/** Serialized git queue tail; every mutation waits for the previous one. */
-let gitChain: Promise<unknown> = Promise.resolve();
-
-/** Run one git operation at a time; concurrent areas queue here. */
-function serializedGit<T>(op: () => Promise<T>): Promise<T> {
-  const run = gitChain.then(op, op);
-  gitChain = run.then(() => undefined, () => undefined);
-  return run;
-}
-
-/** Execute one git argv array, turning spawn failures into values. */
-async function gitRun(gitArgs: string[]): Promise<GitResult> {
+let agentsLoaded = false;
+if (agentsMdPath !== "") {
   try {
-    const r = await world.run("git", gitArgs);
-    return { ran: true, exitCode: r.exitCode, output: tail(`${r.stdout}\n${r.stderr}`) };
+    agentsLoaded = (await files.read(agentsMdPath)).trim().length > 0;
+  } catch {
+    agentsLoaded = false;
+  }
+}
+function agentsLine(): string {
+  if (agentsMdPath === "" || !agentsLoaded) return "";
+  return `Read ${agentsMdPath} first — the repo's hard rules bind this task, and every skill it requires you must read and follow too.`;
+}
+
+// ---------------------------------------------------------------------------
+// Anchored command helpers. world.run's cwd is not trustworthy; ROOT is.
+// ---------------------------------------------------------------------------
+
+let gitQueue: Promise<unknown> = Promise.resolve();
+function serializedGit<T>(op: () => Promise<T>): Promise<T> {
+  const p = gitQueue.then(op, op);
+  gitQueue = p.then(() => undefined, () => undefined);
+  return p;
+}
+
+async function gitRun(gitArgs: string[], wt?: string): Promise<{ ran: boolean; exitCode: number; output: string }> {
+  try {
+    const anchor = wt ?? (ROOT === "" ? undefined : ROOT);
+    const full = anchor === undefined ? gitArgs : ["-C", anchor, ...gitArgs];
+    const r = await world.run("git", full);
+    const out = `${r.stdout}\n${r.stderr}`.trim();
+    return { ran: true, exitCode: r.exitCode, output: out.length <= 900 ? out : out.slice(out.length - 900) };
   } catch (error) {
     return { ran: false, exitCode: -1, output: String(error) };
   }
 }
 
-/** Parse `git diff --numstat` output: one row per changed file as "added<TAB>deleted<TAB>path" ("-" for binary), summed. */
+/** Tool argv anchored to ROOT (shared checkout) or an area worktree; undefined = refuse. */
+function anchoredArgv(tool: string, gateArgs: string[], wt?: string): string[] | undefined {
+  const anchor = wt ?? ROOT;
+  if (anchor === "") return gateArgs.length > 0 && gateArgs[0].startsWith("/") ? gateArgs : undefined;
+  const first = gateArgs[0] ?? "";
+  const absFirst = first !== "" && !first.startsWith("/") ? `${anchor}/${first}` : first;
+  switch (tool) {
+    case "git":
+    case "make":
+    case "go":
+    case "pnpm":
+      return ["-C", anchor, ...gateArgs];
+    case "npm":
+      return ["--prefix", anchor, ...gateArgs];
+    case "yarn":
+    case "bun":
+      return ["--cwd", anchor, ...gateArgs];
+    case "cargo": {
+      // A gate may name its own manifest (workspace or subdir builds) — absolutize
+      // it instead of appending a second root manifest, which cargo would win.
+      const idx = gateArgs.indexOf("--manifest-path");
+      if (idx >= 0 && idx + 1 < gateArgs.length) {
+        const v = gateArgs[idx + 1];
+        const abs = v !== "" && !v.startsWith("/") ? `${anchor}/${v}` : v;
+        return [...gateArgs.slice(0, idx + 1), abs, ...gateArgs.slice(idx + 2)];
+      }
+      return [...gateArgs, "--manifest-path", `${anchor}/Cargo.toml`];
+    }
+    case "python3":
+    case "pytest":
+      return [absFirst, ...gateArgs.slice(1)];
+    default:
+      return undefined;
+  }
+}
+
+async function runGate(tool: string, gateArgs: string[], wt?: string): Promise<GateOutcome> {
+  const argv = [tool, ...gateArgs].join(" ");
+  if (gateArgs.some((a) => a === "--fix" || a === "--write")) {
+    return { tool, argv, ran: false, exitCode: -1, failure: "skipped: mutating gates are not allowed" };
+  }
+  const runArgs = anchoredArgv(tool, gateArgs, wt);
+  if (runArgs === undefined) {
+    return { tool, argv, ran: false, exitCode: -1, failure: `skipped: "${tool}" has no safe anchored form (or is not in the allowlist)` };
+  }
+  try {
+    let r: { exitCode: number; stdout: string; stderr: string };
+    if (tool === "npm") r = await world.run("npm", runArgs, { timeoutMs: 900_000 });
+    else if (tool === "pnpm") r = await world.run("pnpm", runArgs, { timeoutMs: 900_000 });
+    else if (tool === "yarn") r = await world.run("yarn", runArgs, { timeoutMs: 900_000 });
+    else if (tool === "bun") r = await world.run("bun", runArgs, { timeoutMs: 900_000 });
+    else if (tool === "cargo") r = await world.run("cargo", runArgs, { timeoutMs: 900_000 });
+    else if (tool === "make") r = await world.run("make", runArgs, { timeoutMs: 900_000 });
+    else if (tool === "go") r = await world.run("go", runArgs, { timeoutMs: 900_000 });
+    else if (tool === "python3") r = await world.run("python3", runArgs, { timeoutMs: 900_000 });
+    else if (tool === "pytest") r = await world.run("pytest", runArgs, { timeoutMs: 900_000 });
+    else if (tool === "git") r = await world.run("git", runArgs, { timeoutMs: 900_000 });
+    else {
+      return { tool, argv, ran: false, exitCode: -1, failure: `skipped: "${tool}" is not in the gate allowlist` };
+    }
+    const failureText = r.exitCode === 0 ? "" : (r.stderr.length > 0 ? r.stderr : r.stdout).trim().slice(-600);
+    return { tool, argv, ran: true, exitCode: r.exitCode, failure: failureText };
+  } catch (error) {
+    return { tool, argv, ran: false, exitCode: -1, failure: `did not run: ${String(error)}` };
+  }
+}
+
+async function runAllGates(area: AreaSpec, wt?: string): Promise<GateOutcome[]> {
+  const out: GateOutcome[] = [];
+  for (const g of area.gates) {
+    out.push(await runGate(g.tool, g.args, wt));
+  }
+  return out;
+}
+
+function gateNotes(gates: GateOutcome[]): string {
+  return gates
+    .map((g) => `- ${g.argv} → ${g.ran ? `exit ${g.exitCode}` : "did not run"}${g.failure === "" ? "" : ` — ${g.failure}`}`)
+    .join("\n");
+}
+
 function parseNumstat(output: string): { files: number; added: number; deleted: number } {
   let files = 0;
   let added = 0;
@@ -515,1072 +470,577 @@ function parseNumstat(output: string): { files: number; added: number; deleted: 
   return { files, added, deleted };
 }
 
-/** The script's own size measurement of an uncommitted delta vs a base sha — never trusted to an agent. Untracked files are intent-added first (explicit paths, serialized queue) so new work is counted; a pre-chain dirty file the implementer also touches counts toward the budget, which is the conservative direction. */
-async function measureSize(files: string[], base: string): Promise<{ files: number; added: number; deleted: number }> {
-  const others = await gitRun(["ls-files", "--others", "--exclude-standard", "--", ...files]);
-  const untracked = others.output.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
-  if (others.ran && others.exitCode === 0 && untracked.length > 0) {
-    await serializedGit(() => gitRun(["add", "--intent-to-add", "--", ...untracked]));
-  }
-  const numstat = await gitRun(["diff", "--numstat", base, "--", ...files]);
-  return parseNumstat(numstat.output);
-}
-
-/** Per-area diff size vs the chain's starting sha — the blind judge's size evidence. Untracked files are intent-added first so committed-or-not work is counted. */
-async function numstatVsBase(base: string, area: AreaSpec): Promise<{ files: number; added: number; deleted: number }> {
-  const spec = area.paths.length > 0 ? ["--", ...area.paths] : [];
-  const others = await gitRun(["ls-files", "--others", "--exclude-standard", ...spec]);
-  const untracked = others.output.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
-  if (others.ran && others.exitCode === 0 && untracked.length > 0) {
-    await serializedGit(() => gitRun(["add", "--intent-to-add", "--", ...untracked]));
-  }
-  const numstat = await gitRun(["diff", "--numstat", base, ...spec]);
-  return parseNumstat(numstat.output);
-}
-
 // ---------------------------------------------------------------------------
-// AGENTS.md injection: every spawned subagent's ask carries the repo's hard
-// rules and inherits the skills AGENTS.md requires, on top of routing-map
-// skills. The path rides the ask; the subagent reads the file itself.
+// Committer, commits, merges, lanes.
 // ---------------------------------------------------------------------------
 
-/** The AGENTS.md line every spawned subagent's ask carries; empty when the arg disabled it or the file was not found (recorded in notCovered, never silent). */
-function agentsMdLine(): string {
-  if (agentsMdPath === "" || !agentsMdLoaded) return "";
-  return `Read ${agentsMdPath} first — the repo's hard rules bind this task, and every skill it requires you must read and follow too (on top of any skills named here).`;
-}
-
-// ---------------------------------------------------------------------------
-// Personas. Each says what the actor does, forbids what it must not do, and
-// makes escalating cheaper than faking.
-// ---------------------------------------------------------------------------
-
-const IMPLEMENTER_PERSONA = {
+const committer = agent("Committer", {
   system:
-    "You implement one area of a larger task with the smallest coherent change that completes it. " +
-    "Read the skill files you are given and follow them. Change only what the task needs; respect every exclusion you are told about. " +
-    "The script runs the area gates and the git commits after you hand off — do not run the gates, do not run git. " +
-    "Report exactly which files you changed and what you did; never paste whole files back. " +
-    "If your instructions are impossible to satisfy, escalate and say so plainly rather than leaving half-done work unreported.",
-};
-
-const COMMITTER_PERSONA = {
-  system:
-    "You draft commit messages and nothing else. From the task, the area summary, and the exact file list you are given, " +
-    "you write one conventional commit message: a subject line under 72 characters, then a short body only when it earns one. " +
-    "You never edit files, never run git, never commit — the script does. Return the message text only.",
-};
-
-const CONFIRMER_PERSONA = {
-  system:
-    "You confirm or refute a single finding by reproducing it from its evidence alone; you read the files it names with your own tools. " +
-    "You never edit any file, and you never re-run checks the script already ran — their results are handed to you. " +
-    "reproduced is true only when you saw the problem yourself; when you cannot, say exactly what blocked you.",
-};
-
-const CAPTURE_PERSONA = {
-  system:
-    "You drive evidence-capture CLIs (agent-browser, ocu) exactly as instructed and write evidence files at the exact paths given. " +
-    "You capture evidence; you never fix, patch, or improve anything you see. " +
-    "If a tool is missing, not on PATH, or fails, report that plainly — never claim a capture that did not land. " +
-    "If your instructions are impossible (no such app, no such URL), escalate and say so.",
-};
-
-/** A judge persona, adapted to the run's tier for image evidence. */
-function judgePersona(tier: string): { system: string } {
-  return {
-    system:
-      "You are a fresh judge: you have never seen this work, and you owe its authors nothing. " +
-      "Judge the current state of the code against the task and hunt for failures — wrong, missing, half-done, or misleading work. " +
-      "Report only findings you can show evidence for; do not pad, do not approve, do not edit any file. " +
-      (tier === "flash"
-        ? "You read PNG images natively with your Read tool; open screenshots when they are part of the evidence."
-        : "You are image-blind: reading a PNG returns no visual content. Read text evidence (AX snapshots) as files. " +
-          "If a pixel check is unavoidable, escalate ONCE carrying every screenshot path for this area — never guess what an image shows.") +
-      " If you cannot judge something, say so instead of guessing.",
-  };
-}
-
-/** A vision-audit persona, adapted to the run's tier for image evidence. */
-function auditPersona(tier: string): { system: string } {
-  return {
-    system:
-      "You audit visual evidence against the task and report what it shows: broken layouts, wrong states, missing screens, misleading UI. " +
-      "Every finding names the evidence file that shows it. You never edit any file. " +
-      (tier === "flash"
-        ? "You read PNG images natively with your Read tool; open each screenshot and judge the pixels, including exact colors when they matter."
-        : "You are image-blind: reading a PNG returns no visual content. Audit the AX text snapshots as files. " +
-          "If a pixel check is unavoidable, escalate ONCE carrying every screenshot path for this area — never guess what an image shows."),
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Ask builders. Narrow asks: paths and descriptions, never file contents.
-// ---------------------------------------------------------------------------
-
-/** The initial (or fix-round) ask for one area's implementer. Fix targets are confirmed findings only; unconfirmed ones ride along labelled as context. */
-function implementAsk(area: AreaSpec, task: string, fixTargets: EngineFinding[], advisory: EngineFinding[], round: number, budget: { maxLines: number; maxFiles: number }): string {
-  return [
-    `Implement the area "${area.name}" of this task.`,
-    `Task (verbatim): ${task}`,
-    area.paths.length > 0 ? `Scope paths: ${area.paths.join(", ")}` : "Scope paths: the whole workspace",
-    area.excludedPaths.length > 0 ? `Never touch: ${area.excludedPaths.join(", ")}` : "",
-    area.skills.length > 0 ? `Read and follow these skill files first: ${area.skills.join(", ")}` : "",
-    agentsMdLine(),
-    `Size budget: this area's rounds must stay within ${budget.maxLines} changed lines across ${budget.maxFiles} files (the script measures each round with git numstat). If the area cannot be completed within one budget-sized round, finish one coherent slice within budget and note the split the coordinator needs to make.`,
-    area.complexity === "complex" ? "The coordinator routed this area as complex: be deliberate, and check the edges before handing off." : "",
-    area.dependsOn.length > 0 ? `These areas finished before you started: ${area.dependsOn.join(", ")}` : "",
-    fixTargets.length > 0
-      ? `This is a fix round (round ${round}). Fix exactly these confirmed findings, nothing more:\n${JSON.stringify(fixTargets)}`
-      : "",
-    advisory.length > 0
-      ? `These prior findings stayed unconfirmed — a confirmer could not reproduce them. They are context only, never fix targets; mention them in your notes only if you observe them yourself:\n${JSON.stringify(advisory)}`
-      : "",
-    "Make the smallest coherent change that completes this area. Do not run the area gates — the script runs them after you. Do not run git — the script commits.",
-  ].filter((line) => line !== "").join("\n");
-}
-
-/** The ask that sends a red round back to the same implementer: red gates, an over-budget diff, or both. */
-function fixAsk(area: AreaSpec, task: string, gates: GateOutcome[], budget: { maxLines: number; maxFiles: number }, size?: { files: number; added: number; deleted: number }): string {
-  const red = gates.filter((g) => !(g.ran && g.exitCode === 0)).map(describeGate);
-  const over = size !== undefined && (size.added + size.deleted > budget.maxLines || size.files > budget.maxFiles);
-  return [
-    red.length > 0
-      ? `The gates for "${area.name}" are still red. Fix the failures with the smallest coherent change.`
-      : `The gates for "${area.name}" are green, but the area's uncommitted diff is over its size budget.`,
-    `Task (verbatim): ${task}`,
-    red.length > 0 ? `Red gates:\n${red.join("\n")}` : "",
-    over && size !== undefined
-      ? `Size budget: at most ${budget.maxLines} changed lines across ${budget.maxFiles} files; this round measures ${size.files} file(s), +${size.added}/−${size.deleted}. Shrink the change to budget or report exactly how the coordinator should split this area — do not grow it further.`
-      : "",
-    agentsMdLine(),
-    "Do not run the gates yourself — the script re-runs them after you hand off. Do not run git.",
-  ].filter((line) => line !== "").join("\n");
-}
-
-/** The blind judge's ask for one area, with the script-measured size evidence vs the chain's start. */
-function judgeAsk(area: AreaSpec, task: string, evidencePaths: string[], round: number, size?: { files: number; added: number; deleted: number }, budget?: { maxLines: number; maxFiles: number }): string {
-  return [
-    `Judge the current state of area "${area.name}" (round ${round}). You have not seen this work before.`,
-    `Task (verbatim): ${task}`,
-    area.paths.length > 0 ? `Paths in scope: ${area.paths.join(", ")}` : "Paths in scope: the whole workspace",
-    area.excludedPaths.length > 0 ? `Out of scope: ${area.excludedPaths.join(", ")}` : "",
-    evidencePaths.length > 0 ? `Evidence from earlier rounds: ${evidencePaths.join(", ")}` : "",
-    agentsMdLine(),
-    size !== undefined && budget !== undefined
-      ? `Size evidence vs the chain's start (script-run git numstat): ${size.files} file(s), +${size.added}/−${size.deleted}. This area's budget: ≤${budget.maxLines} changed lines / ≤${budget.maxFiles} files. An area whose diff exceeds its budget is a HIGH finding regardless of correctness — if these numbers exceed it, report that finding (where: the area's first path; what: over size budget; evidence: these numbers).`
-      : "",
-    "Find what is wrong, missing, or half-done relative to the task. Each finding needs a where (path, with a line when it applies), a one-sentence what, and evidence showing it.",
-    "Do not edit any file. Do not run the area gates — the script runs them itself after you.",
-  ].filter((line) => line !== "").join("\n");
-}
-
-/** The confirmer's ask for one judge finding. */
-function confirmerAsk(finding: Finding, gateNotes: string): string {
-  return [
-    "Reproduce this finding from its evidence alone; read the files it names. Do not edit anything.",
-    `Finding:\n${JSON.stringify(finding)}`,
-    agentsMdLine(),
-    gateNotes.length > 0
-      ? `The script already ran this area's gates — do not re-run them:\n${gateNotes}`
-      : "This area declares no gates; confirm from code and text evidence alone.",
-    "reproduced is true only if you saw the problem yourself.",
-  ].filter((line) => line !== "").join("\n");
-}
-
-/** The capture ask for the web lane (agent-browser with an isolated session). */
-function captureAskWeb(area: AreaSpec, round: number, url: string, priorEvidence: string[]): string {
-  const session = `zflow-${area.name}`;
-  return [
-    `Capture visual evidence for the web UI of area "${area.name}", round ${round}.`,
-    `Use the agent-browser CLI with an isolated session named "${session}":`,
-    url.length > 0
-      ? `  agent-browser --session ${session} open ${url}`
-      : "  No web URL was found in the task text — if you cannot identify the web UI to capture from the task, escalate rather than guessing.",
-    `  agent-browser --session ${session} screenshot ${EVIDENCE_DIR}/${area.name}-r${round}-web-1.png`,
-    `  agent-browser --session ${session} close`,
-    `Capture the page states this area cares about (up to 3 screenshots, numbered -web-1, -web-2, -web-3).`,
-    priorEvidence.length > 0
-      ? `Prior-round shots for this area — capture the same states again so the rounds are comparable: ${priorEvidence.join(", ")}`
-      : "",
-    `Create ${EVIDENCE_DIR} first. You may also save a structure snapshot via "agent-browser --session ${session} snapshot -i --json" to ${EVIDENCE_DIR}/${area.name}-r${round}-ax.json.`,
-    agentsMdLine(),
-    "Always close the session when you are done.",
-    "Return the exact paths you wrote. Do not fix anything you see — you only capture evidence.",
-  ]
-    .filter((line) => line !== "")
-    .join("\n");
-}
-
-/** The capture ask for the desktop lane (ocu: AX text plus decoded pixel PNG). */
-function captureAskDesktop(area: AreaSpec, task: string, round: number, priorEvidence: string[]): string {
-  return [
-    `Capture desktop evidence for area "${area.name}", round ${round}. The desktop application to audit is named in the task text; identify it from there.`,
-    `Task (verbatim): ${task}`,
-    "Use the ocu CLI:",
-    `  ocu snapshot "<app name>" — save the accessibility text snapshot to ${EVIDENCE_DIR}/${area.name}-r${round}-ax.txt`,
-    `  ocu call get_app_state --args '{"app":"<app name>","include_screenshot":true}' — the JSON reply contains a base64-encoded PNG; find the field holding it and decode it to a file (for example jq -r on the field, piped through base64 -d) at ${EVIDENCE_DIR}/${area.name}-r${round}-desktop.png`,
-    priorEvidence.length > 0
-      ? `Prior-round shots for this area — capture the same states again so the rounds are comparable: ${priorEvidence.join(", ")}`
-      : "",
-    `Create ${EVIDENCE_DIR} first. Inspect the JSON to find the base64 field; never invent a screenshot.`,
-    agentsMdLine(),
-    "If ocu or the application is unavailable, say so plainly and return whatever you did capture.",
-    "Return the exact paths you wrote. Do not fix anything you see — you only capture evidence.",
-  ]
-    .filter((line) => line !== "")
-    .join("\n");
-}
-
-/** The vision auditor's ask for one area's evidence: this round's shots, prior-round shots, and the prior round's findings for comparison. */
-function auditAsk(
-  area: AreaSpec,
-  task: string,
-  evidencePaths: string[],
-  priorEvidence: string[],
-  priorFindings: EngineFinding[],
-  round: number,
-  captureNotes: string,
-): string {
-  return [
-    `Audit the visual evidence for area "${area.name}", round ${round}, against the task.`,
-    `Task (verbatim): ${task}`,
-    evidencePaths.length > 0
-      ? `Evidence files: ${evidencePaths.join(", ")}`
-      : "Evidence files: none were captured — say exactly that in your verdict.",
-    priorEvidence.length > 0 ? `Prior-round evidence for this area (compare against it): ${priorEvidence.join(", ")}` : "",
-    priorFindings.length > 0
-      ? `Prior-round audit findings for this area — advisory context; this re-shoot is their check, no judge sits between: ${JSON.stringify(priorFindings)}`
-      : "",
-    `Capture notes: ${captureNotes}`,
-    agentsMdLine(),
-    "Report what the evidence shows is wrong or missing: each finding needs a where (the evidence path, or the code path it implicates), a one-sentence what, and evidence naming the file that shows it. Also give an overall verdict.",
-    "Do not edit any file.",
-  ]
-    .filter((line) => line !== "")
-    .join("\n");
-}
-
-// ---------------------------------------------------------------------------
-// Argument parsing. The host validates declared types; the script narrows the
-// values and refuses invalid launches honestly instead of guessing.
-// ---------------------------------------------------------------------------
-
-/** Parse the areas JSON defensively; malformed entries become problems, never crashes. */
-function parseAreas(raw: unknown): { areas: AreaSpec[]; problems: string[] } {
-  const areas: AreaSpec[] = [];
-  const problems: string[] = [];
-  if (!Array.isArray(raw)) {
-    problems.push("areas is not an array");
-    return { areas, problems };
-  }
-  const seen = new Set<string>();
-  raw.forEach((entry, i) => {
-    if (typeof entry !== "object" || entry === null) {
-      problems.push(`areas[${i}] is not an object`);
-      return;
-    }
-    const e = entry as Record<string, unknown>;
-    if (typeof e.name !== "string" || e.name.length === 0) {
-      problems.push(`areas[${i}] has no usable name`);
-      return;
-    }
-    if (seen.has(e.name)) {
-      problems.push(`duplicate area name "${e.name}" dropped (subagent names must be unique)`);
-      return;
-    }
-    seen.add(e.name);
-    const gates: GateSpec[] = [];
-    if (Array.isArray(e.gates)) {
-      e.gates.forEach((g, gi) => {
-        if (typeof g !== "object" || g === null) {
-          problems.push(`${e.name}: gates[${gi}] is not an object`);
-          return;
-        }
-        const go = g as Record<string, unknown>;
-        if (typeof go.tool !== "string" || go.tool.length === 0) {
-          problems.push(`${e.name}: gates[${gi}] has no tool`);
-          return;
-        }
-        gates.push({ tool: go.tool, args: stringArray(go.args, problems, `${e.name}: gates[${gi}].args`) });
-      });
-    }
-    const lane = e.lane === "web" || e.lane === "desktop" ? e.lane : undefined;
-    if (e.lane !== undefined && lane === undefined) {
-      problems.push(`${e.name}: lane ${JSON.stringify(e.lane)} is not "web" or "desktop" — ignored, vision falls back to the URL heuristic`);
-    }
-    areas.push({
-      name: e.name,
-      paths: stringArray(e.paths, problems, `${e.name}: paths`),
-      excludedPaths: stringArray(e.excludedPaths, problems, `${e.name}: excludedPaths`),
-      skills: stringArray(e.skills, problems, `${e.name}: skills`),
-      gates,
-      complexity: e.complexity === "complex" ? "complex" : "straightforward",
-      hasUI: e.hasUI === true,
-      lane,
-      dependsOn: stringArray(e.dependsOn, problems, `${e.name}: dependsOn`),
-      budget: parseBudget(e.budget, problems, `${e.name}: budget`),
-    });
-  });
-  breakCycles(areas, problems);
-  return { areas, problems };
-}
-
-/** Drop unknown deps (noting them) and break dependency cycles in place, so the fan-out can never deadlock. */
-function breakCycles(areas: AreaSpec[], problems: string[]): void {
-  const names = new Set(areas.map((a) => a.name));
-  for (const area of areas) {
-    const unknown = area.dependsOn.filter((d) => !names.has(d));
-    if (unknown.length > 0) {
-      problems.push(`${area.name}: dependsOn names no such area (${unknown.join(", ")}) — ignored`);
-    }
-    area.dependsOn = area.dependsOn.filter((d) => names.has(d));
-  }
-  const resolved = new Set<string>();
-  let progress = true;
-  while (progress) {
-    progress = false;
-    for (const area of areas) {
-      if (resolved.has(area.name)) continue;
-      if (area.dependsOn.every((d) => resolved.has(d))) {
-        resolved.add(area.name);
-        progress = true;
-      }
-    }
-  }
-  for (const area of areas) {
-    if (resolved.has(area.name)) continue;
-    problems.push(`${area.name}: dependsOn cycle (${area.dependsOn.join(", ")}) — running it without waiting`);
-    area.dependsOn = [];
-  }
-}
-
-/** Parse prior-round findings; malformed entries are skipped, never crash the run. */
-function parseFindings(raw: unknown): EngineFinding[] {
-  if (!Array.isArray(raw)) return [];
-  const out: EngineFinding[] = [];
-  raw.forEach((entry) => {
-    if (typeof entry !== "object" || entry === null) return;
-    const o = entry as Record<string, unknown>;
-    if (typeof o.where !== "string" || typeof o.what !== "string") return;
-    out.push({
-      where: o.where,
-      what: o.what,
-      evidence: typeof o.evidence === "string" ? o.evidence : "",
-      status: o.status === "verified" ? "verified" : "unconfirmed",
-      severity: o.severity === "high" || o.severity === "medium" ? o.severity : "low",
-      area: typeof o.area === "string" ? o.area : "",
-      round: typeof o.round === "number" ? o.round : 1,
-    });
-  });
-  return out;
-}
-
-/** Extract a web URL from the task or area routing; the fallback vision-lane heuristic, not a routing decision in itself. */
-function webUrl(task: string, area: AreaSpec): string | undefined {
-  const m = /(https?:\/\/[^\s"'()]+)/.exec(`${task} ${area.name} ${area.paths.join(" ")}`);
-  return m === null ? undefined : m[0];
-}
-
-/** One card for the status board. */
-function statusCard(name: string, round: number, status: "working" | "passed" | "unverified" | "failed", note: string): AreaStatus {
-  return { key: name, name, status, note, round };
-}
-
-/** The honest refusal when the chain has already spent its round budget. */
-function capReachedReport(mode: string, round: number, maxRounds: number): WorkflowReport {
-  return {
-    conclusion:
-      `Refused to run ${mode} round ${round}: the round cap is ${maxRounds}. Nothing ran in this node; ` +
-      "the chain coordinator must decide whether the cap should rise.",
-    findings: [],
-    verified: [],
-    notCovered: [`everything — the round cap (${maxRounds}) was already reached before this node started`],
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Arguments in, board declared, then one branch per mode.
-// ---------------------------------------------------------------------------
-
-const mode = typeof args.mode === "string" ? args.mode : "";
-if (mode !== "implement" && mode !== "judge" && mode !== "vision") {
-  return {
-    conclusion: `Refused to start: mode must be "implement", "judge", or "vision" (got ${JSON.stringify(mode)}). Nothing ran.`,
-    findings: [],
-    verified: [],
-    notCovered: ["everything — the engine was launched with an invalid mode"],
-  };
-}
-const tier = typeof args.tier === "string" ? args.tier : "";
-if (tier !== "flash" && tier !== "pro") {
-  return {
-    conclusion: `Refused to start: tier must be "flash" or "pro" (got ${JSON.stringify(tier)}). Nothing ran.`,
-    findings: [],
-    verified: [],
-    notCovered: ["everything — the engine was launched with an invalid tier"],
-  };
-}
-const task = typeof args.task === "string" ? args.task : "";
-if (task.length === 0) {
-  return {
-    conclusion: "Refused to start: task must be a non-empty string. Nothing ran.",
-    findings: [],
-    verified: [],
-    notCovered: ["everything — the engine was launched without a task"],
-  };
-}
-const parsedAreas = parseAreas(args.areas);
-const areas = parsedAreas.areas;
-const problems = parsedAreas.problems;
-const evidence = stringArray(args.evidence, problems, "evidence");
-const prior = parseFindings(args.findings);
-const maxRounds = Math.max(1, Math.floor(typeof args.maxRounds === "number" ? args.maxRounds : 3));
-const round = prior.length > 0 ? Math.max(...prior.map((f) => f.round)) + 1 : 1;
-// commit defaults to true; only an explicit false skips the implement-mode commit phase.
-const doCommit = args.commit !== false;
-// Size budget: the script measures diffs itself (git numstat) — an agent never vouches for its own size.
-const maxLines = Math.max(1, Math.floor(typeof args.maxLines === "number" ? args.maxLines : DEFAULT_MAX_LINES));
-const maxFiles = Math.max(1, Math.floor(typeof args.maxFiles === "number" ? args.maxFiles : DEFAULT_MAX_FILES));
-// AGENTS.md: its path rides every spawned subagent's ask; the file must exist for the injection to be honest.
-const agentsMdPath = typeof args.agentsMd === "string" ? args.agentsMd : "AGENTS.md";
-let agentsMdLoaded = false;
-if (agentsMdPath !== "") {
-  try {
-    const text = await files.read(agentsMdPath);
-    agentsMdLoaded = text.trim().length > 0;
-  } catch {
-    agentsMdLoaded = false;
-  }
-}
-// The chain's starting sha, recorded by the coordinator at prep; judge size evidence is measured against it.
-const baseSha = typeof args.baseSha === "string" ? args.baseSha.trim() : "";
-
-if (areas.length === 0) {
-  return {
-    conclusion: `No usable areas to process (${problems.length > 0 ? problems.join("; ") : "areas is empty"}). Nothing ran.`,
-    findings: [],
-    verified: [],
-    notCovered: ["everything — no usable areas were routed to this node"],
-  };
-}
-
-// The watcher's view: one card per area, moving columns as the run decides.
-artifact.board("status", {
-  title: "Areas by status",
-  key: "key",
-  status: "status",
-  columns: ["working", "passed", "unverified", "failed"],
-  cardTitle: "name",
-  detail: [
-    { field: "note", label: "Note" },
-    { field: "round", label: "Round" },
-  ],
+    "You draft commit messages and nothing else: one conventional commit, subject under 72 characters, " +
+    "short body only when it earns one. Never edit files, never run git. Return the message text only.",
+  model: JUDGE_MODEL,
 });
+let logBlock = "(no git log available)";
 
-// ===========================================================================
-// IMPLEMENT: one implementer per area (routing order, deps chained per item),
-// gates through the allowlist switch, fix rounds on the same implementer,
-// then one serialized commit phase with the shared Committer.
-// ===========================================================================
+function shortSha(output: string): string {
+  const m = /\[[^\]\s]+\s+([0-9a-f]{7,40})\]/.exec(output);
+  return m === null ? "" : m[1];
+}
 
-if (mode === "implement") {
-  if (round > maxRounds) return capReachedReport("implement", round, maxRounds);
+async function commitRound(it: Item, files: string[], summary: string): Promise<{ sha: string; note: string }> {
+  const fixRound = it.rounds > 0 && it.carry.length > 0;
+  const draft = await committer.ask<{ message: string }>(
+    [
+      `Draft one commit message for area "${it.area.name}", round ${it.rounds + 1}, of this task.`,
+      `Task: ${task}`,
+      `What was done: ${summary}`,
+      `Files: ${files.join(", ")}`,
+      fixRound ? "This is a fix round; start the subject with \"fix: \"." : "Match the repo's conventional style.",
+      `Recent commits:\n${logBlock}`,
+      agentsLine(),
+      "Return the message only.",
+    ]
+      .filter((l) => l !== "")
+      .join("\n"),
+  );
+  let message = typeof draft.message === "string" ? draft.message.trim() : "";
+  if (message === "") message = `${it.area.name}: ${summary.slice(0, 60)}`;
+  if (fixRound && !message.startsWith("fix:")) message = `fix: ${message}`;
+  const add = await serializedGit(() => gitRun(["add", ...files], it.worktree));
+  if (!(add.ran && add.exitCode === 0)) return { sha: "", note: `git add failed — ${add.output.slice(0, 220)}` };
+  const commit = await serializedGit(() => gitRun(["commit", "-m", message, "--", ...files], it.worktree));
+  const sha = commit.ran && commit.exitCode === 0 ? shortSha(commit.output) : "";
+  return { sha, note: `commit ("${message}") → ${commit.ran ? `exit ${commit.exitCode}` : "did not run"}${sha === "" ? "" : `; sha ${sha}`}` };
+}
 
-  phase("Implement each area and run its checks");
-  log(`implementing ${areas.length} area(s) on round ${round} (cap ${maxRounds})`);
-  const byName = new Map(areas.map((a) => [a.name, a] as const));
-  const running = new Map<string, Promise<AreaOutcome>>();
-
-  // Commits happen per green round inside each area's loop — one shared Committer, one serialized
-  // git queue, one commit per green round (never a multi-round union commit), each within the
-  // area's size budget. A fix round is defined by confirmed findings — unconfirmed ones never
-  // drive fix semantics. commit=false skips every commit: work stays on disk, and the report says so.
-  const fixRound = prior.some((f) => f.status === "verified");
-  const committer = doCommit ? agent("Committer", COMMITTER_PERSONA) : undefined;
-  // The repo's own recent history, so the Committer can match its message style.
-  const recentLog = await gitRun(["log", "--oneline", "-10"]);
-  const logBlock =
-    recentLog.ran && recentLog.exitCode === 0 && recentLog.output.trim().length > 0
-      ? recentLog.output.trim()
-      : "(no usable git log output — draft from the task and file list alone)";
-  const commitFailures: string[] = [];
-
-  // One commit per green round: the shared Committer drafts, the script mutates git — explicit
-  // paths only, serialized, never --no-verify, never push. Returns the commit's short sha ("" when
-  // git failed; the round's work then stays on disk, uncommitted) and a one-line note for the report.
-  const commitRound = async (
-    area: AreaSpec,
-    roundNo: number,
-    files: string[],
-    summary: string,
-  ): Promise<{ sha: string; note: string }> => {
-    if (committer === undefined) throw new Error("commit phase disabled (commit=false)");
-    const draft = await committer.ask<CommitDraft>(
-      [
-        `Draft one commit message for area "${area.name}", round ${roundNo}, of this task.`,
-        `Task: ${task}`,
-        `What was done this round: ${summary}`,
-        `Files (exact paths, in this order): ${files.join(", ")}`,
-        fixRound ? "This is a fix round; start the subject with \"fix: \"." : "This is an implementation round; match the repo's conventional style.",
-        `Recent commits in this repo (match their style):\n${logBlock}`,
-        agentsMdLine(),
-        "Return the message only.",
-      ]
-        .filter((line) => line !== "")
-        .join("\n"),
+const mergePromises = new Map<string, Promise<boolean>>();
+const mergedAreas: string[] = [];
+function mergeRun(it: Item): Promise<boolean> {
+  const existing = mergePromises.get(it.area.name);
+  if (existing !== undefined) return existing;
+  const p = (async (): Promise<boolean> => {
+    await Promise.all(
+      it.area.dependsOn.map((d) => {
+        const dep = mergePromises.get(d);
+        return dep === undefined ? Promise.resolve(true) : dep;
+      }),
     );
-    // Runtime guard: the type says string, but a malformed reply must fall through to the
-    // fallback, not throw on .trim() before the fallback can run.
-    const draftText = typeof draft.message === "string" ? draft.message.trim() : "";
-    let message = draftText;
-    if (message === "") message = `${area.name} r${roundNo}: ${task.slice(0, 60)}`;
-    if (fixRound && !message.startsWith("fix:")) message = `fix: ${message}`;
-    const add = await serializedGit(() => gitRun(["add", ...files]));
-    let note = `r${roundNo}: git add (${files.join(", ")}) → ${add.ran ? `exit ${add.exitCode}` : "did not run"}`;
-    if (!(add.ran && add.exitCode === 0)) {
-      note += ` — ${add.output}`;
-      return { sha: "", note };
+    const m = await serializedGit(() => gitRun(["merge", "--no-edit", it.branch ?? ""]));
+    if (!(m.ran && m.exitCode === 0)) {
+      await serializedGit(() => gitRun(["merge", "--abort"]));
+      return false;
     }
-    const commit = await serializedGit(() => gitRun(["commit", "-m", message, "--", ...files]));
-    note += `; git commit ("${message}") → ${commit.ran ? `exit ${commit.exitCode}` : "did not run"}`;
-    if (commit.ran && commit.exitCode !== 0) note += ` — ${commit.output}`;
-    let sha = "";
-    if (commit.ran && commit.exitCode === 0) {
-      // The short sha rides the typed return (ImplementAreaHandoff.commitShas); it comes from commit stdout.
-      sha = shortSha(commit.output);
-      note += sha === "" ? " — commit sha could not be parsed from git's output" : `; sha ${sha}`;
+    mergedAreas.push(it.area.name);
+    // Clean hands: the merged worktree and its branch are spent — remove both so the
+    // next run with the same area name does not trip over them. Refusals (untracked
+    // leftovers) are logged and skipped, never forced.
+    if (it.worktree !== undefined) {
+      const rm = await serializedGit(() => gitRun(["worktree", "remove", it.worktree!]));
+      if (rm.ran && rm.exitCode === 0) {
+        const bd = await serializedGit(() => gitRun(["branch", "-d", it.branch ?? ""]));
+        if (!(bd.ran && bd.exitCode === 0)) log(`${it.area.name}: merged branch kept — ${bd.output.slice(0, 160)}`);
+      } else {
+        log(`${it.area.name}: merged worktree kept — ${rm.output.slice(0, 160)}`);
+      }
     }
-    return { sha, note };
+    return true;
+  })();
+  mergePromises.set(it.area.name, p);
+  return p;
+}
+
+let desktopLaneTail: Promise<unknown> = Promise.resolve();
+function desktopLane<T>(op: () => Promise<T>): Promise<T> {
+  const p = desktopLaneTail.then(op, op);
+  desktopLaneTail = p.then(() => undefined, () => undefined);
+  return p;
+}
+
+async function visionOne(it: Item): Promise<void> {
+  const name = it.area.name;
+  const round = it.rounds + 1;
+  const doCapture = async (): Promise<void> => {
+    const port = it.port ?? 4100;
+    const url = `http://localhost:${port}`;
+    const webAsk = [
+      `Capture visual evidence for the web UI of area "${name}" (round ${round}).`,
+      "Use the agent-browser CLI with an isolated session named " + `"zflow-${name}":`,
+      `  If the task names a dev-server URL, start the repo's own dev command and audit that URL. Otherwise run \`python3 -m http.server ${port}\` in the background inside ${it.worktree}/${it.area.paths[0] ?? ""}, and wait until ${url} answers (if a repo dev command exists, prefer it).`,
+      `  agent-browser --session zflow-${name} open ${url}`,
+      `  agent-browser --session zflow-${name} screenshot ${EVIDENCE_DIR}/${name}-r${round}-web-1.png`,
+      `  agent-browser --session zflow-${name} close`,
+      "  Then kill the dev server you started.",
+      agentsLine(),
+      `Create ${EVIDENCE_DIR} first if needed. Return the exact paths you wrote. Do not fix anything you see — you only capture evidence.`,
+    ].join("\n");
+    const desktopAsk = [
+      `Capture desktop evidence for area "${name}" (round ${round}). Identify the app from the task text.`,
+      `The application build (if any) lives in this area's worktree at ${it.worktree} — build and launch it from there when the task expects the built app on screen; shut it down when done.`,
+      `If no real application window exists to capture, say so plainly and return no evidence — never invent a screenshot. You may try \`ocu snapshot "<app>"\` to check.`,
+      agentsLine(),
+      "Return what you did.",
+    ].join("\n");
+    const mobileAsk = [
+      `Capture visual evidence for the mobile app of area "${name}" (round ${round}). Identify the platform (iOS simulator or Android emulator) from the task text.`,
+      `The app project lives in this area's worktree at ${it.worktree} — build the app from there using the project's own build command (xcodebuild, gradle, or flutter build as the project dictates).`,
+      "Device exclusivity: exactly ONE device at a time. If a simulator/emulator is already booted, reuse it; otherwise boot exactly one (`xcrun simctl boot <udid>` from `xcrun simctl list devices`, or `emulator -avd <name>`), and shut down only what you started when done.",
+      "Install and launch the built app on that device, then capture the app's main states as screenshots (xcrun simctl io <udid> screenshot <path>, or adb exec-out screencap -p > <path>):",
+      `  ${EVIDENCE_DIR}/${name}-r${round}-mobile-1.png (number further shots -mobile-2, -mobile-3, up to 3)`,
+      `If no device, no toolchain, or no buildable app exists, say so plainly and return no evidence — never invent a screenshot.`,
+      agentsLine(),
+      `Create ${EVIDENCE_DIR} first if needed. Return the exact paths you wrote. Do not fix anything you see — you only capture evidence.`,
+    ].join("\n");
+    const captureAsk =
+      it.area.contention === "web" ? webAsk : it.area.contention === "mobile" ? mobileAsk : desktopAsk;
+    const capture = await agent(`capture-${name}-r${round}`, {
+      system:
+        "You drive evidence-capture CLIs (agent-browser, ocu, simctl, adb, emulator) exactly as instructed and write evidence files at the exact paths given. " +
+        "You capture evidence; you never fix anything. If a tool is missing or fails, report that plainly — never claim a capture that did not land. " +
+        "If your instructions are impossible, escalate and say so.",
+      model: FLASH_MODEL,
+    }).ask<{ lane: string; evidencePaths: string[]; notes: string }>(captureAsk);
+    const landed = (await files.glob(`${EVIDENCE_DIR}/*`)).filter((p) => p.startsWith(`${EVIDENCE_DIR}/${name}-r${round}-`));
+    const toAudit = landed.length > 0 ? landed : capture.evidencePaths;
+    const audit = await agent(`vision-audit-${name}-r${round}`, {
+      system:
+        "You audit visual evidence against the task and report what it shows. Every finding names the evidence file that shows it. " +
+        "You read PNG images natively with your Read tool; open each screenshot and judge the pixels. Never edit any file.",
+      model: FLASH_MODEL,
+    }).ask<{ verdict: string; findings: { where: string; what: string; evidence: string; severity: "low" | "medium" | "high" }[] }>(
+      [
+        `Audit the visual evidence for area "${name}" (round ${round}) against the task.`,
+        `Task: ${task}`,
+        toAudit.length > 0 ? `Evidence files: ${toAudit.join(", ")}` : "Evidence files: none were captured — say exactly that in your verdict.",
+        `Capture notes: ${capture.notes}`,
+        agentsLine(),
+        "Report what the evidence shows is wrong or missing (where/what/evidence each) plus an overall verdict. Do not edit any file.",
+      ].join("\n"),
+    );
+    it.evidence = Array.from(new Set([...it.evidence, ...toAudit]));
+    it.visionOpen = audit.findings.map((f) => ({ ...f, status: "unconfirmed" as const, area: name, round }));
+    for (const f of it.visionOpen) report(f);
+    log(`${name}: vision r${round} — ${landed.length} file(s) on disk, ${it.visionOpen.length} unconfirmed finding(s)`);
+  };
+  // Device lane: one screen, one AX tree, one simulator/emulator — desktop and
+  // mobile captures queue here; web captures run concurrently (one browser
+  // session and port per area).
+  if (it.area.contention === "desktop" || it.area.contention === "mobile") {
+    await desktopLane(doCapture);
+  } else {
+    await doCapture();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The chain: channels, counted close, stages, POLICY, report.
+// ---------------------------------------------------------------------------
+
+async function runChain(): Promise<{ conclusion: string; findings: EF[]; verified: string[]; notCovered: string[] }> {
+  phase("Seed the first stage");
+  const impl = channel<Item>("implement");
+  const vision = channel<Item>("vision");
+  const judgeCh = channel<Item>("judge");
+  const settled = new Map<string, Promise<boolean>>();
+  const resolvers = new Map<string, (ok: boolean) => void>();
+  const finalItems: Item[] = [];
+  const blockedAreas: string[] = [];
+  const notCovered: string[] = [...problems];
+  if (agentsMdPath !== "" && !agentsLoaded) notCovered.push(`${agentsMdPath}: not found or empty — repo hard rules were not injected into asks`);
+  const commitFailures: string[] = [];
+  let open = 0;
+  let closed = false;
+  const closeAll = (): void => {
+    if (closed) return;
+    closed = true;
+    impl.close();
+    vision.close();
+    judgeCh.close();
+  };
+  const endWork = (): void => {
+    open -= 1;
+    if (open <= 0) closeAll();
   };
 
-  const runArea = (area: AreaSpec): Promise<AreaOutcome> => {
-    const started = running.get(area.name);
-    if (started !== undefined) return started;
-    const promise = (async (): Promise<AreaOutcome> => {
-      for (const dep of area.dependsOn) {
-        const depArea = byName.get(dep);
-        if (depArea !== undefined) await runArea(depArea);
-      }
-      report(statusCard(area.name, round, "working", "implementation under way"), "status");
-      try {
-        // One implementer per area, reused across every round of this run.
-        const implementer = agent(`implementer-${area.name}`, IMPLEMENTER_PERSONA);
-        const areaPrior = prior.filter((f) => f.area === area.name || f.area === "");
-        // Only confirmed findings are fix targets; unconfirmed ones stay labelled context (unverified stays unverified).
-        const fixTargets = areaPrior.filter((f) => f.status === "verified");
-        const advisory = areaPrior.filter((f) => f.status === "unconfirmed");
-        // Size budget: the per-area override when the coordinator set one, else the run's defaults.
-        const budget = area.budget ?? { maxLines, maxFiles };
-        let work: AreaWork | undefined;
-        // Every round's changed files, first-seen order, exclusions applied: what the report and handoff carry.
-        const changedUnion: string[] = [];
-        // Same union for skipped items: an earlier round's left-undone list must survive later rounds.
-        const skippedUnion: string[] = [];
-        // Files changed since this area's last commit: the per-round commit set and the size gate's subject.
-        // Cleared when a green round commits; red rounds let it accumulate so the budget bounds uncommitted work.
-        let pendingFiles: string[] = [];
-        const commitShas: string[] = [];
-        const areaCommitNotes: string[] = [];
-        const sizeFindings: EngineFinding[] = [];
-        let gates: GateOutcome[] = [];
-        let gatesGreen = false;
-        let stagnated = false;
-        let overBudget = false;
-        let roundsUsed = 0;
-        let prevFailing = Number.MAX_SAFE_INTEGER;
-        let stagnantRun = 0;
-        let sizeStall = 0;
-        let lastSize: { files: number; added: number; deleted: number } | undefined;
-        let lastOver = false;
-        for (let r = 1; r <= maxRounds; r++) {
-          roundsUsed = r;
-          const ask = r === 1 ? implementAsk(area, task, fixTargets, advisory, round, budget) : fixAsk(area, task, gates, budget, lastSize);
-          work = await implementer.ask<AreaWork>(ask);
-          for (const p of work.changedFiles) {
-            if (area.excludedPaths.includes(p)) continue;
-            if (!changedUnion.includes(p)) changedUnion.push(p); // earlier rounds' files stay in the reported set
-            if (!pendingFiles.includes(p)) pendingFiles.push(p); // uncommitted work accumulates only across red rounds
-          }
-          for (const s of work.skipped) {
-            if (!skippedUnion.includes(s)) skippedUnion.push(s); // earlier rounds' skipped items stay visible
-          }
-          gates = await runAllGates(area);
-          const failing = gates.filter((g) => !(g.ran && g.exitCode === 0)).length;
-          // Size gate: the script measures the uncommitted delta itself (git numstat vs this round's start sha).
-          const head = await gitRun(["rev-parse", "HEAD"]);
-          const roundStartSha = head.ran && head.exitCode === 0 ? head.output.split("\n")[0].trim() : "";
-          lastSize = roundStartSha !== "" && pendingFiles.length > 0 ? await measureSize(pendingFiles, roundStartSha) : undefined;
-          lastOver = lastSize !== undefined && (lastSize.added + lastSize.deleted > budget.maxLines || lastSize.files > budget.maxFiles);
-          log(
-            `${area.name}: round ${r}, ${failing} of ${gates.length} gate(s) red` +
-              (lastSize !== undefined
-                ? `, size ${lastSize.files} file(s) +${lastSize.added}/−${lastSize.deleted} (budget ${budget.maxLines} lines / ${budget.maxFiles} files)${lastOver ? " — OVER BUDGET" : ""}`
-                : ""),
-          );
-          if (gates.length === 0) break; // no gates declared: nothing to gate rounds on, and the engine commits only gate-verified areas
-          if (failing === 0 && !lastOver) {
-            gatesGreen = true;
-            // One commit per green round — this round's delta only, never a multi-round union commit.
-            if (doCommit && pendingFiles.length > 0) {
-              try {
-                const done = await commitRound(area, r, pendingFiles, work.summary);
-                areaCommitNotes.push(done.note);
-                if (done.sha !== "") {
-                  commitShas.push(done.sha);
-                  pendingFiles = []; // committed: the next round's size gate measures only new work
-                } else {
-                  commitFailures.push(`${area.name}: round ${r} commit failed — its green work stays on disk, uncommitted`);
-                }
-              } catch (error) {
-                const note = `round ${r} commit not made — ${String(error)}; its green work stays on disk, uncommitted`;
-                areaCommitNotes.push(note);
-                commitFailures.push(`${area.name}: ${note}`);
-                log(`${area.name}: ${note}`);
+  for (const area of areas) {
+    let settle!: (ok: boolean) => void;
+    const done = new Promise<boolean>((res) => {
+      settle = res;
+    });
+    settled.set(area.name, done);
+    resolvers.set(area.name, settle);
+    open += 1; // every unit opens up front: a dependent's unit stays open while it waits
+  }
+
+  const planStage = future(async () => {
+    phase("Plan each area, attack the plans, revise once");
+    if (ROOT === "") {
+      const top = await gitRun(["rev-parse", "--show-toplevel"]);
+      if (top.ran && top.exitCode === 0) ROOT = top.output.split("\n")[0].trim();
+    }
+    log(`repo root: ${ROOT === "" ? "(unresolved — commands stay cwd-relative)" : ROOT}`);
+    const recent = await gitRun(["log", "--oneline", "-10"]);
+    if (recent.ran && recent.exitCode === 0 && recent.output.trim().length > 0) logBlock = recent.output.trim();
+    await Promise.all(
+      areas.map(async (area) => {
+        const depOks = await Promise.all(
+          area.dependsOn.map((d) => {
+            const dep = settled.get(d);
+            return dep === undefined ? Promise.resolve(true) : dep;
+          }),
+        );
+        const failedDep = area.dependsOn.find((d, i) => depOks[i] !== true);
+        if (failedDep !== undefined) {
+          const res = resolvers.get(area.name);
+          if (res !== undefined) res(false);
+          blockedAreas.push(area.name);
+          report({ key: area.name, name: area.name, status: "failed", note: `blocked: dependency "${failedDep}" did not finish with visible work`, round: 0 }, "status");
+          endWork();
+          return;
+        }
+        const planner = agent(`planner-${area.name}`, {
+          system:
+            "You plan one area of a larger task as an ordered build plan. Read the repo rules and the code in scope before planning. " +
+            "Never edit files, never run git or checks. If planning is impossible, escalate and say so.",
+          model: JUDGE_MODEL,
+        });
+        let plan = await planner.ask<string>(
+          [
+            `Plan area "${area.name}" (${area.contention}) of this task — one sentence: the approach the implementer will build.`,
+            `Task (verbatim): ${task}`,
+            `Scope paths: ${area.paths.join(", ")}`,
+            area.skills.length > 0 ? `Read these skill files first: ${area.skills.join(", ")}` : "",
+            area.dependsOn.length > 0 ? `These areas finished before this one: ${area.dependsOn.join(", ")}` : "",
+            agentsLine(),
+            "Reply with the one-sentence approach only.",
+          ]
+            .filter((l) => l !== "")
+            .join("\n"),
+        );
+        const review = await agent(`plan-reviewer-${area.name}`, {
+          system:
+            "You attack a plan you did not write: what breaks it, what it misses, where its file list is wrong. " +
+            "Read the files it names before judging. Never edit. verdict is \"revise\" only when a real problem exists.",
+          model: JUDGE_MODEL,
+        }).ask<{ verdict: "sound" | "revise"; problems: string[] }>(
+          [
+            `Attack this plan for area "${area.name}": "${plan}"`,
+            `Task: ${task}`,
+            `Scope paths: ${area.paths.join(", ")}`,
+            agentsLine(),
+            "Reply with verdict \"sound\" and no problems, or \"revise\" and exactly one problem sentence.",
+          ]
+            .filter((l) => l !== "")
+            .join("\n"),
+        );
+        if (review.verdict === "revise" && review.problems.length > 0) {
+          plan = await planner.ask<string>(`Revise the plan for "${area.name}" against: ${review.problems[0]} Reply with the revised one sentence only.`);
+        }
+        report({ area: area.name, approach: plan, planVerdict: review.verdict });
+        impl.send({ area, rounds: 0, plan, port: portOf.get(area.name), gates: [], commitShas: [], changedFiles: [], skipped: [], evidence: [], visionOpen: [], carry: [], standing: [], lastOpen: Number.MAX_SAFE_INTEGER, nonShrinking: 0, settle: resolvers.get(area.name)! });
+      }),
+    );
+  });
+
+  const implStage = future(async () => {
+    phase("Implement each area and run its checks");
+    const tasks: Promise<void>[] = [];
+    for await (const it of impl) {
+      tasks.push(
+        future(async () => {
+          try {
+            report({ key: it.area.name, name: it.area.name, status: "working", note: `implementation under way (${it.area.contention})`, round: it.rounds }, "status");
+            if (it.area.contention !== "terminal" && it.worktree === undefined) {
+              const wt = `${ROOT === "" ? "" : `${ROOT}/`}.zflow/worktrees/${it.area.name}`;
+              const branch = `zflow/${it.area.name}`;
+              const addWt = await serializedGit(() => gitRun(["worktree", "add", "-b", branch, wt, "HEAD"]));
+              if (addWt.ran && addWt.exitCode === 0) {
+                it.worktree = wt;
+                it.branch = branch;
+                const base = await gitRun(["rev-parse", "HEAD"], wt);
+                it.wtBase = base.ran && base.exitCode === 0 ? base.output.split("\n")[0].trim() : "";
+                log(`${it.area.name}: worktree ${wt} on branch ${branch}`);
+              } else {
+                notCovered.push(`${it.area.name}: worktree creation failed — ${addWt.output.slice(0, 220)}. Delete stale branch/worktree ${branch} and clean untracked files in the area's paths, then rerun.`);
+                finalItems.push(it);
+                it.settle(false);
+                endWork();
+                return;
               }
             }
-            break;
+            const implementer = agent(`implementer-${it.area.name}-r${it.rounds}`, {
+              system:
+                "You implement one area with the smallest coherent change that completes it. " +
+                "When your area runs in a git worktree, do all work there and never touch the main checkout. " +
+                "The script runs the gates and the git commits after you hand off — do not run gates, do not run git. " +
+                "If your instructions are impossible, escalate and say so plainly.",
+              model: JUDGE_MODEL,
+            });
+            const work = await implementer.ask<AreaWork>(
+              [
+                `Implement the area "${it.area.name}" (${it.area.contention}) of this task.`,
+                `Task (verbatim): ${task}`,
+                it.plan !== undefined ? `Approved plan — follow it; deviate only where findings force it, and say so in your notes: ${it.plan}` : "",
+                it.worktree !== undefined ? `Working tree: your git worktree at ${it.worktree} — do ALL work inside it, never the main checkout.` : "",
+                it.port !== undefined ? `Dev port: this area's UI is served on the deterministic port ${it.port} — keep it reachable at http://localhost:${it.port}.` : "",
+                it.area.paths.length > 0 ? `Scope paths: ${it.area.paths.join(", ")} — touch nothing outside them.` : "Scope: the whole workspace.",
+                it.area.excludedPaths.length > 0 ? `Never touch: ${it.area.excludedPaths.join(", ")}` : "",
+                it.area.skills.length > 0 ? `Read and follow these skill files first: ${it.area.skills.join(", ")}` : "",
+                it.rounds > 0 && it.carry.length > 0 ? `This is a fix round. Fix exactly these confirmed findings, nothing more:\n${JSON.stringify(it.carry)}` : "",
+                agentsLine(),
+                "Make the smallest coherent change that completes the area. Do not run the gates — the script runs them after you. Do not run git — the script commits.",
+                "Return: summary (1-2 sentences), changedFiles (exact repo-root-relative paths created or changed — include a pre-existing deliverable you verified correct), notes, skipped.",
+              ]
+                .filter((l) => l !== "")
+                .join("\n"),
+            );
+            for (const p of work.changedFiles) {
+              if (it.area.excludedPaths.includes(p)) continue;
+              if (!it.changedFiles.includes(p)) it.changedFiles.push(p);
+            }
+            for (const s of work.skipped) {
+              if (!it.skipped.includes(s)) it.skipped.push(s);
+            }
+            it.workSummary = work.summary;
+            it.workNotes = work.notes;
+            it.gates = await runAllGates(it.area, it.worktree);
+            const red = it.gates.filter((g) => !(g.ran && g.exitCode === 0)).length;
+            log(`${it.area.name}: round ${it.rounds + 1} — ${it.gates.length - red} of ${it.gates.length} gate(s) green`);
+            if (doCommit && it.gates.length > 0 && red === 0 && work.changedFiles.length > 0) {
+              try {
+                const done = await commitRound(it, work.changedFiles, work.summary);
+                if (done.sha !== "") it.commitShas.push(done.sha);
+                else commitFailures.push(`${it.area.name}: ${done.note}`);
+              } catch (error) {
+                commitFailures.push(`${it.area.name}: commit error — ${String(error)}`);
+              }
+            }
+            if (it.area.contention !== "terminal") vision.send(it);
+            else judgeCh.send(it);
+          } catch (error) {
+            finalItems.push(it);
+            it.settle(false);
+            report({ key: it.area.name, name: it.area.name, status: "failed", note: `implement errored: ${String(error)}`, round: it.rounds }, "status");
+            endWork();
           }
-          if (lastOver && lastSize !== undefined) {
-            // Over budget is a red round in its own right: verified finding, shrink-or-split ask, stall-counted exit.
-            overBudget = true;
-            const f = sizeFinding(area, round, lastSize, budget);
-            sizeFindings.push(f);
-            report(f);
-            sizeStall = sizeStall + 1;
-          } else {
-            sizeStall = 0;
-          }
-          stagnantRun = failing < prevFailing ? 0 : stagnantRun + 1;
-          prevFailing = failing;
-          if (stagnantRun >= 2 || sizeStall >= 2) {
-            stagnated = stagnantRun >= 2; // two rounds without a shrinking failure count — or two consecutive over-budget rounds: stop, report honestly
-            break;
-          }
-        }
-        const changed = changedUnion;
-        const finalFindings = [...gates.filter((g) => g.ran && g.exitCode !== 0).map((g) => gateFinding(area, round, g)), ...sizeFindings];
-        for (const f of finalFindings) report(f);
-        const sizeNote =
-          lastSize === undefined
-            ? ""
-            : `${lastSize.files} file(s), +${lastSize.added}/−${lastSize.deleted} — budget ${budget.maxLines} lines / ${budget.maxFiles} files${lastOver ? " — OVER BUDGET" : ""}`;
-        let commitNote = areaCommitNotes.join("; ");
-        if (commitNote === "" && pendingFiles.length > 0 && gates.length > 0) {
-          commitNote = doCommit
-            ? "not committed — gates still red or over size budget; work stays on disk, uncommitted"
-            : "skipped (commit=false) — work stays on disk, uncommitted";
-        }
-        report(
-          statusCard(
-            area.name,
-            round,
-            gates.length === 0 ? "unverified" : gatesGreen ? "passed" : "failed",
-            gates.length === 0
-              ? "unverified (no gates declared)"
-              : gatesGreen
-                ? "all gates green"
-                : stagnated
-                  ? "stopped: two rounds without improvement"
-                  : overBudget
-                    ? "stopped: over size budget two rounds — split the area"
-                    : "stopped: round cap reached",
-          ),
-          "status",
-        );
-        return {
-          area: area.name,
-          gatesGreen,
-          gates,
-          rounds: roundsUsed,
-          stagnated,
-          summary: work?.summary ?? "no summary reported",
-          notes: work?.notes ?? "",
-          commitSha: commitShas.length > 0 ? commitShas[commitShas.length - 1] : "",
-          commitShas,
-          changedFiles: changed,
-          skipped: skippedUnion,
-          commitNote,
-          overBudget,
-          sizeNote,
-          findings: finalFindings,
-        };
-      } catch (error) {
-        report(statusCard(area.name, round, "failed", `area errored: ${String(error)}`), "status");
-        return {
-          area: area.name,
-          gatesGreen: false,
-          gates: [],
-          rounds: 0,
-          stagnated: false,
-          summary: "",
-          notes: "",
-          commitSha: "",
-          commitShas: [],
-          changedFiles: [],
-          skipped: [],
-          commitNote: "",
-          overBudget: false,
-          sizeNote: "",
-          findings: [],
-          error: String(error),
-        };
-      }
-    })();
-    running.set(area.name, promise);
-    return promise;
-  };
-
-  const outcomes = await Promise.all(areas.map(runArea));
-
-  const green = outcomes.filter((o) => o.gatesGreen);
-  const errored = outcomes.filter((o) => o.error !== undefined);
-  const gateless = outcomes.filter((o) => o.gates.length === 0 && o.error === undefined);
-  const red = outcomes.filter((o) => o.gates.length > 0 && !o.gatesGreen);
-  const allFindings = outcomes.flatMap((o) => o.findings);
-  const notCovered: string[] = [...problems, ...commitFailures];
-  if (agentsMdPath !== "" && !agentsMdLoaded) notCovered.push(`${agentsMdPath}: not found or empty — the repo's hard rules were not injected into subagent asks`);
-  for (const o of outcomes) {
-    if (o.commitNote.startsWith("skipped")) notCovered.push(`${o.area}: ${o.commitNote}`);
-    for (const g of o.gates) {
-      if (!g.ran) notCovered.push(`${o.area}: gate ${g.argv} did not run — ${g.failure}`);
-    }
-    if (o.error !== undefined) {
-      notCovered.push(`${o.area}: area errored — ${o.error}`);
-    } else if (o.gates.length > 0 && !o.gatesGreen) {
-      notCovered.push(
-        `${o.area}: still red after ${o.rounds} round(s)${o.stagnated ? " (stopped: no improvement for two rounds)" : ""} — half-done work is on disk, never claimed clean`,
-      );
-    }
-    if (o.gates.length === 0) notCovered.push(`${o.area}: unverified (no gates declared) — its work is unverified by commands`);
-    for (const s of o.skipped) notCovered.push(`${o.area}: left undone — ${s}`);
-    if (o.notes.trim().length > 0) notCovered.push(`${o.area}: implementer notes — ${o.notes.trim()}`);
-  }
-
-  await artifact.markdown(
-    "report",
-    [
-      `# zflow implement — round ${round} of at most ${maxRounds}`,
-      "",
-      `Task: ${task}`,
-      `Tier: ${tier}. Areas: ${areas.length} (${green.length} green, ${red.length} red, ${gateless.length} unverified — no gates declared${errored.length > 0 ? `, ${errored.length} errored` : ""}). ${outcomes.reduce((n, o) => n + o.commitShas.length, 0)} commit(s) — one per green round, size-budgeted.`,
-      "",
-      "## Areas",
-      ...outcomes.flatMap((o) => [
-        `### ${o.area} — ${o.error !== undefined ? "errored" : o.gatesGreen ? "all gates green" : o.gates.length === 0 ? "unverified (no gates declared)" : o.overBudget ? "gates red / over size budget" : "gates red"}`,
-        `- Rounds used: ${o.rounds}${o.stagnated ? " (stopped early: two rounds without improvement)" : o.overBudget && !o.gatesGreen ? " (stopped early: over size budget two rounds — split the area)" : ""}`,
-        `- Summary: ${o.summary}`,
-        ...(o.notes.trim().length > 0 ? [`- Notes: ${o.notes.trim()}`] : []),
-        ...o.gates.map((g) => `- Gate ${g.argv}: ${g.ran ? `exit ${g.exitCode}` : "did not run"}${g.failure === "" ? "" : ` — ${g.failure}`}`),
-        ...(o.sizeNote !== "" ? [`- Size: ${o.sizeNote}`] : []),
-        o.changedFiles.length > 0 ? `- Changed: ${o.changedFiles.join(", ")}` : "- No file changes reported",
-        o.commitNote !== ""
-          ? `- Commit: ${o.commitNote}`
-          : o.gates.length === 0
-            ? "- Not committed (no gates declared — the engine commits only gate-verified areas)"
-            : "- Not committed (red gates keep their work on disk)",
-        ...(o.error !== undefined ? [`- Error: ${o.error}`] : []),
-      ]),
-      "",
-      "## Findings still standing",
-      ...(allFindings.length > 0
-        ? allFindings.map((f) => `- **${f.where}** (${f.severity}, ${f.status}): ${f.what}\n  - ${f.evidence}`)
-        : ["- none"]),
-      "",
-      "## Not covered",
-      ...(notCovered.length > 0 ? notCovered.map((n) => `- ${n}`) : ["- nothing notable"]),
-    ].join("\n"),
-    {
-      title: `zflow implement report — round ${round}`,
-      description: `Per-area gate results, commits, and standing findings for ${areas.length} area(s).`,
-      primary: true,
-    },
-  );
-
-  const handoffs: ImplementAreaHandoff[] = outcomes.map((o) => ({
-    area: o.area,
-    changedFiles: o.changedFiles,
-    summary: o.summary,
-    commitSha: o.commitSha,
-    commitShas: o.commitShas,
-    notes: o.notes,
-  }));
-
-  const sizeStopped = outcomes.filter((o) => o.overBudget && !o.gatesGreen);
-  const result: WorkflowReport = {
-    conclusion:
-      areas.length - green.length === 0
-        ? `Implemented all ${areas.length} area(s) with every gate green on round ${round}; ${outcomes.reduce((n, o) => n + o.commitShas.length, 0)} size-budgeted commit(s) made — one per green round. ${allFindings.length} finding(s) stand.`
-        : `${green.length} of ${areas.length} area(s) finished with all gates green; ${red.length} still red after their round budgets — their half-done work stays on disk and is listed, never claimed clean${sizeStopped.length > 0 ? `; ${sizeStopped.length} stopped over their size budget — split them before relaunching` : ""}; ${gateless.length} unverified (no gates declared)${errored.length > 0 ? `; ${errored.length} errored during implementation` : ""}. ${outcomes.reduce((n, o) => n + o.commitShas.length, 0)} size-budgeted commit(s) made — one per green round.`,
-    findings: allFindings,
-    areas: handoffs,
-    verified: [
-      ...outcomes.flatMap((o) => o.gates.filter((g) => g.ran).map((g) => `${g.argv} → exit ${g.exitCode} (area ${o.area})`)),
-      ...outcomes.flatMap((o) => (o.commitShas.length > 0 ? [`${o.area}: ${o.commitNote}`] : [])),
-    ],
-    notCovered,
-  };
-  return result;
-}
-
-// ===========================================================================
-// VISION: web areas through agent-browser sessions, desktop areas through ocu
-// (AX text plus base64-decoded pixel PNGs), evidence under .zflow/evidence/,
-// then a tier-aware audit of what landed.
-// ===========================================================================
-
-if (mode === "vision") {
-  if (round > maxRounds) return capReachedReport("vision", round, maxRounds);
-
-  const uiAreas = areas.filter((a) => a.hasUI);
-  const skippedAreas = areas.filter((a) => !a.hasUI).map((a) => `${a.name}: no UI surface declared — vision does not apply`);
-  if (uiAreas.length === 0) {
-    return {
-      conclusion: `No UI areas to capture: ${skippedAreas.join("; ")}. Nothing ran.`,
-      findings: [],
-      verified: [],
-      notCovered: [...skippedAreas, ...problems],
-    };
-  }
-
-  phase("Capture and audit the visual evidence for each UI area");
-  log(`capturing evidence for ${uiAreas.length} UI area(s) on round ${round}`);
-  const visionResults = await Promise.all(
-    uiAreas.map(async (area): Promise<VisionAreaResult> => {
-      report(statusCard(area.name, round, "working", "capturing evidence"), "status");
-      // Lane: the area's explicit lane when the coordinator set one, else the URL heuristic.
-      const url = webUrl(task, area);
-      const lane: "web" | "desktop" = area.lane ?? (url === undefined ? "desktop" : "web");
-      try {
-        // Prior-round evidence for THIS area only, anchored to its file prefix so sibling areas' shots never leak in.
-        const priorForArea = evidence.filter((p) => p.startsWith(`${EVIDENCE_DIR}/${area.name}-r`));
-        const priorFindings = prior.filter((f) => f.area === area.name);
-        const capture = await agent(`capture-${area.name}-r${round}`, CAPTURE_PERSONA).ask<CaptureResult>(
-          lane === "web"
-            ? captureAskWeb(area, round, url ?? "", priorForArea)
-            : captureAskDesktop(area, task, round, priorForArea),
-        );
-        // The filesystem is the truth: onDisk comes from the script's own glob, never the agent's claim.
-        const landed = (await files.glob(`${EVIDENCE_DIR}/*`)).filter((p) =>
-          p.startsWith(`${EVIDENCE_DIR}/${area.name}-r${round}-`),
-        );
-        const onDisk = landed.length > 0;
-        const toAudit = onDisk ? landed : capture.evidencePaths; // audited anyway; the auditor reports what it cannot read
-        const audit = await agent(`vision-audit-${area.name}-r${round}`, auditPersona(tier)).ask<VisionAudit>(
-          auditAsk(area, task, toAudit, priorForArea, priorFindings, round, capture.notes),
-        );
-        const findings: EngineFinding[] = audit.findings.map((f) => ({
-          ...f,
-          status: "unconfirmed", // advisory context for the next implement round; a re-shoot verifies it — vision never self-confirms
-          area: area.name,
-          round,
-        }));
-        for (const f of findings) report(f);
-        report(
-          statusCard(
-            area.name,
-            round,
-            onDisk ? "passed" : "failed",
-            onDisk
-              ? `${landed.length} evidence file(s) confirmed on disk and audited`
-              : `no evidence found on disk${capture.evidencePaths.length > 0 ? ` (agent claimed: ${capture.evidencePaths.join(", ")})` : ""}`,
-          ),
-          "status",
-        );
-        return { area: area.name, lane, evidence: toAudit, onDisk, verdict: audit.verdict, findings };
-      } catch (error) {
-        report(statusCard(area.name, round, "failed", `capture or audit errored: ${String(error)}`), "status");
-        return { area: area.name, lane, evidence: [], onDisk: false, verdict: `errored: ${String(error)}`, findings: [] };
-      }
-    }),
-  );
-
-  const allFindings = visionResults.flatMap((r) => r.findings);
-  const captured = visionResults.filter((r) => r.onDisk);
-  const notCovered: string[] = [...problems, ...skippedAreas];
-  if (agentsMdPath !== "" && !agentsMdLoaded) notCovered.push(`${agentsMdPath}: not found or empty — the repo's hard rules were not injected into subagent asks`);
-  for (const r of visionResults) {
-    if (!r.onDisk) notCovered.push(`${r.area}: no evidence confirmed on disk — nothing this run can vouch for was audited`);
-  }
-  if (tier === "pro") {
-    notCovered.push("pixel content of screenshots: this run's tier is image-blind; pixels were readable only if the auditor escalated for them");
-  }
-  if (allFindings.length > 0) {
-    notCovered.push(
-      "independent confirmation of the vision findings: none exists in this run — pixel findings carry into the next implement round as advisory context and are verified by re-shoot",
-    );
-  }
-
-  await artifact.markdown(
-    "report",
-    [
-      `# zflow vision — round ${round}`,
-      "",
-      `Task: ${task}`,
-      `Tier: ${tier} (${tier === "flash" ? "reads pixels natively" : "image-blind; pixel checks only via escalation"}).`,
-      `UI areas: ${visionResults.length} (${captured.length} with evidence on disk).`,
-      "",
-      "## UI areas",
-      ...visionResults.flatMap((r) => [
-        `### ${r.area} (${r.lane})`,
-        `- Evidence: ${r.evidence.length > 0 ? r.evidence.join(", ") : "none"}`,
-        `- Verdict: ${r.verdict}`,
-        ...(r.findings.length > 0
-          ? r.findings.map((f) => `- **${f.where}** (${f.severity}, ${f.status}): ${f.what}\n  - ${f.evidence}`)
-          : ["- no findings from the evidence"]),
-      ]),
-      "",
-      "## Not covered",
-      ...(notCovered.length > 0 ? notCovered.map((n) => `- ${n}`) : ["- nothing notable"]),
-    ].join("\n"),
-    {
-      title: `zflow vision report — round ${round}`,
-      description: `What the screenshots and AX snapshots show for ${visionResults.length} UI area(s); findings carry into the next implement round as advisory context and are verified by re-shoot.`,
-      primary: true,
-    },
-  );
-
-  const handoffs: VisionAreaHandoff[] = visionResults.map((r) => ({
-    area: r.area,
-    lane: r.lane,
-    verdict: r.verdict,
-    evidence: r.evidence,
-  }));
-
-  const result: WorkflowReport = {
-    conclusion:
-      `Captured and audited evidence for ${captured.length} of ${visionResults.length} UI area(s) on round ${round}: ` +
-      `${allFindings.length} finding(s), all unconfirmed — they carry into the next implement round as advisory context, and a re-shoot verifies them.`,
-    findings: allFindings,
-    areas: handoffs,
-    verified: visionResults
-      .filter((r) => r.onDisk)
-      .map((r) => `${r.area}: evidence confirmed on disk and audited — ${r.evidence.join(", ")}`),
-    notCovered,
-  };
-  return result;
-}
-
-// ===========================================================================
-// JUDGE: a fresh blind judge per area, gates run once by the script as an
-// independent signal, every judge finding confirmed by a separate confirmer;
-// unconfirmed findings are labelled, never dropped.
-// ===========================================================================
-
-if (round > maxRounds) return capReachedReport("judge", round, maxRounds);
-
-phase("Audit each area with a fresh judge and confirm what is real");
-log(`judging ${areas.length} area(s) on round ${round} with fresh judges`);
-const judgeResults = await Promise.all(
-  areas.map(async (area): Promise<JudgeAreaResult> => {
-    report(statusCard(area.name, round, "working", "audit under way"), "status");
-    try {
-      const persona = judgePersona(tier);
-      // Evidence is per-area, anchored to this area's file prefix: one area's screenshots never leak into another's ask.
-      const areaEvidence = evidence.filter((p) => p.startsWith(`${EVIDENCE_DIR}/${area.name}-r`));
-      // Size evidence, measured by the script vs the chain's start: the blind judge cannot flag
-      // magnitude drift it was never shown. No baseSha, no numbers — the line is dropped honestly.
-      const size = baseSha !== "" ? await numstatVsBase(baseSha, area) : undefined;
-      const budget = area.budget ?? { maxLines, maxFiles };
-      const judged = await agent(`judge-${area.name}-r${round}`, persona).ask<JudgeFindings>(
-        judgeAsk(area, task, areaEvidence, round, size, budget),
-      );
-      // Gates run once, by the script, after the blind judge has spoken.
-      const gates = await runAllGates(area);
-      const gateNotes = gates.map(describeGate).join("\n");
-      const fromGates = gates.filter((g) => g.ran && g.exitCode !== 0).map((g) => gateFinding(area, round, g));
-      for (const f of fromGates) report(f);
-      const confirmed = await Promise.all(
-        judged.findings.map(async (f, i): Promise<EngineFinding> => {
-          const check = await agent(`confirmer-${area.name}-r${round}-${i}`, CONFIRMER_PERSONA).ask<Confirmation>(
-            confirmerAsk(f, gateNotes),
-          );
-          const ef: EngineFinding = {
-            ...f,
-            status: check.reproduced ? "verified" : "unconfirmed",
-            area: area.name,
-            round,
-          };
-          report(ef); // published the moment its status is known
-          return ef;
         }),
       );
-      const findings = [...fromGates, ...confirmed];
-      report(
-        statusCard(
-          area.name,
-          round,
-          gates.length === 0 ? "unverified" : fromGates.length > 0 ? "failed" : "passed", // never claim clean while a gate is red; no gates = unverified
-          gates.length === 0
-            ? "unverified (no gates declared)"
-            : `${confirmed.length} judge finding(s) (${findings.filter((f) => f.status === "verified").length} verified), ${fromGates.length} red gate(s)`,
-        ),
-        "status",
-      );
-      return { area: area.name, overallNote: judged.overallNote, gates, findings };
-    } catch (error) {
-      report(statusCard(area.name, round, "failed", `audit errored: ${String(error)}`), "status");
-      return { area: area.name, overallNote: `errored: ${String(error)}`, gates: [], findings: [] };
     }
-  }),
-);
+    await Promise.all(tasks);
+  });
 
-const allFindings = judgeResults.flatMap((r) => r.findings);
-const verifiedCount = allFindings.filter((f) => f.status === "verified").length;
-const unconfirmedCount = allFindings.length - verifiedCount;
-const redGates = judgeResults.flatMap((r) => r.gates.filter((g) => g.ran && g.exitCode !== 0));
-const notCovered: string[] = [...problems];
-if (agentsMdPath !== "" && !agentsMdLoaded) notCovered.push(`${agentsMdPath}: not found or empty — the repo's hard rules were not injected into subagent asks`);
-for (const r of judgeResults) {
-  for (const g of r.gates) {
-    if (!g.ran) notCovered.push(`${r.area}: gate ${g.argv} did not run — ${g.failure}`);
-  }
-  if (r.gates.length === 0) notCovered.push(`${r.area}: unverified (no gates declared) — judged on code and text evidence only`);
+  const visionStage = future(async () => {
+    phase("Capture and audit the visual evidence for each UI area");
+    const tasks: Promise<void>[] = [];
+    for await (const it of vision) {
+      tasks.push(
+        future(async () => {
+          report({ key: it.area.name, name: it.area.name, status: "working", note: "capturing evidence", round: it.rounds }, "status");
+          try {
+            await visionOne(it);
+          } catch (error) {
+            notCovered.push(`${it.area.name}: capture or audit errored (round ${it.rounds + 1}) — ${String(error)}`);
+          }
+          judgeCh.send(it);
+        }),
+      );
+    }
+    await Promise.all(tasks);
+  });
+
+  const judgeStage = future(async () => {
+    phase("Audit each area with a fresh judge and confirm what is real");
+    const tasks: Promise<void>[] = [];
+    for await (const it of judgeCh) {
+      tasks.push(
+        future(async () => {
+          const name = it.area.name;
+          const budget = it.area.budget ?? { maxLines, maxFiles };
+          try {
+            const judged = await agent(`judge-${name}-r${it.rounds}`, {
+              system:
+                "You are a fresh judge: you have never seen this work and owe its authors nothing. " +
+                "Hunt for failures — wrong, missing, half-done, or misleading work. Report only findings you can show evidence for; " +
+                "do not pad, do not approve, do not edit any file. You are image-blind: read text evidence (AX snapshots) as files. " +
+                "If you cannot judge something, say so instead of guessing.",
+              model: JUDGE_MODEL,
+            }).ask<JudgeFindings>(
+              [
+                `Judge the current state of area "${name}" (round ${it.rounds + 1}). You have not seen this work before.`,
+                `Task (verbatim): ${task}`,
+                it.worktree !== undefined ? `The area's code lives in its own git worktree at ${it.worktree} — read the scoped paths there.` : "",
+                it.area.paths.length > 0 ? `Paths in scope: ${it.area.paths.join(", ")}` : "",
+                it.evidence.length > 0 ? `Evidence paths: ${it.evidence.join(", ")}` : "",
+                agentsLine(),
+                "Report each finding as where (path), what (one sentence), evidence (what shows it), severity. Empty findings when nothing real stands. Also give overallNote.",
+              ]
+                .filter((l) => l !== "")
+                .join("\n"),
+            );
+            it.gates = await runAllGates(it.area, it.worktree);
+            const notes = gateNotes(it.gates);
+            const fromGates: EF[] = it.gates
+              .filter((g) => g.ran && g.exitCode !== 0)
+              .map((g) => ({
+                where: it.area.paths[0] ?? name,
+                what: `Area gate is still red: ${g.argv}`,
+                evidence: `${g.argv} exited ${g.exitCode}${g.failure === "" ? "" : ` — ${g.failure}`}`,
+                status: "verified" as const,
+                severity: "high" as const,
+                area: name,
+                round: it.rounds,
+              }));
+            for (const f of fromGates) report(f);
+            // Size evidence, measured by the script vs the area's base — never trusted to an agent.
+            const sizeBase = it.wtBase !== undefined && it.wtBase !== "" ? it.wtBase : baseSha;
+            if (sizeBase !== "") {
+              const numstat = await gitRun(["diff", "--numstat", sizeBase, "--", ...it.area.paths], it.worktree);
+              const size = parseNumstat(numstat.output);
+              if (size.added + size.deleted > budget.maxLines || size.files > budget.maxFiles) {
+                const f: EF = {
+                  where: it.area.paths[0] ?? name,
+                  what: `Area over size budget: ${size.files} file(s), +${size.added}/−${size.deleted} against ${budget.maxLines} lines / ${budget.maxFiles} files — split the area, never commit big`,
+                  evidence: `script-run git diff --numstat vs ${sizeBase.slice(0, 10)}: ${size.files} file(s), +${size.added}/−${size.deleted}`,
+                  status: "verified",
+                  severity: "high",
+                  area: name,
+                  round: it.rounds,
+                };
+                report(f);
+                fromGates.push(f);
+              }
+            }
+            const confirmed = await Promise.all(
+              judged.findings.map(async (f, i): Promise<EF> => {
+                const check = await agent(`confirmer-${name}-r${it.rounds}-${i}`, {
+                  system:
+                    "You confirm or refute a single finding by reproducing it from its evidence alone; read the files it names. " +
+                    "Never edit anything, never re-run checks the script already ran. reproduced is true only if you saw the problem yourself.",
+                  model: JUDGE_MODEL,
+                }).ask<Confirmation>(
+                  [
+                    "Reproduce this finding from its evidence alone; read the files it names. Do not edit anything.",
+                    it.worktree !== undefined ? `The area's code lives in its worktree at ${it.worktree} — read the finding's paths there.` : "",
+                    `Finding:\n${JSON.stringify(f)}`,
+                    agentsLine(),
+                    notes.length > 0 ? `The script already ran this area's gates — do not re-run them:\n${notes}` : "",
+                    "reproduced is true only if you saw the problem yourself.",
+                  ]
+                    .filter((l) => l !== "")
+                    .join("\n"),
+                );
+                const ef: EF = { ...f, status: check.reproduced ? "verified" : "unconfirmed", area: name, round: it.rounds };
+                report(ef);
+                return ef;
+              }),
+            );
+            const open = [...fromGates, ...confirmed];
+            it.standing = open;
+            log(`${name}: judged r${it.rounds + 1} — ${open.length} open finding(s)`);
+            if (open.length === 0) {
+              finalItems.push(it);
+              if (it.worktree !== undefined && it.branch !== undefined) {
+                if (!doCommit) {
+                  it.settledOk = false;
+                  it.settle(false);
+                  report({ key: name, name, status: "failed", note: `clean, but commit=false leaves its work uncommitted in worktree ${it.worktree} — dependents were blocked from building on it`, round: it.rounds }, "status");
+                } else {
+                  const merged = await mergeRun(it);
+                  it.settledOk = merged;
+                  it.settle(merged);
+                  if (!merged) notCovered.push(`${name}: merge of ${it.branch} refused — usually untracked files in the main checkout under ${it.area.paths.join(", ")}; branch and worktree ${it.worktree} left for manual merge`);
+                  report({ key: name, name, status: merged ? "passed" : "failed", note: merged ? `clean — branch ${it.branch} merged back` : `merge of ${it.branch} failed — left for manual merge`, round: it.rounds }, "status");
+                }
+              } else {
+                it.settledOk = true;
+                it.settle(true);
+                report({ key: name, name, status: "passed", note: "clean — zero open findings, gates green", round: it.rounds }, "status");
+              }
+              endWork();
+              return;
+            }
+            it.nonShrinking = open.length >= it.lastOpen ? it.nonShrinking + 1 : 0;
+            it.lastOpen = open.length;
+            if (maxRounds !== Number.POSITIVE_INFINITY && it.rounds + 1 >= maxRounds) {
+              finalItems.push(it);
+              it.settle(false);
+              report({ key: name, name, status: "failed", note: `round cap ${maxRounds} reached with ${open.length} finding(s) standing — never claimed clean`, round: it.rounds }, "status");
+              endWork();
+              return;
+            }
+            if (it.nonShrinking >= 2) {
+              finalItems.push(it);
+              it.settle(false);
+              report({ key: name, name, status: "failed", note: `stagnation: two rounds without shrinking findings — ${open.length} still stand, never claimed clean`, round: it.rounds }, "status");
+              endWork();
+              return;
+            }
+            it.carry = open;
+            impl.send({ ...it, rounds: it.rounds + 1, visionOpen: [] });
+          } catch (error) {
+            finalItems.push(it);
+            it.standing = [
+              { where: it.area.paths[0] ?? name, what: "Judge step errored, so this area is unverified — never counted clean", evidence: String(error), status: "unconfirmed", severity: "high", area: name, round: it.rounds },
+            ];
+            report(it.standing[0]);
+            it.settle(false);
+            report({ key: name, name, status: "failed", note: `judge errored: ${String(error)}`, round: it.rounds }, "status");
+            endWork();
+          }
+        }),
+      );
+    }
+    await Promise.all(tasks);
+  });
+
+  await Promise.all([planStage, implStage, visionStage, judgeStage, ...Array.from(settled.values())]);
+  phase("Collect the final state and publish the report");
+  const head = await gitRun(["rev-parse", "HEAD"]);
+  const log2 = await gitRun(["log", "--oneline", "-12"]);
+  const cleanCount = finalItems.filter((i) => i.settledOk === true).length;
+  const standingAll = finalItems.flatMap((i) => i.standing);
+  const deferredVision = finalItems.flatMap((i) => (i.settledOk === true ? i.visionOpen : []));
+  const commits = finalItems.reduce((n, i) => n + i.commitShas.length, 0);
+  await artifact.markdown(
+    "report",
+    [
+      "# zflow chain report",
+      "",
+      `Task: ${task}`,
+      `Areas: ${finalItems.length + blockedAreas.length} — ${cleanCount} clean, ${finalItems.length - cleanCount} stopped with findings or merge failures, ${blockedAreas.length} blocked. Commits: ${commits}. Head ${head.output.trim().slice(0, 7)}.`,
+      "",
+      "## Areas",
+      ...finalItems.flatMap((i) => [
+        `### ${i.area.name} — ${i.settledOk === true ? "clean" : i.standing.length > 0 ? `${i.standing.length} standing` : "stopped"} (${i.area.contention}${i.worktree !== undefined ? ", worktree" : ""}${i.port !== undefined ? `, port ${i.port}` : ""})`,
+        `- Rounds: ${i.rounds + 1}; commits: ${i.commitShas.join(", ") || "none"}`,
+        `- Summary: ${i.workSummary ?? "none"}`,
+        ...(i.workNotes !== undefined && i.workNotes.trim().length > 0 ? [`- Notes: ${i.workNotes.trim().slice(0, 300)}`] : []),
+        ...i.gates.map((g) => `- Gate ${g.argv}: ${g.ran ? `exit ${g.exitCode}` : "did not run"}${g.failure === "" ? "" : ` — ${g.failure.slice(0, 200)}`}`),
+        ...(i.changedFiles.length > 0 ? [`- Changed: ${i.changedFiles.join(", ")}`] : []),
+        ...(i.evidence.length > 0 ? [`- Evidence: ${i.evidence.join(", ")}`] : []),
+        ...(i.skipped.length > 0 ? i.skipped.map((s) => `- Left undone: ${s}`) : []),
+        ...(i.standing.length > 0 ? i.standing.map((f) => `- Standing (${f.severity}, ${f.status}): ${f.what} — ${f.evidence.slice(0, 200)}`) : []),
+      ]),
+      ...(blockedAreas.length > 0 ? ["", "## Blocked", ...blockedAreas.map((b) => `- **${b}**: dependency did not finish with visible work`)] : []),
+      ...(deferredVision.length > 0 ? ["", "## Unconfirmed vision findings (deferred to the user)", ...deferredVision.map((f) => `- **${f.where}** (${f.severity}): ${f.what} — ${f.evidence.slice(0, 200)}`)] : []),
+      "",
+      "## Recent git history",
+      ...log2.output.split("\n").map((l) => `- ${l}`),
+    ].join("\n"),
+    { title: "zflow chain report", description: `Per-area terminal states, commits, merges, gates, and standing findings across ${finalItems.length + blockedAreas.length} areas.`, primary: true },
+  );
+  return {
+    conclusion:
+      standingAll.length === 0 && cleanCount === finalItems.length && blockedAreas.length === 0
+        ? `Chain finished clean: ${cleanCount} of ${finalItems.length} area(s), ${commits} size-budgeted commit(s), ${deferredVision.length} unconfirmed vision finding(s) deferred to the user.`
+        : `Chain finished: ${cleanCount} of ${finalItems.length} area(s) clean; ${standingAll.length} finding(s) standing across the rest; ${blockedAreas.length} blocked; ${commits} commit(s) — half-done work is on disk and listed, never claimed clean.`,
+    findings: standingAll,
+    verified: [
+      ...finalItems.flatMap((i) => i.gates.filter((g) => g.ran).map((g) => `${g.argv} → exit ${g.exitCode} (area ${i.area.name})`)),
+      ...finalItems.flatMap((i) => (i.commitShas.length > 0 ? [`${i.area.name}: commits ${i.commitShas.join(", ")}`] : [])),
+      ...mergedAreas.map((k) => `${k}: branch merged into the shared checkout`),
+    ],
+    notCovered: Array.from(new Set([...notCovered, ...commitFailures])),
+  };
 }
-if (tier === "pro") {
-  notCovered.push("pixel content of screenshots: the judge tier is image-blind; pixels were readable only if a judge escalated for them");
-}
 
-await artifact.markdown(
-  "report",
-  [
-    `# zflow judge — round ${round} of at most ${maxRounds}`,
-    "",
-    `Task: ${task}`,
-    `Tier: ${tier}. Areas judged: ${judgeResults.length}. Findings: ${allFindings.length} ` +
-      `(${verifiedCount} verified, ${unconfirmedCount} unconfirmed — kept and labelled, never dropped).`,
-    "",
-    "## Areas",
-    ...judgeResults.flatMap((r) => [
-      `### ${r.area}`,
-      `- Judge's note: ${r.overallNote}`,
-      ...r.gates.map((g) => `- Gate ${g.argv}: ${g.ran ? `exit ${g.exitCode}` : "did not run"}${g.failure === "" ? "" : ` — ${g.failure}`}`),
-      ...(r.findings.length > 0
-        ? r.findings.map((f) => `- **${f.where}** (${f.severity}, ${f.status}): ${f.what}\n  - ${f.evidence}`)
-        : ["- no findings"]),
-    ]),
-    "",
-    "## Not covered",
-    ...(notCovered.length > 0 ? notCovered.map((n) => `- ${n}`) : ["- nothing notable"]),
-  ].join("\n"),
-  {
-    title: `zflow judge report — round ${round}`,
-    description: `Confirmed and unconfirmed findings across ${judgeResults.length} area(s); verified counts feed the chain's loop policy.`,
-    primary: true,
-  },
-);
-
-const result: WorkflowReport = {
-  conclusion:
-    allFindings.length === 0
-      ? `Judged all ${judgeResults.length} area(s) on round ${round}: no findings stood, and every gate that ran was green.`
-      : `Judged ${judgeResults.length} area(s) on round ${round}: ${allFindings.length} finding(s) — ${verifiedCount} verified, ` +
-        `${unconfirmedCount} unconfirmed (kept and labelled) — plus ${redGates.length} red gate(s). High+medium verified counts drive the chain's fix rounds.`,
-  findings: allFindings,
-  verified: [
-    ...judgeResults.flatMap((r) => r.gates.filter((g) => g.ran).map((g) => `${g.argv} → exit ${g.exitCode} (area ${r.area})`)),
-    `${verifiedCount} of ${allFindings.length} finding(s) reproduced by a separate confirmer subagent`,
-  ],
-  notCovered,
-};
-return result;
+return await runChain();

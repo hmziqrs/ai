@@ -1,187 +1,207 @@
-# zflow-port SPEC — porting the five z-*flow skills onto multi-workflow chains
+# zflow engine SPEC — the one-launch parallel chain (v2.2)
 
-Auditors: any artifact that contradicts Section 1 (verified platform facts) is a **blocker**.
-Drafters: Section 1 is ground truth; Section 3 is the engine contract; Section 4 is the per-skill map.
+Auditors: any artifact that contradicts Section 1 (verified platform facts) or
+Section 3 (the engine contract as implemented) is a **blocker**. The engine
+source beside this file is ground truth; this document must never describe
+machinery the engine does not have.
 
-## 1. Verified platform facts (every item tested live on this machine, 2026-09-21)
+## 1. Verified platform facts (ZCode v3.15.1+ multi-model harness)
 
-1. **One workflow run = ONE model.** `subagent_model` is run-wide. Per-agent model fields do
-   not exist — `agent(name, { system, model })` is a compile error: `'model' does not exist
-   in type 'AgentPersona'`. Mixed tiers per RUN are impossible natively.
-2. **No nesting.** Workflow subagents cannot spawn workflows or Agent-tool subagents.
-   Chaining goes through the main agent BETWEEN runs; mid-run cross-tier needs go through
-   the escalation bridge.
-3. **Escalation bridge.** A blocked subagent escalates; only it parks; the main agent
-   resolves (it may dispatch Agent-tool subagents of any tier — `general-pro`,
-   `general-flash`). Cap: **3 escalations per ask**. Verified: a GLM-5.3 run obtained a
-   flash image read through one escalation round trip.
-4. **Vision tiers.** GLM-5.3 (pro) is image-blind: Read on a PNG uploads it to a CDN and
-   returns a URL, no visual content. GLM-5.3-Flash reads PNGs natively via Read, and can
-   pixel-sample (python3/PIL) for measured hex deltas. Verified with an unguessable token.
-5. **agent-browser CLI 0.8.0** (`~/.bun/bin/agent-browser`): headless browser automation,
-   plain CLI — usable by workflow subagents via Bash. `--session <name>` gives isolated
-   parallel browsers; `snapshot -i --json`; `screenshot <path>`; `close`. Verified
-   end-to-end (open → screenshot → close).
-6. **ocu / open-computer-use 0.3.5** (`~/.nvm/.../bin/ocu`): desktop automation CLI,
-   macOS Accessibility permissions already granted. `ocu snapshot <app>` and
-   `ocu call get_app_state --args '{"app":"...","include_screenshot":true}'` — AX trees
-   come back as **text** (any tier can audit them); pixels come back as **base64 PNG in
-   JSON** (decode with jq + base64 -d to a file). No standalone `screenshot` tool.
-   Batched sequences via `ocu call --calls '[...]'`.
-7. **world.run**: the command name must be a compile-time string literal (the user approves
-   the command set at confirmation); runtime values go in the args array. Nonzero exit
-   code is a VALUE the loop branches on, not an exception. Timeout default 300s,
-   override per call.
-8. **Official computer-use / browser-use plugins are NOT usable inside workflows** —
-   their transport is a session-bound host bridge (`globals[Symbol.for(...)]`). They stay
-   the main agent's interactive lane only.
-9. **Chain launches**: `CreateWorkflow` per node (saved workflows take validated args);
-   completion notification carries the typed return; `AmendWorkflow` re-runs reusing
-   finished work; `ResumeWorkflowRun` continues stopped runs.
-10. **Named-agent reuse**: same named agent across asks keeps context — fix rounds reuse
-    the original implementer's agent (long-lived, cheap round 5).
-11. **In-run mechanics**: phases are required and user-facing; typed results carry JSDoc;
-    `report()` items survive failed runs; `artifact.*` is the user deliverable channel;
-    `Promise.all` is a join — chain per-item inside fan-outs, join once.
+1. **Per-subagent model pins in one run.** `model(id)` declares a ModelRef and
+   `AgentPersona.model` pins it per subagent; one workflow run mixes tiers
+   natively. The engine pins judgment roles per `modelProfile` and capture /
+   vision-audit always on flash — no multi-launch tiering, no escalation needed
+   for image reads. The launcher passes NO `subagent_model` and no
+   `max_concurrency` (unless the user asks for a width limit).
+2. **No nesting.** Workflow subagents cannot spawn workflows or Agent-tool
+   subagents. One coordinator launch per chain; `AmendWorkflow` revises a run
+   reusing finished work; `ResumeWorkflowRun` continues a stopped one. Never
+   relaunch to fix.
+3. **Escalation.** A blocked subagent escalates; only it parks; the main agent
+   resolves (it may dispatch Agent-tool subagents of any tier). Cap: 3
+   escalations per ask.
+4. **Vision tiers.** GLM-5.3 (pro) is image-blind: Read on a PNG uploads it and
+   returns a URL, no visual content. GLM-5.3-Flash reads PNGs natively via Read
+   and can pixel-sample (python3/PIL). Judges are therefore image-blind by
+   design and read text evidence (AX snapshots, logs) as files; pixels belong
+   to the flash capture/vision lane.
+5. **agent-browser CLI** (`~/.bun/bin/agent-browser`): headless browser
+   automation usable by subagents via Bash. `--session <name>` gives isolated
+   parallel browsers; `snapshot -i --json`; `screenshot <path>`; `close`.
+6. **ocu / open-computer-use CLI**: desktop automation, macOS Accessibility
+   granted. `ocu snapshot <app>` — AX trees come back as text (any tier can
+   audit them); pixels come back as base64 PNG in JSON (decode to a file).
+7. **world.run**: the command name must be a compile-time string literal
+   (approved at confirmation); runtime values go in the args array. Nonzero
+   exit code is a VALUE the loop branches on, not an exception.
+8. **Official computer-use / browser-use plugins are main-thread-only** —
+   their transport is a session-bound host bridge. In-run capture uses the CLI
+   twins (agent-browser, ocu, simctl, adb, emulator) via subagent Bash.
+9. **Named agents**: the same named agent across asks keeps context (the
+   shared Committer is long-lived). The engine instead spawns FRESH named
+   agents per round (`implementer-<area>-r<N>`, `judge-<area>-r<N>`,
+   per-finding confirmers) — fresh eyes every round, by design.
+10. **In-run mechanics**: phases are required and user-facing; typed results
+    carry JSDoc; `report()` items survive failed runs; `artifact.*` is the
+    user deliverable channel; `Promise.all` is a join — chain per-item inside
+    fan-outs, join once.
 
-## 2. Target architecture (what the skills become)
+## 2. Architecture — one launch, everything in-run
 
-Main agent running the skill = **chain coordinator** (thin sequencer, holds only compact
-control data between runs). Tier-pure workflow runs are chain nodes:
+The main agent running a z-*flow skill is a **thin coordinator**: it surveys
+the repo, classifies work into `areas[]`, records `baseSha`/`repoRoot`, and
+makes ONE `CreateWorkflow saved: zflow-engine` call with `mode: "chain"`.
+Every area is its own state machine — plan → implement → vision → judge,
+looping per area until clean, stagnation, or the round cap — flowing through
+channels (`implement`, `vision`, `judge`) between stage futures with a counted
+close: areas sit at different stages and rounds at once, and the run ends
+exactly when every area reaches a terminal state.
 
-```
-[zflow-engine mode=implement tier=X]  → findings, paths, evidence
-[zflow-engine mode=vision   tier=flash] → vision verdicts, screenshot paths   (web: agent-browser; desktop: ocu)
-[zflow-engine mode=judge    tier=pro]  → confirmed findings, fixes needed
-   ↑ loop per POLICY (findings shrinking, round cap), enforced in code inside each run
-   ↑ and by the coordinator between runs
-```
+Topology is decided by `contention`:
 
-- Inter-phase tiering = chaining (unlimited). Intra-run tier needs = escalation bridge,
-  batched (one escalation per area carrying ALL its screenshots).
-- The state file is DELETED. Chain state = each run's typed return + the coordinator's
-  compact context. Evidence lives in files under `.zflow/evidence/`.
-- The decider's POLICY becomes loop conditions in code (stagnation counters, caps,
-  shrinking-findings checks) — models cannot misjudge exit conditions.
+- **terminal** — parallel in the shared checkout; verifiable by commands; no
+  vision stage.
+- **web** — its own git worktree (`.zflow/worktrees/<area>`, branch
+  `zflow/<area>`) with a deterministic port (`4100 + index` among sorted web
+  areas) and an isolated `agent-browser --session zflow-<area>`; a dev-server
+  URL named in the task overrides the port. Web captures run concurrently.
+- **desktop / mobile** — implement in worktrees like web, but the whole
+  device phase (build, launch, capture, teardown) serializes through a
+  single-worker device lane: one screen, one AX tree, one simulator/emulator
+  at a time (ocu for desktop; xcodebuild/simctl, gradle/adb, or flutter for
+  mobile).
+
+Clean areas' worktree branches merge back along the `dependsOn` DAG; a clean
+merge removes the worktree and branch again. A failed dependency blocks its
+dependents honestly (never runs them blind).
 
 ## 3. Engine contract — `zflow-engine.dwf.ts`
 
-ONE saved workflow, launched once per chain node. Declared args (validated by the host):
+ONE saved workflow, launched once per chain. Declared args (host-validated):
 
-- `mode`: "implement" | "judge" | "vision" — behavior switch.
-- `tier`: "flash" | "pro" — behavior switch ONLY (e.g. vision assumes image reading;
-  judge escalates image needs). The LAUNCHER must set `subagent_model` to the matching
-  tier; the script cannot pin models itself.
-- `task`: string (verbatim user task).
-- `areas`: array of { name, paths[], excludedPaths[], skills[] (absolute SKILL.md paths),
-  gates: { tool, args[] }[], complexity: "straightforward"|"complex", hasUI: boolean,
-  dependsOn: string[], lane: "web"|"desktop" (optional; overrides vision-mode routing —
-  without it the engine falls back to a URL heuristic over the task text),
-  budget: { maxLines, maxFiles } (optional; overrides the run's size budget for this area) }.
-- `evidence`: string[] (screenshot/evidence paths for judge/vision modes).
-- `findings`: prior-round findings array (fix rounds).
-- `maxRounds`: number, default 3.
-- `commit`: boolean, default true (implement mode only). False skips commits entirely —
-  work stays on disk, uncommitted, and the report says so.
-- `agentsMd`: string, default "AGENTS.md" (empty string disables). Injected into every
-  spawned subagent's ask; see hard rules below.
-- `baseSha`: string, optional. The chain's starting commit sha, recorded by the
-  coordinator at prep; judge size evidence is measured against it.
-- `maxLines` / `maxFiles`: numbers, default 400 / 10 — the size budget; see hard rules below.
-
-Hard rules:
-
-- **Gate dispatch via literal-command allowlist switch** in script code — cases for
-  `npm`, `pnpm`, `yarn`, `bun`, `cargo`, `make`, `go`, `python3`, `pytest`, `npx`,
-  `git` — each calling `world.run("<literal>", areaGateArgs)`; gate tool+args come from
-  `areas` at runtime, command names never interpolated.
-- **Gates non-mutating** (no --fix/--write); gates must exist in repo tooling.
-- **Git discipline in code**: commit messages drafted by a shared named "Committer"
-  agent; mutations executed by `world.run("git", ["add", ...explicit paths])` /
-  `world.run("git", ["commit", "-m", msg, "--", ...paths])` — serialized by the script;
-  explicit paths only; NEVER `--no-verify`; never push.
-- **Size budget enforced in code**: default ≤400 changed lines / ≤10 files per commit
-  and per uncommitted area delta (args `maxLines`/`maxFiles`; per-area `budget`
-  overrides). After each implement round the script measures the area's uncommitted
-  delta itself (`git diff --numstat` vs the round-start sha; untracked files
-  intent-added first so new work is counted). Over budget = a red round with reason
-  `size`: the fix ask says shrink to budget or report the split needed; two consecutive
-  size-red rounds stop the area exactly like stagnation does. **One commit per green
-  round** — never a commit folding several rounds' work; red or over-budget areas never
-  commit, so no more than one budget of uncommitted work can pile up per area.
-- **AGENTS.md injected into every spawned subagent**: every role's ask — implementer,
-  fixer, judge, confirmer, capture, vision auditor, Committer — carries the read-first
-  line: the repo's hard rules bind the task, and every skill AGENTS.md requires is read
-  and followed on top of the routing-map skills. A missing or empty file is recorded in
+- `mode`: must be `"chain"` — anything else refuses to start.
+- `task`: string, verbatim user task; embedded in every subagent ask.
+- `areas`: AreaSpec array — `name`, `contention` (terminal | web | desktop |
+  mobile), `paths[]`, `excludedPaths[]`, `skills[]` (absolute SKILL.md
+  paths), `gates: {tool, args[]}[]`, `complexity` (straightforward |
+  complex), `dependsOn: string[]`, optional `budget: {maxLines, maxFiles}`.
+  Legacy `hasUI`/`lane` fields are ignored with a recorded warning — classify
+  with `contention`. Duplicate names, unknown deps, and dependency cycles are
+  dropped/broken with recorded problems so fan-out can never deadlock.
+- `modelProfile`: `balanced` (default — pro judgment roles, flash capture and
+  vision audit) or `flash` (every role on flash; judgment compensated
+  mechanically by gates, confirmers, and the in-run POLICY).
+- `commit`: default true. False skips every commit and every worktree merge —
+  work stays on disk and worktree dependents are blocked honestly.
+- `maxRounds`: default unbounded — every area loops until clean, stagnation
+  (two rounds without shrinking findings), or this cap.
+- `maxLines` / `maxFiles`: run-level size budget, default 400 / 10;
+  per-area `budget` overrides.
+- `agentsMd`: default "AGENTS.md", empty string disables. Read-first line
+  injected into every spawned subagent's ask; missing/empty is recorded in
   notCovered, never silent.
-- Implement mode: one implementer agent per area (name `implementer-<area>`), routing-map
-  order, dependencies chained per-item; fix rounds REUSE the same implementer agent.
-  Commits happen per green round inside the area's loop through the shared Committer.
-- Vision mode (flash): web → `agent-browser --session zflow-<area>`; desktop → `ocu`
-  (AX text + decoded pixel PNGs). Evidence to `.zflow/evidence/<area>-r<n>-*.png`.
-- Judge mode (pro): fresh blind judge per area (`judge-<area>-r<round>`), findings
-  confirmed by a separate confirmer or a world.run gate; unconfirmed findings labelled,
-  never dropped. Judge asks carry per-area numstat vs `baseSha` as size evidence: an
-  area over its budget is a HIGH finding regardless of correctness — a blind judge
-  cannot flag magnitude drift it was never shown.
-- Typed interfaces with JSDoc on every field; Finding/WorkflowReport shapes per the
-  dynamic-workflows conventions; `report()` findings as they land; a status board
-  artifact; final markdown report artifact (primary) + WorkflowReport return.
-- Strict-safe code (guard `.find()`/optional results); no `Date.now`, `Math.random`,
-  `process`, `fetch`, `fs` imports; phase names user-facing English; subagent names
-  human-readable and unique per run (computed suffixes in loops).
+- `baseSha`: the chain's starting sha; shared-checkout judge size evidence is
+  measured against it (worktree areas measure against their branch point).
+- `repoRoot`: absolute root — `world.run`'s cwd is NOT the workspace root for
+  saved runs; pass `git rev-parse --show-toplevel` from prep.
 
-## 4. Per-skill port map — thin SKILL.md wrappers (target ≤ ~120 lines each)
+Hard rules (all enforced in script code, never model judgment):
 
-All six keep their directory name, frontmatter (valid `name` + `description` with
-trigger phrases), and become: **when to use → tier matrix → chain blueprint (nodes,
-order, POLICY) → conventions → fallback lanes**. Delete ALL state-file machinery,
-append/compaction contracts, and sequencer discipline tables (the engine and coordinator
-make them structural). No Codex remnants (`zai_*` agent types, `~/.codex`, worker/explorer
-built-ins, SendMessage-as-flow-step) — blocker if found.
+- **Anchored commands.** Every command anchors to repoRoot or the area
+  worktree: git/make/go/pnpm via `-C`, npm via `--prefix`, yarn/bun via
+  `--cwd`, cargo honors a gate's own `--manifest-path` (absolutized) else
+  appends the root manifest, python3/pytest via absolute first path, `npx`
+  has no safe anchored form and refuses honestly.
+- **Gate allowlist**: literal-command switch for `npm`, `pnpm`, `yarn`,
+  `bun`, `cargo`, `make`, `go`, `python3`, `pytest`, `git`; anything else is
+  skipped with a recorded refusal. Gates are non-mutating (no `--fix` /
+  `--write`); 900s timeout; the SCRIPT runs them (after implement, and again
+  at judge) — implementers never run gates.
+- **Git discipline**: commit messages drafted by the one shared named
+  "Committer" agent; mutations executed by the script (`git add`/`commit`
+  with explicit paths), serialized through a single git queue; never
+  `--no-verify`; never push. One commit per green round; fix rounds' subjects
+  start `fix:`.
+- **Size budget enforced by the script**: after each judge round the script
+  measures the area's delta itself (`git diff --numstat` vs the area's base);
+  over budget is a verified HIGH finding — "split the area, never commit
+  big" — exactly like a red gate.
+- **Vision lanes by contention** (capture + audit both flash): web →
+  agent-browser session per area; desktop → build/launch from the worktree +
+  ocu; mobile → project's own build command + ONE device at a time
+  (simctl/adb/emulator). Evidence lands under `.zflow/evidence/`; the script
+  verifies files with its own glob, never trusting claimed paths. Capture
+  agents never fix; a missing tool or impossible lane is reported plainly,
+  never faked.
+- **Vision never self-confirms.** Vision findings are ALWAYS `unconfirmed`;
+  they never enter the judge's ask. Only findings the image-blind judge
+  reproduces and a fresh confirmer independently verifies become fix targets.
+  Unconfirmed vision findings on a clean area are deferred to the user in the
+  report.
+- **Fresh judges, per-finding confirmers**: `judge-<area>-r<N>` has never seen
+  the work; every judge finding gets its own confirmer that must reproduce it
+  from evidence alone. Red gates become verified HIGH findings without a
+  judge in the loop.
+- **POLICY as loop conditions**: zero open findings + gates green → settle
+  clean and merge along the DAG; findings strictly shrinking → next round
+  with a fresh implementer carrying the open findings; two non-shrinking
+  rounds → stagnation stop; `maxRounds` cap → honest stop. Half-done work
+  stays on disk and is listed, never claimed clean.
+- **Strict-safe code**: guard `.find()`/optional results; no `Date.now`,
+  `Math.random`, `process`, `fetch`, `fs` imports; phase names user-facing;
+  subagent names human-readable and unique per run. Report cleanliness counts
+  settle results, never standing findings alone.
+- **Outputs**: live status-board artifact; primary markdown report artifact
+  (per-area terminal states, rounds, commits, gates, evidence, standing
+  findings, deferred vision findings, recent git log; implementer notes
+  surfaced); typed WorkflowReport return `{conclusion, findings, verified,
+  notCovered}`.
 
-- **z-liteflow**: one implement node (flash), audit loop inside it, optional vision node.
-  Small tasks; audit-only mode when no gates exist.
-- **z-flashflow**: all-flash chain; parallel areas; native vision node; escalate to
-  z-proflow when a complex area stalls two rounds.
-- **z-proflow**: all-pro chain; NO pixel vision (unchanged design); ocu AX-text
-  structural checks ARE allowed (text is tier-blind).
-- **z-workflow**: pro implement/judge + flash vision node chained between rounds
-  (run-level vision); escalation bridge only for mid-loop image needs.
-- **z-gpui-workflow**: pro implement/judge; ocu AX audits inside pro runs (text);
-  pixel design audits via the flash vision node, batched per area; main-thread
-  computer-use plugin = interactive fallback lane only.
-- **z-tauri-workflow**: pro implement/judge; flash vision two-lane — frontend areas
-  on the web lane (tauri dev-server URL), window/tray/native on the desktop lane
-  (ocu); main-thread computer-use plugin = interactive fallback lane only.
-- Cross-flow hand-offs = finish the run, relaunch as the sibling flow (no nesting).
-- Every launch carries `agentsMd` (default `AGENTS.md`) and `baseSha` (recorded at
-  prep, `git rev-parse HEAD`); every skill states the AGENTS.md injection rule and the
-  numbered commit budget; a flow whose Route step has no split rule gains the slice
-  budget (~400 changed lines / ~10 files — a slice predicted over budget is split).
-- Preserve verbatim in spirit: size-budgeted small commits (one logical unit =
-  ≤400 changed lines / ≤10 files by default — one commit per green round, cheap
-  revert is the point) / never claim clean while a gate is red; never `--no-verify`;
-  fresh auditors never judge fixes they inspired; unverified stays unverified;
-  half-done work stays on disk and is listed in the report.
+## 4. Per-skill map — thin coordinator sheets
 
-## 5. Files and install
+Six skills are thin coordinators over the ONE engine — no orchestration code,
+just slicing recipe, `modelProfile`, gates, and per-area skill routing; all
+launch `CreateWorkflow saved: zflow-engine` with `mode: "chain"`:
 
-- Workspace: `zflow-port/zflow-engine.dwf.ts`, `zflow-port/skills/<name>/SKILL.md` × 5,
-  `zflow-port/PORT-REPORT.md` (assembled at the end).
-- Install (final phase): `mkdir -p ~/.zcode/archive/skills-backup-2026-09-21/` → copy
-  the five originals in → deploy the five ported SKILL.md files to
-  `/Users/hmziq/.zcode/skills/<name>/SKILL.md` → verify with `diff -q`. ZCode-harness
-  skills and their backups live only under `~/.zcode/`, never `~/.agents/`. The engine
-  is NOT installed by the run (the main agent saves it via SaveWorkflow to
-  `~/.zcode/workflows/`).
-- If a write is permission-blocked, escalate or report — never fake an install.
+- **z-workflow**: the general entry point — full contention taxonomy,
+  balanced profile, role model, POLICY, fallback lanes.
+- **z-proflow**: depth-first — balanced profile (pro judgment, flash only for
+  pixel capture/audit); ocu AX-tree structural audits ride judge evidence.
+- **z-flashflow**: all-flash (`modelProfile=flash`); hands off to z-proflow
+  when a complex area stalls.
+- **z-liteflow**: one area, `modelProfile=flash`, `commit=false` — the
+  coordinator commits by hand at hand-off.
+- **z-gpui-workflow**: GPUI slicing recipe (entity family / component /
+  screen region per area); design areas are desktop contention (ocu lane).
+- **z-tauri-workflow**: Tauri v2 slicing recipe — `src-tauri/` core as
+  terminal/desktop contention, frontend as web contention with the devUrl
+  named in the task; the lane caveat: a web-lane audit cannot see the
+  webview, native chrome, tray, or IPC (`invoke` cannot run in a plain
+  browser) — the report marks those not-covered.
+- **z-super-rustflow** is NOT engine-driven: it composes its own inline
+  main-tier-only runs (no vision, no flash) over the rust-* family; node
+  modes are not part of this engine.
 
-## 6. Audit protocol (the rounds)
+Cross-flow hand-offs = finish the run, relaunch as the sibling flow (no
+nesting). Every launch carries `agentsMd` and `baseSha`; the AGENTS.md
+injection rule and the numbered commit budget (~400 lines / ~10 files, one
+commit per green round) hold everywhere.
 
-- Fresh auditor per artifact per round (never the drafter, never a repeat auditor).
-- Findings: where / what / evidence / severity (blocker|major|nit) / fix-required|defer.
-- Fixer = the artifact's original drafter agent (reused, keeps context) with the findings
-  attached; then a FRESH re-audit of the fixed artifact.
-- Exit clean when zero blocker+major across all artifacts. Round cap 3. Two rounds
-  without a shrinking blocker+major count → stop, report honestly what stands.
+## 5. Files, install, and no-drift discipline
+
+- Source of record: this repo — `harness/zcode/workflows/zflow-engine.dwf.ts`
+  (beside this SPEC), skills in `harness/zcode/skills/<name>/SKILL.md`,
+  agents in `harness/zcode/agents/`.
+- Install (per `install.md`): skills copy to `~/.zcode/skills/` (never
+  `~/.agents/`), agents copy to `~/.zcode/agents/` (never symlink), the
+  engine saves to `~/.zcode/workflows/` via SaveWorkflow. The installed
+  engine and this source copy must stay **byte-identical** — verify with
+  `diff -q` after every change; any difference is drift and a blocker.
+- History, explicitly not live: `zflow-port/` (the Sep-21 v1 multi-run port),
+  `.zcode/workflow-probes/` (platform probes and v2.2 development snapshots),
+  `~/.zcode/archive/` (pre-port skill backups). They describe past platform
+  facts and must never be installed from.
+- Engine edits: update the engine first or together with the skills and this
+  SPEC (a skill describing machinery the engine does not have is a lie),
+  typecheck via SaveWorkflow after every edit, and re-sync the installed
+  copy.

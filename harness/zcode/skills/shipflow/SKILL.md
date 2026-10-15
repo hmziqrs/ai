@@ -30,7 +30,8 @@ per cycle, human owns triage labels and the pause label. Not for repos
 without `gh` access or gates. Trivial one-file edits are cheaper done
 directly.
 
-## Tier matrix (one model per run — subagent_model is run-wide)
+## Tier matrix (queue cycles pin one tier per launch; the platform now also
+## allows per-subagent pins)
 
 | Work | Tier |
 |---|---|
@@ -39,9 +40,11 @@ directly.
 | implement, plan, review, security, PR-review, qa | pro (GLM-5.3) |
 | vision (pixel verdicts) | flash — pro is image-blind (SPEC 1.4) |
 
-One model per run: `subagent_model` is run-wide (SPEC 1.1); the launcher
-pins it per node — tier-pure node launches, zflow-engine style — and the
-script never pins models.
+The queue workflow stays tier-pure per launch: the coordinator pins
+`subagent_model` per cycle launch (see the queue loop below). (The
+platform's per-subagent model pins — SPEC 1.1 — are what the zflow-engine
+v2.2 uses to run pro judgment and flash capture/vision in one launch;
+shipflow's queue has not adopted them yet.)
 
 ## The queue loop (infinite, coordinator-owned)
 
@@ -53,7 +56,7 @@ script never pins models.
    pinned to the cycle's tier — pro default, flash for label-chore cycles —
    and the workflow's declared args: `issueNumber`, `repo` (OWNER/NAME),
    `tier`, `task` (issue title+body verbatim), `areas` (the planner's
-   array, zflow-engine shape), `agentsMd` (default "AGENTS.md"), `baseSha`,
+   array), `agentsMd` (default "AGENTS.md"), `baseSha`,
    `maxRounds` (default 3), `commit` (default true), `dryRun` (default
    false — full cycle except PR create/merge). The cycle runs Claim →
    Triage → Plan → Implement → Gates → Preview → Browser → Vision → PR →
@@ -91,6 +94,7 @@ cycle; the cron only notifies, never relaunches.
 ## Fallback lanes
 
 - **Deep implement**: when the plan marks an area complex, the coordinator
-  launches `zflow-engine` `mode=implement tier=pro` for that area BETWEEN
-  cycles (no nesting — only the coordinator launches workflows), then feeds
-  the engine's WorkflowReport back into the next queue cycle as `findings`.
+  launches `zflow-engine` (`mode: "chain"`, `modelProfile: "balanced"`, that
+  one area in `areas`) BETWEEN cycles (no nesting — only the coordinator
+  launches workflows), then feeds the engine's WorkflowReport back into the
+  next queue cycle as `findings`.

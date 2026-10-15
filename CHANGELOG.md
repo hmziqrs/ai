@@ -6,6 +6,28 @@ versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
 
 ## [Unreleased]
 
+### Changed
+- **zflow-engine v2.2 is the engine of record — one launch, everything
+  in-run.** The retired multi-run engine (tier-pure implement/vision/judge
+  chain nodes, one model per run) is replaced by the one-launch parallel
+  chain: a single `CreateWorkflow saved: zflow-engine` launch with
+  `mode: "chain"` runs every area as its own state machine (plan →
+  implement → vision → judge, per-area rounds) over channels with a
+  counted close. Per-subagent model pins (ZCode v3.15.1+) put pro judgment
+  and flash capture/vision-audit in the SAME run — `modelProfile`
+  balanced/flash replaces run-wide tiering; `hasUI`/`lane` area fields are
+  gone, replaced by `contention` (terminal | web | desktop | mobile),
+  which also picks the topology: shared checkout, per-area worktree +
+  deterministic port + isolated browser session, or the single-worker
+  device lane for desktop/mobile captures. Worktree branches merge back
+  along the dependsOn DAG and clean up after themselves. All six
+  engine-driven skills, `zflow-SPEC.md`, README, and llms.txt now describe
+  this one-launch architecture, and the engine source in
+  `harness/zcode/workflows/` is byte-identical to the installed
+  `~/.zcode/workflows/zflow-engine.dwf.ts`. Development snapshots live
+  only in the parent repo's archives (`zflow-port/`, `.zcode/workflow-probes/`)
+  — never install from those.
+
 ### Added
 - **`coding/` category: three `test-quality-*` skills.** Test-discipline
   suite for AI-heavy development, every claim, quote, and link traced to
