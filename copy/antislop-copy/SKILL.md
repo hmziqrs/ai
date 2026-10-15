@@ -1,184 +1,90 @@
 ---
 name: antislop-copy
-description: Make consumer-facing website copy as short as possible without inventing or bending anything. Use this whenever the user wants to cut, tighten, shorten, de-slop, audit, clean up, or rewrite copy for a homepage, landing page, feature section, pricing page, about page, services page, FAQ, product page, release post, or page title and meta description, including when they only say a page feels long, bloated, generic, repetitive, salesy, or AI-written. For website and marketing copy, use this instead of the humanizer skill. Not for technical docs, specs, API references, or legal text.
+description: Cut human-facing copy to what its intended reader needs, using natural language without inventing facts; use for websites, READMEs, and other prose the user asks to shorten, rewrite, or de-slop.
 ---
 
-# antislop-copy
+# Antislop Copy
 
-## Goal
+Give the intended human reader the shortest natural version that lets them understand, choose, or use the product. Delete whole sections before polishing sentences. A true fact still has to earn the reader's attention. Do not keep information merely because it helps the agent understand the project.
 
-Write the shortest copy that still gets the right visitor to act. Long pages look machine-made at a glance, and every extra line hides the ones that matter.
+## When to Use
 
-A true fact can still be slop. If a first-time visitor wouldn't miss it, cut it, however accurate it is. A grid of eight features usually needs three.
+Apply to human-facing websites, READMEs, product descriptions, FAQs, release posts, and similar copy. Use for new copy from supplied facts, rewrites, and copy audits. Explicit invocation applies to the material the user supplies, including technical prose; do not refuse or skip it because of its filename or category. The user's requested audience, scope, tone, and deliverable take precedence over this skill's defaults.
 
-Cutting is safe. Adding and bending aren't. You may cut any line that fails the test below, but never add a fact or change what one says.
+Read the supplied copy and relevant source material, including its buttons, captions, and footnotes. Do not crawl the whole site by default. Change prose within the authorized scope; do not add design, layout, routing, installation, or publishing work.
 
-Get shorter by saying fewer things, not by squeezing what's left. Cutting a slop word inside a sentence is fine. Stripping articles, verbs, and connectors to save words isn't, because it produces a second AI style.
+## Write for the actual reader
 
-If the humanizer skill is also loaded, its "rewrite, don't delete" rule doesn't apply to web pages. This skill decides what stays.
+Identify who will read the result and what they came to do. Infer that from the request and product; ask only when a material audience choice remains unclear. The agent editing the document is not its audience.
 
-## What the page must still answer
+Adapt these questions to that reader's task: What is it? Is it for me? Will it work for me? What does it cost? Why should I believe it? How do I start? Keep only the answers needed here, not a section for every question.
 
-Visitors arrive with six questions. What is it? Is it for me? Will it work for me (platform, requirements, limits)? What does it cost? Why should I believe it? How do I start?
+Keep consequential compatibility, requirements, billing, limits, data handling, and cancellation conditions. Then retain the distinguishing capabilities or proof that affect the reader's decision. Neither a true statement nor a standard feature deserves space automatically.
 
-Keep the shortest answer the source gives to each. Landing and product pages need all six, and other pages need the ones their visitors came for. If the source never answers a question, say so under Flags. Don't write an answer yourself.
+For an end-user README, keep the product definition, relevant requirements, and shortest usable getting-started path. Remove agent workflows, implementation inventories, contributor procedures, and explanations of how the repository is organized unless these readers need them. Agent instructions belong in `AGENTS.md`; do not create or move material into another document unless asked.
 
-## Budgets
+Developers can be the product's human users. A library, SDK, or CLI README may need an installation command, a working example, and essential API constraints. Keep those when they enable the requested use; cut internal scaffolding. If an essential answer is missing, report that gap without inventing it.
 
-Use these unless the user gives their own. Going over needs a one-line reason, like every item being something buyers compare. Never pad to reach a budget.
+## Cut before rewriting
 
-- **Hero.** Headline up to 10 words, subhead up to 25, and one primary button named for its action ("Download for Mac"). The subhead can name the concrete problem the product solves, once, if the source states it.
-- **Feature grid.** 3 cards, 6 at most. A card is a heading plus one sentence of 15 words or fewer, or the heading alone.
-- **Other lists** (integrations, technologies, platforms, steps). 5 items. Name the ones buyers filter on, then link to the full list or give the total if the source has one.
-- **Stats.** 3 numbers, each measuring something checkable.
-- **Testimonials.** 3, preferring ones with a name and a specific result.
-- **FAQ.** Only questions a buyer asks before buying: price, compatibility, data, support, limits, cancellation, getting started. The first sentence answers, and two sentences is the limit.
-- **About.** Who, where, since when, what's shipped, how to reach you, and the founding reason in one clause if it's specific and first-hand. Roughly 60 words.
-- **Pricing.** Plan, price, billing period, what's included, limits, trial, and cancellation. This is the one page type where most facts stay. Cut persona blurbs ("Perfect for growing teams").
-- **Section intros** ("Everything you need to get paid"). Cut them.
-- **Page title and meta description.** The title is what it is plus the brand, about 60 characters. The description is what it is plus one fact that sets it apart, about 150 characters.
-- **Whole page.** Expect an AI-written page to lose half its words or more. If you cut less than a third, you're protecting too much, so go through it again.
+1. Remove sections that repeat another section, answer no relevant reader question, or merely fill a layout slot. Do not preserve a section or feature card merely because the source has one.
+2. Rank remaining information by consequence to the reader. Cut background, internal detail, and low-value facts along with filler. Preserve conditions needed to make the retained claims accurate and the product usable.
+3. Test each sentence: does this reader need it to understand the product, decide whether it fits, or take their next step? If not, cut it. Keep evidence only when it supplies a concrete reason to trust a decision-relevant claim.
+4. Join surviving facts into plain sentences. Build headings from the section's actual subject, without adding an implied promise or limit.
 
-## How to cut
+Prefer compact heroes, short feature descriptions, direct FAQ answers, and descriptive buttons such as "Download for Mac." Do not enforce card counts, sentence limits, or percentage cuts at the expense of useful information. Never pad to meet a target.
 
-1. **Read everything**, including buttons, captions, footers, and any other pages the user gives you.
-2. **Delete whole sections first.** A section goes if it repeats another, answers none of the six questions, or only fills a layout slot. Common cases are values and mission blocks, "why choose us" grids, "how we work" sections that restate the hero, closing essays, and decorative stat strips.
-3. **Rank whatever is over budget.** Keep deal-breakers first (price, platform, requirements, hard limits, data handling, cancellation), then what this product does that others in its category don't, then the strongest proof (numbers with units, named customers, licenses, links). Table stakes, the features every product in the category has, are the first to cut unless visitors would doubt this one has them.
-4. **Test each remaining sentence.** If it disappeared, would a first-time visitor understand less, trust less for a concrete reason, or lose something they need to act? If not, cut it. If you're unsure, cut it and put any fact it held on the cut list.
-5. **Rewrite only to join what survived** into plain sentences, or to build a heading from the section's own facts.
+For pricing, retain plan, price, billing period, included capabilities, limits, trial duration and conversion terms, and cancellation information. For titles and meta descriptions, prioritize the page's subject and a supported distinguishing fact; use requested or existing length limits without distorting meaning.
 
-## What always goes
+## Remove rhetorical filler
 
-Match on meaning, not keywords. "For the tenth time" is an idiom, not a count.
+Match meaning rather than keywords. Cut these when they add no needed information:
 
-- **Repeats.** The same point in the hero, features, about, FAQ, and closer. Keep the most specific version once. Different wording for one fact is still a repeat ("configs are isolated," "instances share no state," "your work setup never touches your personal one").
-- **Beliefs and mission statements.** "We believe," "quality isn't an afterthought," "the compiler is a colleague." Keep a policy only when it changes what the buyer gets ("fixed price," "no subcontractors").
-- **Slogans.** Slogan headings ("Built to scale," "Zero ceremony") and slogan tails on category headings ("Mobile apps that feel at home everywhere" becomes "Mobile apps," which keeps the noun people search for). A page gets one brand line at most, in the hero, and only if the next line says plainly what the product is.
-- **Benefit translations** of a mechanism the page already stated ("Spend less time on admin and more on the work you love").
-- **Framing.** Scenario openers ("It's 2 a.m. and prod is down"), founder legends ("the tool we wished existed"), question headings, counted headings ("Four pillars"), "not just X, it's Y," UI narration ("Explore our features below"), and closers ("Ready to get started?").
-- **Self-praise and unmeasured quality words** such as seamless, powerful, robust, intuitive, world-class, blazing-fast, carefully, and rigorously. If that quality is the product's main claim, like speed for a performance tool, keep the plain word and add [NEEDS NUMBER].
-- **Docs-grade detail** on a marketing page (command references, flags, config). Leave one line and a link to the docs, or move it to the cut list if there are no docs.
-- **Extra links.** One per item.
+- Repeated benefits, including paraphrases of an already explained mechanism.
+- Beliefs, mission declarations, founder legends, and scenarios presented instead of useful product facts. Keep concrete policies that change what the visitor receives.
+- Self-praise and unmeasured quality words such as seamless, powerful, robust, intuitive, world-class, and blazing-fast. Keep a central product claim only in its supported form; flag missing support rather than inventing a measurement.
+- Slogan headings and tails, "not just X, it's Y," rhetorical prompts, UI narration such as "Explore below," and "Ready to get started?" closers. Genuine FAQ questions stay.
+- Decorative counted headings, colon reveals such as "The result:", and new taglines substituted for deleted copy. Keep at most one brand line per page, in the hero with a plain product definition beside it.
+- Command references, flags, and configuration detail the intended reader does not need. Keep a necessary setup command or working example; link to existing fuller documentation where useful.
+- Redundant links. Keep distinct destinations or actions readers actually need.
 
-## Accuracy
+Stop when the facts end. Do not manufacture a closer.
 
-These rules beat the budgets. A short page with a false line is worse than the slop it replaced.
+## Protect factual meaning
 
-- **Add nothing.** No new fact, number, name, event, quote, customer, or claim. Turning a hypothetical into company history counts as adding, and so does joining two facts into a claim neither one made.
-- **Don't leave a claim broken.** A cut or split can make a line false or broader by dropping its scope ("on macOS"), status ("beta"), source ("40 customers told us"), or the "so" or "because" that ties it to its reason. Cut that line too, or keep those words. A line under a heading must be true on its own.
-- **Fix counts.** After cutting list items, correct or drop any number that counted them ("Three changes:", "8 integrations").
-- **Don't pick between conflicting values.** If the site gives two values for one thing, keep one mention showing both, like "[7 or 8? CONFLICT]", and list it under Flags.
-- **Leave some things alone.** Don't alter legal text, prices, or the words inside quotes and testimonials, though cutting a whole quote is fine. Never change where a button goes.
-- **Release notes keep every change**, each as a short line. A vague one becomes "plus bug fixes" at the end, not nothing.
-- **Mark what you can't check.** Add [VERIFY] to claims about competitors or platform policies, to absolutes about data or security ("nothing leaves your device"), and to words like "audited," "certified," or "bank-level" that the page doesn't back up.
+Accuracy takes priority over every cut and style preference.
 
-## Don't trade slop for terse slop
+- Add no facts, numbers, names, history, customers, quotes, or claims. Combining two supported statements must not imply an unsupported causal, comparative, or universal claim.
+- Keep qualifiers, scope, status, attribution, units, and conditions. Preserve "on macOS," "beta," and "most of the 40 customers we interviewed" when their removal would broaden a claim. Check headings and separated sentences independently.
+- Preserve compatibility, pricing, support, data-handling, and cancellation details consequential to the reader's decision or use. Do not turn limited security evidence into an absolute guarantee.
+- Leave prices, legal text, quoted words, link destinations, code, and identifiers unchanged unless the task authorizes their alteration. A whole quotation may be omitted if it is not material; do not silently edit its words.
+- Update editorial counts when the edited list changes. "Three reasons" can become two reasons. "Supports 8 integrations" is a product fact, not a count to change because only five are displayed.
+- Do not choose silently between conflicting source values. Preserve the uncertainty and flag it in the handoff; ask for the authoritative value if a clean rewrite depends on it. Do not insert verification markers into live copy unless an annotated draft was requested.
+- Flag unsupported competitor, platform-policy, certification, or security claims when relevant. Do not strengthen them or imply external verification you did not perform.
+- Consumer release posts retain user-visible changes, consequential fixes, and compatibility or security notices. Omit internal development churn. Keep all entries when the user requests a complete changelog; shorten a vague bug-fix entry to "plus bug fixes" when appropriate.
 
-Cut copy has its own tells, so check your output for them.
+## Keep prose natural
 
-- No colon reveals ("The result:", "Here's how:") and no counted lead-ins ("Three changes:").
-- No runs of short sentences for rhythm, no fragment triplets ("Fast. Simple. Secure."), and no section ending on a three-word line.
-- No new closer or tagline in place of a deleted one. When the facts end, stop.
-- Headings must read correctly on their own. "One seat per client" reads as a limit even if it wasn't meant as one.
-- Keep the site's voice. Solo makers say "I," companies say "we," and the reader is "you." Never swap "we" for "the team" or "[Brand] is built by."
-- Don't make the product name the subject of sentence after sentence.
-- Use contractions, format commands and paths as code, and don't use em dashes.
+Keep articles, verbs, and connectors. Avoid rhythmic runs of fragments such as "Fast. Simple. Secure." A heading may be short, but must remain clear and accurate on its own.
 
-## Several pages from one site
+Preserve the author's perspective: a solo maker's "I," a company's "we," and the reader's "you." Do not replace it with distancing phrases such as "the team." Avoid starting every sentence with the product name. Use natural contractions and avoid em dashes in authored prose; protected quotations remain unchanged.
 
-Each page has to make sense to someone who lands on it from search and reads nothing else, so it can restate the one-line definition. Explain any topic fully on one page only, and give other pages a sentence and a link. Facts must match across pages, so flag every mismatch.
+For multiple pages, keep facts consistent and flag mismatches. Each page must work for someone arriving from search, so a brief product definition may repeat. Put a full explanation on its most relevant page and link from others where that suits their purpose; do not remove necessary standalone answers.
 
-## Check before returning
+## Compact examples
 
-- Read the first screen as a stranger from search. Do they know what it is, who it's for, and what to do next?
-- Trace every sentence to the source. Anything you can't trace is a new claim, so remove it.
-- Recheck counts and qualifiers in every line you edited.
-- Run "What always goes" and the terse-slop list over your own output.
-- Make sure every flag and note describes the copy as it now reads.
+These examples use synthetic facts.
 
-## Output
+**Keep the README useful to its reader:** "Shelf reads EPUB files on Linux. Download the AppImage and open it. Development uses three review agents" becomes "Shelf reads EPUB files on Linux. Download the AppImage and open it."
 
-Return these four parts and nothing more unless the user asks. The report shouldn't be longer than the page, and every extra note is one more thing that can be wrong.
+**Keep attribution or remove the claim:** "Most of the 40 freelancers we interviewed told us they lose a day monthly chasing payments. Tallyfox sends automatic payment reminders" must not become "Freelancers lose a day monthly chasing payments." If only the product action matters, keep "Tallyfox sends automatic payment reminders."
 
-```
-## Revised copy
-In page order, with section labels. Inline flags stay in place.
+**Keep actual release changes:** "We've reimagined recurring invoices with custom schedules, added Stripe payouts, and squashed pesky bugs" becomes "This release adds custom schedules for recurring invoices and Stripe payouts, plus bug fixes." It must not become "Two changes. Custom schedules. Stripe payouts."
 
-## Flags
-One line each: [CONFLICT], [NEEDS NUMBER], [VERIFY], or a question the page never answers.
+**Cut framing without inventing history:** "It's tax season. Sound familiar? We built the tool we wished existed. We're six people in Lisbon and answer support ourselves" becomes "We're six people in Lisbon, and we answer support ourselves."
 
-## Cut list
-Concrete facts you cut (features, numbers, terms, names), a few words each, grouped by section, so the author can restore any of them. Skip slogans and filler.
+## Check and deliver
 
-## Words
-Before → after. Count with a tool if you have one.
-```
+Trace each retained claim to supplied evidence. Recheck edited counts, qualifiers, headings, and cross-page facts. Check that the reader can still decide and act, then make another deletion pass for information serving the writer or agent instead. Keep the surviving prose natural. Use applicable repository checks when required; prose alone does not require new tests or builds.
 
-## Examples
-
-These use an invented invoicing app, Tallyfox, whose standout feature is matching receipts to invoices.
-
-**A feature grid over budget**
-
-Before:
-> **Everything you need to get paid**
-> Powerful features designed to simplify every step of your invoicing workflow.
-> **Smart invoices.** Create beautiful, professional invoices in seconds with customizable templates.
-> **Receipt matching.** Forward a receipt to your Tallyfox inbox address and it's matched to the right invoice.
-> **Recurring billing.** Set it and forget it. Invoices go out on your schedule, like every second Tuesday.
-> **Multi-currency.** Bill clients in 30+ currencies with live exchange rates.
-> **Stripe payouts.** Accept cards through Stripe, with payouts in 2 business days.
-> **Real-time insights.** Beautiful dashboards give you a clear view of your business health.
-> **Bank-level security.** Your data is protected with industry-leading encryption.
-> **Always-on support.** Our friendly team is here for you every step of the way.
-
-After:
-> **Card payments through Stripe**
-> Payouts in 2 business days.
-> **30+ currencies with live exchange rates**
-> **Receipts matched to invoices**
-> Forward a receipt to your Tallyfox inbox address and it's matched to the right invoice.
-
-Cut list: recurring invoices on custom schedules; invoice templates; dashboards.
-
-Why: the heading and intro described the section, not the product. How you get paid and which currencies work are deal-breakers, and receipt matching is the differentiator. Templates, recurring billing, and dashboards are standard in invoicing apps, so they wait on the cut list. The security and support cards had no fact under their adjectives.
-
-**A cut that breaks a claim**
-
-Before:
-> We interviewed 40 freelancers before building Tallyfox. Most told us they lose a full day every month chasing late payments. That's why Tallyfox sends automatic reminders.
-
-Wrong:
-> Freelancers lose a full day every month chasing late payments. Tallyfox sends automatic reminders.
-
-Cutting the source turned one survey answer into a universal fact.
-
-Right:
-> Tallyfox sends automatic reminders for late payments.
-
-If the finding is the page's main argument, keep its source instead: "Most of the 40 freelancers we interviewed told us they lose a full day every month chasing late payments."
-
-**The terse-slop trap**
-
-Before:
-> Version 3.2 is here, and it's a big one! We've completely reimagined recurring invoices, added Stripe payouts, and squashed a bunch of pesky bugs along the way. Recurring invoices now support custom schedules like "every second Tuesday." Update from the App Store today. We can't wait to hear what you think!
-
-Wrong:
-> Version 3.2. Two changes: recurring invoices and Stripe payouts. Custom schedules supported. Update today.
-
-The count drops the bug fixes, "Custom schedules supported." is a clipped fragment, and "Update today." is a new closer.
-
-Right:
-> Version 3.2 adds Stripe payouts and custom schedules for recurring invoices, like "every second Tuesday," plus bug fixes. Update from the App Store.
-
-**About page**
-
-Before:
-> **Our story**
-> It's tax season. Receipts are scattered across three inboxes and a shoebox. Sound familiar? We've been there. That's why we built Tallyfox, the tool we wished existed. Today we're a team of six in Lisbon, and we still answer every support email ourselves.
-
-After:
-> **About us**
-> We're a team of six in Lisbon, and we answer every support email ourselves.
-
-The scenario and the founder cliché went without turning into company history. Team size, location, the support policy, and "we" stayed.
+Match the requested output: edit authorized files and summarize briefly, return findings for an audit, or return copy for a rewrite-only request. Mention unresolved conflicts, missing essential evidence, or tradeoffs affecting requested content when needed. Do not explain every cut or add an editing essay. Include a cut list or word count only when requested or necessary; measure counts before reporting them. Keep annotations out of publishable copy unless requested.
