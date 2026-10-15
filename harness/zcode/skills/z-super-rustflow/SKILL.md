@@ -113,8 +113,10 @@ thereafter; saving is the user's call, never silent.
    or git; no pass/fail claim is trusted. The script also runs a numstat
    size check after every round: a round whose delta exceeds the area's
    budget is a red round with reason `size` — shrink it or report the
-   split needed; two consecutive size-reds stop the area. The Committer
-   drafts and the script commits each green round separately, `perf:`
+   split needed; two consecutive size-reds stop the area. A Committer role
+   in the composed node (mirroring zflow-engine's own Committer, which the
+   engine spawns only inside its own runs) drafts and the script commits
+   each green round separately, `perf:`
    style matching `git log --oneline -10` — never one commit folding
    several rounds' work.
 4. **Phase I audit run**: fresh blind `auditor-<area>-r<round>` per area —
@@ -135,8 +137,10 @@ thereafter; saving is the user's call, never silent.
    - **continue**: any novel or open finding → fix round REUSES the same
      `implementer-<area>` agents (long-lived context) → gates → bench
      compare → `perf:` commit → fresh audit.
-   - **stop honestly**: `maxRounds` (default 6 — an honesty valve against
-     ping-pong, not a target) or two consecutive rounds with zero
+   - **stop honestly**: this flow's own composed-loop `maxRounds` cap
+     (default 6 — an honesty valve against ping-pong, not a target; the
+     zflow-engine's same-named arg is a different control and defaults to
+     unbounded) or two consecutive rounds with zero
      registry progress (same findings open, nothing novel) → report what
      passed, what's open, why.
    - Pre-existing red gates and pre-existing benchmark numbers are

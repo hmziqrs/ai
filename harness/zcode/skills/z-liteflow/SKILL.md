@@ -13,7 +13,9 @@ description: >-
 # z-liteflow
 
 **Hard rule — the main agent is the chain coordinator: it scopes, makes ONE
-launch, relays the report. It never writes product code — one disclosed
+launch, relays the report. Never relaunch to fix — AmendWorkflow revises a
+wrong run reusing its finished work; ResumeWorkflowRun continues a stopped
+one. It never writes product code — one disclosed
 exception: a one-liner with no audit value skips the chain entirely; the
 coordinator makes that edit itself and says so in the report.** Evidence
 lives under `.zflow/evidence/`.
@@ -31,8 +33,10 @@ a sibling flow — never a mid-run model swap.
 
 ```
 [coordinator: scope + baseline gate run]
- → ONE CreateWorkflow: zflow-engine mode=chain modelProfile=flash commit=false
-   The run does everything per area: plan → implement → gates (world.run,
+ → ONE CreateWorkflow: zflow-engine mode=chain task="<the task, verbatim>"
+   areas=[<the scoped area: name, contention, paths, gates>] modelProfile=flash
+   commit=false. The run does everything per area: plan → implement → vision
+   for non-terminal areas (web/desktop/mobile capture) → gates (world.run,
    anchored allowlist) → fresh blind judge + confirmer per finding → fix
    rounds while findings shrink → stagnation/cap stop. Work stays on disk.
 [coordinator: relay report; hand commits only when the user asked AND the
@@ -56,7 +60,8 @@ a sibling flow — never a mid-run model swap.
 - Record `baseSha` (git rev-parse HEAD), `repoRoot` (git rev-parse
   --show-toplevel), `agentsMd` (default AGENTS.md; "" when the repo has
   none); gitignore `.zflow/`.
-- `commit: false` — loop cleanliness is never known in advance, so the
+- `commit: false` (the engine's default is true; liteflow overrides it
+  deliberately) — loop cleanliness is never known in advance, so the
   warranted commits are the coordinator's hand at hand-off: explicit paths,
   log style, never push.
 
@@ -87,8 +92,9 @@ the report, never dropped (flash over-flags; the confirmer filters).
   native; if a run still cannot see pixels it needs, ONE escalation per area
   carrying ALL its screenshots (cap 3 per ask).
 - **Interactive desktop lane** — computer-use/browser-use plugins are
-  main-thread-only; in-run capture uses agent-browser (web) or ocu (desktop,
-  device lane).
+  main-thread-only; in-run capture uses agent-browser (web), ocu (desktop),
+  or simctl/adb device capture (mobile) — desktop and mobile serialize
+  through the device lane.
 - **Outgrew liteflow** — multi-domain, API seams, schema changes, or cap
   reached with blockers standing: let the run stop honestly, relaunch as the
   sibling flow (z-workflow's home turf). No nesting.

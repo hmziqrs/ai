@@ -277,7 +277,7 @@ for (const e of rawAreas) {
   if (typeof e !== "object" || e === null) continue;
   const o = e as Record<string, unknown>;
   if (typeof o.name === "string" && (o.hasUI !== undefined || o.lane !== undefined)) {
-    problems.push(`${o.name}: hasUI/lane are not area fields, ignored — classify the area with contention: "terminal" | "web" | "desktop"`);
+    problems.push(`${o.name}: hasUI/lane are not area fields, ignored — classify the area with contention: "terminal" | "web" | "desktop" | "mobile"`);
   }
 }
 if (areas.length === 0) {

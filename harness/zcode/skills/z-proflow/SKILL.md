@@ -52,8 +52,10 @@ prep (coordinator): survey the repo; build areas[] — name, contention
   zflow/* branches/worktrees and untracked files under worktree areas' paths.
 
 launch (once): CreateWorkflow saved zflow-engine — mode="chain", task,
-  areas, agentsMd, baseSha, repoRoot, budgets, commit. No subagent_model.
-  No maxRounds unless the user caps. The run loops each area internally:
+  areas, agentsMd, baseSha, repoRoot, maxLines/maxFiles (per-area budget
+  optional), commit. No subagent_model. No maxRounds unless the user caps.
+  Never relaunch to fix — AmendWorkflow revises a wrong run reusing its
+  finished work; ResumeWorkflowRun continues a stopped one. The run loops each area internally:
   plan → implement → (vision for non-terminal areas) → judge → fix rounds
   while findings shrink → clean/stagnation/cap stop; worktree branches merge
   along the dependsOn DAG and clean themselves up.

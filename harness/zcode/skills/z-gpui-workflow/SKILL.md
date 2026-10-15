@@ -16,14 +16,16 @@ description: >-
 **The main agent is a chain coordinator, not an implementer.** It slices the
 task into GPUI areas, makes ONE launch, and relays the report; the whole
 chain runs inside that single workflow. Never relaunch to fix (AmendWorkflow
-revises; never nest). Trivial one-file edits don't need this skill. Sibling
-flows run under their own rules.
+revises, ResumeWorkflowRun continues a stopped run; never nest). Trivial
+one-file edits don't need this skill. Sibling flows run under their own
+rules.
 
 ## Models — balanced profile, in-engine
 
 Pro where quality is only checkable by judgment — architecture,
-entity/state ownership, audit verdicts. Flash where output is objectively
-checkable — gates, git state, image reading. One launch pins it all:
+entity/state ownership, audit verdicts. Flash where a model runs and its
+output is objectively checkable — capture and image reading; gates and git
+state run model-free in script (world.run). One launch pins it all:
 planner/reviewer/implementer/Committer/judge/confirmer on pro; capture and
 vision audit on flash. AX structural checks are tier-blind text — the pro
 judge reads the .txt evidence directly; pixel judgment happens only in the
@@ -45,13 +47,16 @@ prep (coordinator): slice into areas — fine-grained by decree: one entity
   untracked files under desktop areas' paths.
 
 launch (once): CreateWorkflow saved zflow-engine — mode="chain", task,
-  areas, agentsMd, baseSha, repoRoot, budgets, commit. No subagent_model.
-  No maxRounds unless the user caps. In-run per area: plan → implement
+  areas, agentsMd, baseSha, repoRoot, maxLines/maxFiles (per-area budget
+  optional), commit. No subagent_model. No maxRounds unless the user caps.
+  In-run per area: plan → implement
   (desktop areas in their own worktrees) → flash vision (ocu AX snapshot +
   decoded PNG under .zflow/evidence/, one capture at a time through the
   device lane; the auditor reports measured differences — px offsets, hex
-  deltas, font-size deltas, missing/extra elements — against the task +
-  gpui-kit design guides) → pro judge + confirmer per finding → fix rounds
+  deltas, font-size deltas, missing/extra elements — against the task; name
+  the relevant gpui-kit design-guide criteria in the task text so they reach
+  the auditor — the engine routes area.skills to the planner and implementer
+  asks, not to the vision auditor) → pro judge + confirmer per finding → fix rounds
   while findings shrink → merge along dependsOn → self-cleanup.
 
 stop → relay the run's typed return + report: per-area terminal states,

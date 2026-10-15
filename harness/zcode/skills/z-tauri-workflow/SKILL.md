@@ -15,15 +15,16 @@ description: >-
 **The main agent is a chain coordinator, not an implementer.** It slices the
 task into Tauri areas, makes ONE launch, and relays the report; the whole
 chain — plan, implement, vision, judge, fix rounds, merges — runs inside
-that single workflow. Never relaunch to fix (AmendWorkflow revises; never
-nest). Trivial one-file edits don't need this skill. Sibling flows run under
-their own rules.
+that single workflow. Never relaunch to fix (AmendWorkflow revises,
+ResumeWorkflowRun continues a stopped run; never nest). Trivial one-file
+edits don't need this skill. Sibling flows run under their own rules.
 
 ## Models — balanced profile, in-engine
 
 Pro where quality is only checkable by judgment — Rust architecture,
-command/state ownership, audit verdicts. Flash where output is objectively
-checkable — gates, git state, image reading. One launch pins it all:
+command/state ownership, audit verdicts. Flash where a model runs and its
+output is objectively checkable — capture and image reading; gates and git
+state run model-free in script (world.run). One launch pins it all:
 planner/reviewer/implementer/Committer/judge/confirmer on pro; capture and
 vision audit on flash. AX structural checks are tier-blind text — the pro
 judge reads the .txt evidence directly.
@@ -51,7 +52,8 @@ prep (coordinator): slice into areas — fine-grained by decree, one kind per
 
 launch (once): CreateWorkflow saved zflow-engine — mode="chain", task
   (with the dev-server URL named), areas, agentsMd, baseSha, repoRoot,
-  budgets, commit. No subagent_model. No maxRounds unless the user caps.
+  maxLines/maxFiles (per-area budget optional), commit. No subagent_model.
+  No maxRounds unless the user caps.
   In-run per area: plan → implement (web areas in their own worktree;
   desktop areas in worktrees with capture serialized through the device
   lane) → flash vision → pro judge + confirmer per finding → fix rounds

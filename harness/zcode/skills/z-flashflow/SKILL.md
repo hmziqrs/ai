@@ -55,8 +55,9 @@ prep (coordinator): build areas[] — name, contention (terminal/web/desktop/
   zflow/* branches/worktrees and untracked files under worktree areas' paths.
 
 launch (once): CreateWorkflow saved zflow-engine — mode="chain",
-  modelProfile="flash", task, areas, agentsMd, baseSha, repoRoot, budgets,
-  commit. No subagent_model. No maxRounds unless the user caps. The run does
+  modelProfile="flash", task, areas, agentsMd, baseSha, repoRoot,
+  maxLines/maxFiles (per-area budget optional), commit. No subagent_model.
+  No maxRounds unless the user caps. The run does
   the rest; its completion notification carries the typed return.
 
 stop → relay the run's report: per-area terminal states, commits, merges,
@@ -88,4 +89,5 @@ stop → relay the run's report: per-area terminal states, commits, merges,
   report, and relaunch as the sibling flow. Never nest.
 - **Interactive desktop lane**: computer-use/browser-use plugins are
   main-thread-only; in-run capture uses agent-browser (web, one session per
-  area) and ocu (desktop, single-worker device lane).
+  area), ocu (desktop), or simctl/adb device capture (mobile) — desktop and
+  mobile serialize through the single-worker device lane.
