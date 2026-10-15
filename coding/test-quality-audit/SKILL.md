@@ -1,261 +1,168 @@
 ---
 name: test-quality-audit
-description: Audit and prune AI-generated test suites by measuring what they actually catch (mutation testing), treating coverage as a vanity metric, spotting implementation-mirroring tests, right-sizing the test mix, and deleting test slop through deliberate human triage.
+description: Assess an existing test suite when an audit or evidence of weak protection warrants it, and produce ranked findings or authorized pruning with verification.
 ---
 
-# Auditing and Pruning AI-Written Test Suites
+# Audit Existing Test Suites
 
-AI coding agents produce tests faster than any team can review them, and a green run of agent-written tests is a claim, not evidence. The research record is blunt: "some test suites achieve 100% coverage but only 4% mutation score" (MUTGEN, IEEE TSE), and on a real 180+ module Vitest project, LLM-generated tests "easily reach 90%+ coverage, but roughly 40–60% of their assertions are 'nonsense assertions' — they pass yet catch no bugs" (juejin). One developer ran nine Claude Code agents that delivered 1,310 passing tests, and the assembled app broke the moment it was opened.
-
-This skill treats the suite itself as the thing under test: measure what the tests actually catch, smell out tests that merely mirror the implementation, right-size the unit/integration mix, spend testing effort where the risk is, and delete slop deliberately instead of regenerating it.
+Assess which behaviors a suite protects and where its maintenance cost buys
+little evidence. Return reviewable findings. Change tests only within the
+user's authorized scope, following the repository's testing policy.
 
 ## When to Use
 
-- You inherited or accrued a suite in which most tests were written by Claude Code, Cursor, GitHub Copilot, or similar agents, and nobody has audited it.
-- Pull requests arrive more than half test code, review depth on tests is collapsing, and "regenerate" is becoming the default maintenance action.
-- Coverage is high (or green counts are huge) yet bugs still ship through the "covered" code.
-- You are about to lean on the suite as the safety net for agent-driven refactors, and need to know whether it will actually hold.
-- You are defining CI quality gates for test changes and need a metric that cannot be gamed by volume.
+Use for requests to audit inherited or generated tests, investigate escaped
+defects despite green runs, or assess proposed test pruning. Ordinary bug fixes
+and feature work do not require a suite audit. Test design and repository-policy
+authoring are separate tasks.
 
-## 1. Read the Numbers Correctly: Coverage Is a Vanity Metric
+## Establish Scope and Baseline
 
-Coverage counts executed lines, not checked behavior. For agent-written suites it is systematically inflated:
+Start with the requested module, recent escaped defect, or critical user flow.
+Identify relevant tests, expected behavior, test levels, and existing commands.
+Prefer a risk-based sample to an unrequested repository-wide investigation.
+The risk framing draws on [Zenn/QDHE](https://zenn.dev/belka_dolphin/articles/c885376e01b59d)
+and the cost constraints in [ClickHouse's rules](https://github.com/ClickHouse/ClickHouse/blob/master/.claude/CLAUDE.md).
 
-- MUTGEN (IEEE TSE 2025): suites achieving "100% coverage but only 4% mutation score".
-- juejin field measurements on a real Vitest project: 90%+ coverage, roughly 40-60% "nonsense assertions", a ~34% mutation-kill score, and an "effective-assertion ratio" of 0.31 - the author's own metric; its numerator and denominator are not spelled out in the source.
-- Habr (Нетология): "The number of cases, a green run, and high code coverage show the scale of the test suite — they do not prove that it catches errors."
-- TestGenEval: on real repository code, the best model (GPT-4o) managed "an average coverage of only 35.2%" of statements - generated suites are shallower than demos suggest.
-- Thorsten Ball, "A Few Words on Testing" (Register Spill): "I never believed in testing coverage as a metric".
+Record these boundaries before interpreting results:
 
-One caveat that cuts both ways: the ISSTA 2026 replication study found that when the code under test may already be buggy - which is exactly the case when agents wrote it - coverage and mutation scores both "no longer serve as reliable indicators". Metrics rank suspects; they do not acquit code. Audit the suite and the code it claims to check, together.
+- Audit mode: findings only, or changes already authorized by the user.
+- Scope: modules, flows, sampled tests, and important areas left unexamined.
+- Expected behavior: specification, acceptance criteria, or known regression.
+- Baseline: relevant command, result, existing failures, and environment limits.
 
-Rules block - metrics policy:
+Run the relevant existing checks before changing tests, following
+[Simon Willison's baseline practice](https://simonwillison.net/guides/agentic-engineering-patterns/first-run-the-tests/).
+If checks cannot run, continue static review and state that limitation. A failed
+baseline prevents attributing later failures to an audit probe without further
+investigation. Do not claim a passing run that was skipped.
 
-```text
-- Coverage numbers and green-test counts are reported as context, never as acceptance.
-- A coverage increase produced by an agent is not evidence of anything until mutation-
-  checked (section 2).
-- Coverage is a by-product: assertions derive from spec/intent first, get mutation-
-  validated second; coverage is observed, not targeted (juejin governance pipeline).
-- Any claim of N passing tests in a PR description is ignored during review.
-```
+Use coverage and pass counts as navigation aids. Neither proves that the suite
+detects the relevant faults. Mutation scores also have limits, especially when
+the implementation may already be wrong: see the
+[ISSTA replication study](https://arxiv.org/abs/2607.22880).
 
-## 2. Mutation Testing Is the Quality Gate
+## Review Behavior and Assertions
 
-Mutation testing injects small faults into production code and asks a simple question: does any test fail? A suite that lets mutants survive is asserting less than it appears to. Field data on agent suites makes the gap concrete: 102 all-green agent-written tests scored only ~43.89% mutation kill (Zenn/QDHE); the juejin project measured ~34%.
+For each sampled test, identify the behavior, input, expected outcome, and
+source of that expectation. An oracle copied from implementation can preserve
+the same bug; compare against intent, as discussed in
+[Understanding LLM-Driven Test Oracle Generation](https://arxiv.org/abs/2601.05542).
+Treat unexplained current behavior as a characterization candidate, not an
+approved contract, following [TDD Buddy](https://tddbuddy.com/blog/characterization-tests-are-the-on-ramp/).
 
-### 2.1 Tooling
+Investigate these signals with concrete evidence:
 
-Use the conventional mutation engine for your stack. The research record names three - StrykerJS, mutmut, cargo-mutants - only in its search-gap notes, which record that their READMEs carry zero AI/LLM mentions: they are plain engines, and the AI angle comes from how you aim them. For LLM-proposed mutants, GitHub Next's LLMorpheus (archived; continued at neu-se/llmorpheus) "does not rely on a fixed set of mutation operators, but instead relies on an LLM to suggest suitable code fragments", fed through a modified StrykerJS.
+| Signal | Question to resolve |
+| --- | --- |
+| Expected result repeats production logic | What independent requirement establishes the answer? |
+| Assertion checks calls or private helpers | Does the interaction itself matter to the contract? |
+| Weak assertion or empty body | What incorrect outcome could still pass? |
+| Tests fail after internal refactoring | Did observable behavior change, or only implementation? |
+| Repetitive cases | Do they protect distinct behaviors or the same case repeatedly? |
+| Unspecified ordering | Does the contract guarantee order? |
 
-Research says LLM-proposed mutants are worth the trouble: against 851 real Java bugs, LLM-generated mutants showed "111.29% higher fault detection" than rule-based ones (arXiv 2406.09843) - though they cost more in non-compiling and duplicate mutants, so dedupe and expect discard.
+These are investigation prompts, not automatic deletion rules. Their basis is
+[Habr's tautological-testing account](https://habr.com/ru/articles/1073708/),
+[VibeCheck's assertion-quality findings](https://arxiv.org/abs/2609.05978),
+[Larah's test-slop critique](https://blog.larah.me/test-slop/), and the
+[DBMS flakiness study](https://arxiv.org/abs/2601.08998).
 
-### 2.2 The AI-Injection Variant (Lightweight, No New Tooling)
+Mocks require context: the [over-mocking study](https://arxiv.org/abs/2602.00409)
+reports their frequency, not a verdict on an individual test. Determine whether
+the mock excludes the interaction the test claims to validate. Preserve useful
+checks of interaction contracts.
 
-Senko Rašić's practice needs no mutation framework at all:
+Missing failure history is a confidence gap. [Seemann](https://blog.ploeh.dk/2026/01/26/ai-generated-tests-as-ceremony/)
+recommends seeing tests fail. Use a relevant controlled fault when justified;
+do not reject an otherwise useful regression test solely because it was written
+after implementation.
 
-1. Open a fresh AI session with access to the code only - never the tests.
-2. Ask it to inject a realistic bug (off-by-one, inverted condition, dropped error path) into a specific function.
-3. Run the suite. A failing test means the mutant was caught; silence means it survived.
-4. Tally. His run: 40 mutations, 30 caught, 10 real gaps exposed.
+## Check Protection Across Test Levels
 
-Copy-paste prompt for the mutating session:
+Map the sampled critical flow to what its unit, integration, and end-to-end
+checks exercise. Identify an untested boundary or assembled behavior rather
+than prescribing a numeric mix. [Zenn/ababup1192](https://zenn.dev/ababup1192/articles/77b844dcfc1529)
+explains that each test level detects different defects; the
+[1,310-green-tests account](https://zenn.dev/shune/articles/54501fc4fd6398)
+illustrates the missing assembled-system check.
 
-```text
-You can see the implementation code but NOT the test suite. Your job is sabotage
-review: inject exactly one realistic bug into <function/file>. Prefer bugs a careful
-human could plausibly write (off-by-one, wrong comparison operator, swallowed error,
-swapped arguments, missing null guard). Make the smallest change that plausibly
-ships. Do not tell me what you changed beyond the file path.
-```
+Name the specific risk behind expensive checks. A mocked external dependency
+may leave a real integration unverified, but a live probe must fit the requested
+scope, repository policy, credentials, and cost. [iTerm2's live harness](https://github.com/gnachman/iTerm2/blob/master/CLAUDE.md)
+is a project-specific example, not a requirement for every dependency.
 
-His verdict on the method: "Use mutation testing to find new problem areas and as a means to test the tests." Use separate sessions per mutation so the mutating agent never learns what the tests check.
+## Use Mutation Evidence Selectively
 
-### 2.3 Gating in CI
+Use a bounded mutation probe when uncertainty about an assertion's sensitivity
+justifies its cost. Prefer existing tooling and a small relevant scope. Do not
+install tools, add CI gates, or schedule scans merely to complete an audit.
+For an authorized probe, read [the mutation procedure](references/mutation-probes.md).
 
-The mutation-gate mechanics that scale (blog.habsi.net): mutate only changed lines on PRs and fail on a threshold; run full mutation scans nightly; set per-module thresholds. Interpretation rule worth adopting verbatim: "A surviving mutant is not a failed build; it is a question." (The source post is not AI-specific - apply it to agent suites anyway.)
+Mutation results can expose gaps and guide targeted improvements, as in
+[Senko Rašić's practice](https://blog.senko.net/improving-ai-generated-tests-using-mutation-testing)
+and [MUTGEN](https://arxiv.org/abs/2506.02954). Interpret them as bounded evidence:
 
-Close the loop with the generator: MUTGEN's core result is that feeding mutation-analysis results back into the test-generating LLM's prompt beats both EvoSuite and plain prompting across 204 subjects. A survived mutant is your highest-value prompt for the next test-writing session.
+- A behavior-attributable failure shows sensitivity to that specific fault.
+- A valid surviving mutation raises a question about the fault or requirement.
+- Invalid, non-compiling, duplicate, or harness-failing mutations do not establish
+  assertion sensitivity; separate them from interpretable outcomes.
+- Killing no selected mutants does not establish that a test is worthless.
+- Matching scores before and after pruning do not prove equal protection.
 
-Rules block - mutation gate:
+The last two rules are conservative interpretations of the
+[ISSTA metric limitations](https://arxiv.org/abs/2607.22880); invalid and duplicate
+mutants are documented in the [mutation study](https://arxiv.org/abs/2406.09843).
 
-```text
-- PRs that add or modify tests must run a mutation check scoped to the changed code.
-- A new test that kills zero mutants is rejected in review - it asserts nothing.
-- Surviving mutants open tasks, not auto-generated tests: a human decides whether the
-  gap is real, the behavior is unspecified, or the code is dead.
-- Nightly full mutation run; per-module thresholds; never a single global number.
-```
+## Propose or Apply Dispositions
 
-### 2.4 A Second AI Pass - Humans Hold the Verdict
+Adapt [TDD Buddy's human triage](https://tddbuddy.com/blog/characterization-tests-are-the-on-ramp/)
+to the suite under review. Assign dispositions with reasons:
 
-A second AI pass can grade test quality beyond pass/fail, but design it against the recorded skepticism: practitioners explicitly distrust AI reviewing AI ([V2EX](https://www.v2ex.com/t/1233025)). What worked in the field is a fixed adversarial persona panel - "seven mean-spirited QAs" embedded in Claude Code with a structured schema so the perspectives stay reproducible - because, per the author, "Having AI 'write' test cases is something anyone can do now. The hard part was making it write them with the same perspectives and the same quality every time" ([Zenn/nexta_](https://zenn.dev/nexta_/articles/be13a2395a5d2a)). The research version judges exactly what this skill audits for: "generated tests are often runnable but frequently lack strong assertions and meaningful behavioral coverage" ([VibeCheck](https://arxiv.org/abs/2609.05978)).
+- Keep: meaningful behavior with a justified expectation.
+- Improve: a specific gap, coupling issue, or flaky assumption needs correction.
+- Clarify: the intended behavior is unresolved.
+- Remove: demonstrated redundancy or irrelevance, with remaining protection named.
 
-Rules block - AI-assisted review:
+For findings-only audits, return proposals. When pruning is already authorized,
+apply supported changes without inventing another approval step. Preserve the
+behavior protected by critical-flow tests through retention or replacement.
+Do not weaken, skip, or regenerate failing tests merely to make the run green;
+[Hermes' rules](https://github.com/facebook/hermes/blob/static_h/CLAUDE.md)
+require understanding the failure and reviewing the resulting change.
 
-```text
-- An AI reviewer grades test quality (assertion strength, perspective coverage);
-  it never decides pass/fail - humans keep execution and acceptance.
-- Reviewer personas are fixed and versioned, so perspective coverage is
-  reproducible rather than whatever the model feels like that day.
-- Every AI-review verdict is a smell hint (section 3), confirmed by a mutation
-  probe or a human before any test is deleted or promoted.
-```
+After changes, rerun the same relevant baseline. If mutation evidence influenced
+the decision, compare the same interpretable fault cases as well as the behavior
+review. Report any lost protection or unresolved failure. This verification
+combines the baseline practice above with mutation diagnostics; it does not
+certify equivalence from a score alone.
 
-## 3. Smell Checklist: Mirroring and Implementation Coupling
+## Report Findings
 
-The best-documented failure of agent-written tests is that they restate the code instead of checking it. Habr names it "tautological testing": the AI reads the implementation and re-states it as assertions, and cites a real Copilot case where green tests hid fired requests in prod. A user on the Cursor forum thread "End to End Testing... A tricky area for current gen LLMs?": "They are obsessed with writing tests to match the code - whatever the code does." The research receipt: "36% of commits made by coding agents add mocks to tests, compared with 26% by non-agents" (MSR 2026) - agents favor easy mocked tests over tests of real interactions. And the test-oracle study "Understanding LLM-Driven Test Oracle Generation" (AIware 2025) says generators cannot fix this alone: they only encode what the code currently does, so unless assertions derive from intent, the generator can never manage "separating correct from buggy behavior".
-
-Checklist - flag any test that:
-
-```text
-- Mirrors the implementation: the assertion recomputes the expected value with the
-  same formula/logic the code uses, so both sides are wrong together.
-- Asserts on mocks: verifies a dependency was called, not that the outcome is right
-  ("mocks everywhere, testing the implementation rather than the result" - fpsvogel, Lobsters).
-- Breaks on every internal refactor that preserves behavior: "tests that you have
-  to change whenever you change the code are less useful" (andyc, Lobsters);
-  coupled tests provide "DISVALUE rather than value" (Hacker News, "My AI skeptic
-  friends are all nuts").
-- Has never been seen failing (Mark Seemann: "Tests work best when you have seen
-  them fail"). Generated-after-the-fact tests were never red, so their pass proves
-  nothing yet.
-- Contains weak or absent assertions: "runnable but frequently lack strong assertions
-  and meaningful behavioral coverage" (VibeCheck, POVC '26).
-- Is an empty or stub body, e.g. "// your test logic here" (JetBrains YouTrack
-  GO-15896 caught AI Assistant emitting these).
-- Assumes collection order - the dominant flakiness source in generated
-  tests for databases (ICSE 2026), which also documents "flakiness transfer": models
-  copy flaky patterns from surrounding context into new tests.
-```
-
-A fast coupling probe on suspect areas: make a behavior-preserving internal change (rename a private helper, reorder internal steps) and run the suite. Tests that fail on it are documenting internals, not behavior - candidates for section 6. Seemann's ceremony framing is the audit's default posture toward never-red tests: ritual, not verification.
-
-## 4. Judge the Mix: "Not too many. Mostly integration."
-
-Volume is the audit's enemy. The maxim to audit against is Kent C. Dodds' "Write tests. Not too many. Mostly integration." (known via a verified search snippet). Mark Larah's anti-slop prescriptions operationalize it: fewer high-ratio tests, test at the edges, avoid mocking, mostly integration - and make the agent itself read the maxim. Know the opposite camp too: the record's maximally pro-test counterpoint, awesome-agv's packaged ruleset, mandates TDD with a 70/20/10 test pyramid (AAA pattern) - "Code without a corresponding test does not exist." The record never defines the ratio's components, and a unit-majority pyramid is the opposite bet from "mostly integration" - read it as the far end of the spectrum, not as this audit's target shape.
-
-Two failures the mix check catches:
-
-- All-unit suites: the 1,310-green-tests incident verified components in isolation; nothing validated the assembled system. The author's fix was end-to-end checks of critical flows. Each test level detects different defects, "and that role doesn't change just because AI arrived" (Zenn/ababup1192).
-- Corner-case matrices nobody hits: ClickHouse's agent rules ban them outright - "do not write tests asserting that the feature no longer exists ... Such tests only pin down the absence of something and become noise", and no matrix-style corner-case tests users will not hit.
-
-Audit action: count tests by level per module. Where trivial unit tests dominate a critical flow, flag the module for the section 5 reallocation - the goal is ratio, not raw count.
-
-## 5. Spend Testing Where the Risk Is
-
-Audit findings should reallocate effort, not just delete. Risk-based patterns from the record:
-
-- iTerm2's CLAUDE.md mandates a live harness against real vendor APIs after any AI-assisted change, because "unit tests passing alone is not sufficient evidence" - and prices it so the mandate survives review: "Full sweep: ~95 sec, ~70 API calls, under $0.50."
-- Zenn/QDHE pairs FMEA-style risk ranking of what deserves tests at all with SHA256 hash-freezing the approved suite so agents cannot silently rewrite it.
-- ClickHouse treats CI cost as a first-class design constraint: integration tests are "about 40% of its cost, and the suite barely fits in its timeout" - so expensive tests must justify their slot; cheap tests must justify their volume.
-- Top solution comments on an r/webdev thread about shipping agent-written code (dead link per the research document) argue for end-to-end coverage of critical user flows on every deploy, with the suite as the actual source of truth for "does this still work." when nobody fully understands the shipped code.
-
-Rules block - risk allocation:
+Rank findings by behavioral risk and support each with a test path, observable
+evidence, impact, and proposed disposition. State uncertainty where intent or
+execution evidence is missing. A useful finding has this shape:
 
 ```text
-- Rank modules FMEA-style (what deserves tests at all) before writing or pruning
-  tests; the top-ranked modules get mutation gates and integration coverage first.
-- Critical user flows get end-to-end checks that run on every merge, not
-  unit-of-unit confidence.
-- Anything talking to external systems gets a live round-trip check; mocked-only
-  coverage of a paid/external dependency is an audit finding, not coverage.
-- Every expensive test must name the risk it guards; every cheap test must kill
-  mutants (section 2) or it guards nothing.
+Path: tests/cart.test.ts
+Evidence: expected total repeats the production discount formula.
+Risk: the same formula error can make implementation and expectation agree.
+Disposition: improve using the documented discount examples.
+Validation: existing check passes; no controlled fault was evaluated.
 ```
 
-## 6. Prune Safely: Delete Slop Without Losing Signal
-
-Deleting agent test slop is safe when it is deliberate, human-triaged, and one-directional. The failure mode to avoid is the flagship r/ExperiencedDevs pattern (dead link, archived content): test code "feels so cheap," so teams stop maintaining and start regenerating - which replaces unaudited tests with new unaudited tests.
-
-Triage model (TDD Buddy, for characterization captures - use it for audit findings too): "The agent generates the captures. The human does the promotion." Every flagged test gets exactly one verdict:
-
-```text
-PROMOTE - asserts real behavior from intent/spec; kills mutants; keep and name it
-          as spec-grade.
-FLAG    - unclear or duplicate; quarantine and schedule a mutation probe before
-          the next release.
-DELETE  - trips the section 3 smells AND kills no mutants in its area; remove.
-```
-
-What the record shows is deletable:
-
-- Redundant duplicates: GitHub's own Copilot article demonstrates the pattern - it shows Copilot emitting a duplicate test and prunes it, with the standing rule "Never trust any tests Copilot generates without going through your normal review process."
-- Never-red ceremony tests (Seemann) that fail the mutation probe.
-- Tautological/mirroring tests (Habr) - proven by the coupling probe.
-- Noise tests pinning absence (ClickHouse) and corner-case matrices users will not hit.
-- Whole scrapped suites: mordae's field report - juniors generated tests to "document current behavior", and the resulting suite was "totally unmaintainable and had to be scrapped", rebuilt around property-based and model-based tests that survive.
-
-Safety rails while pruning:
-
-```text
-- The agent never deletes or rewrites tests to make a run green. Regenerating a
-  failing suite is the anti-pattern (Meta's Hermes rule: "Do not blindly regenerate
-  tests to make them pass."). Deletions come from the human triage list only.
-- Approved tests are read-only to the agent ("Do NOT modify tests — they are your
-  acceptance criteria" - LinkedInLearning ralph-loop CLAUDE.md); QDHE-style hash
-  freezing works when you need mechanical enforcement.
-- Before deleting in a module, capture its mutation baseline; after deleting,
-  re-run it. Acceptable outcome: fewer tests, same or higher kill score, coverage
-  down. Coverage going down is not an argument against the deletion.
-- Never delete end-to-end checks of critical flows (section 4); if one is flaky,
-  fix or replace it - do not drop the risk it guards.
-```
-
-## The Audit Runbook
-
-```text
-1. Inventory: count tests by authorship (agent vs human), level (unit/integration/
-   e2e), and module. Flag modules where trivial unit tests dominate a critical flow.
-2. Baseline: run mutation testing (engine or AI-injection variant) on the modules
-   that matter most (section 5 ranking). Record kill scores.
-3. Smell pass: run the section 3 checklist; mark every mirroring, mock-asserting,
-   never-red, stub, or order-dependent test.
-4. Verdicts: PROMOTE / FLAG / DELETE per test, by a human (section 6).
-5. Prune: delete DELETE-verdict tests in one reviewable commit; re-run the mutation
-   baseline; expect coverage to drop.
-6. Reinvest: turn surviving-mutant gaps into test-writing prompts (MUTGEN feedback
-   loop) and reallocate effort toward integration/e2e of critical flows.
-7. Gate: keep the section 2 mutation gate on changed lines so the suite cannot
-   quietly regress to slop.
-```
+Finish with scope examined, checks performed, changes made, and limitations.
+Do not present a sampled review as a whole-suite judgment. Maintainers evaluating
+this skill can use [the scenarios](evals/scenarios.md); they are not runtime steps.
 
 ## Grounded in
 
-All claims, quotes, tool names, and links below are from `research/coding/test-quality/ai-generated-tests-research.md` (the single source of truth for this skill).
+The repository's AI-generated-tests research report is the provenance record;
+this skill's workflow does not require loading that archive. Key sources are:
 
-- Senko Rašić, "Improving AI-generated tests using mutation testing", blog.senko.net (2026-03) - the AI-injection protocol, 40/30/10 run, "test the tests": https://blog.senko.net/improving-ai-generated-tests-using-mutation-testing
-- MUTGEN, "Mutation-Guided Unit Test Generation with a Large Language Model", IEEE TSE / arXiv (2025): https://arxiv.org/abs/2506.02954 - 100% coverage / 4% mutation score; mutation feedback beats plain prompting.
-- "A Comprehensive Study on Large Language Models for Mutation Testing", arXiv (2024): https://arxiv.org/abs/2406.09843 - LLM mutants "111.29% higher fault detection" against real bugs.
-- "Do Coverage and Mutation Scores of LLM-Generated Test Suites Correlate with Their Effectiveness?", ISSTA 2026: https://arxiv.org/abs/2607.22880 - metrics stop indicating effectiveness on possibly-buggy code.
-- juejin post on AI-generated unit test quality governance (2026-03): https://juejin.cn/post/7618522925608091698 - 90%+ coverage, 40-60% nonsense assertions, ~34% kill score; spec-assertions-then-mutation governance pipeline.
-- "Mutation Testing: The Quality Gate Your CI Is Missing", blog.habsi.net (2026-09): https://blog.habsi.net/mutation-testing-the-quality-gate-your-ci-is-missing - changed-lines PR gate, nightly full runs, per-module thresholds.
-- LLMorpheus, GitHub Next (archived; continued at neu-se/llmorpheus): https://github.com/githubnext/llmorpheus - LLM-proposed mutants through a modified StrykerJS. StrykerJS, mutmut, and cargo-mutants are named only in the research document's search-gap notes ("What this search could not find"), which record that their READMEs contain zero AI/LLM mentions.
-- Mark Seemann, "AI-Generated Tests as Ceremony", blog.ploeh.dk (2026-01): https://blog.ploeh.dk/2026/01/26/ai-generated-tests-as-ceremony/ - "Tests work best when you have seen them fail."
-- Habr (OTUS) on green suites that still ship bugs (2026-08): https://habr.com/ru/articles/1073708/ - tautological testing; a real Copilot case where green tests hid fired requests in prod.
-- Cursor Community Forum, "End to End Testing... A tricky area for current gen LLMs?" (2025-08): https://forum.cursor.com/t/end-to-end-testing-a-tricky-area-for-current-gen-llms/130697 - "obsessed with writing tests to match the code - whatever the code does."
-- "Are Coding Agents Generating Over-Mocked Tests?", MSR 2026: https://arxiv.org/abs/2602.00409 - agents add mocks in 36% of commits vs 26% for humans.
-- Habr (Нетология) on LLM test generation (2026-08): https://habr.com/ru/articles/1070438/ - scale of suite is not proof it catches errors.
-- Kent C. Dodds, "Write tests. Not too many. Mostly integration." (verified search snippet per the research document): https://kentcdodds.com/blog/write-tests
-- Mark Larah, "Preventing LLM unit test spam", blog.larah.me (2026-07): https://blog.larah.me/test-slop/ - fewer high-ratio tests, test at the edges, avoid mocking.
-- awesome-agv packaged agent ruleset (irahardianto/awesome-agv, 2026): https://github.com/irahardianto/awesome-agv - the maximally pro-test counterpoint: mandatory TDD, 70/20/10 test pyramid, AAA pattern - "Code without a corresponding test does not exist."
-- Zenn/ababup1192, each test level's distinct role (2026-09): https://zenn.dev/ababup1192/articles/77b844dcfc1529 - "Each kind of test detects different defects, and that role doesn't change just because AI arrived."
-- Zenn/shune, nine Claude Code agents, 1,310 green tests, broken app (2026-10): https://zenn.dev/shune/articles/54501fc4fd6398 - the all-unit-suite failure.
-- Zenn/belka_dolphin (QDHE), test freezing + FMEA (2026-04): https://zenn.dev/belka_dolphin/articles/c885376e01b59d - SHA256 freeze, FMEA ranking, 43.89% kill score on 102 green tests.
-- iTerm2 CLAUDE.md testing rules: https://github.com/gnachman/iTerm2/blob/master/CLAUDE.md - live harness, costed at under $0.50, "unit tests passing alone is not sufficient evidence."
-- ClickHouse .claude/CLAUDE.md: https://github.com/ClickHouse/ClickHouse/blob/master/.claude/CLAUDE.md - anti-noise rules; integration tests ~40% of CI cost.
-- r/webdev, "Developers shipping AI-generated code they can't debug is becoming a real liability" (2026-04, dead link per the research document; PullPush archive content) - end-to-end coverage of critical user flows on every deploy: https://www.reddit.com/r/webdev/comments/1sh5ug1/developers_shipping_aigenerated_code_they_cant/
-- TDD Buddy, "Characterization Tests Are How Agents Enter Legacy Code" (2026-06): https://tddbuddy.com/blog/characterization-tests-are-the-on-ramp/ - Promote / Flag / Delete triage; "The agent generates the captures. The human does the promotion."
-- GitHub Blog, "How to generate unit tests with GitHub Copilot" (2024-12): https://github.blog/ai-and-ml/github-copilot/how-to-generate-unit-tests-with-github-copilot-tips-and-examples/ - review-generated-tests rule; the pruned duplicate test.
-- Lobsters, "Static types and shovels" (mordae's scrapped suite): https://lobste.rs/s/eiknm1/static_types_shovels - "totally unmaintainable and had to be scrapped"; property/model-based survives.
-- Lobsters, "Testing is better than Data Structures and Algorithms" (2025-09): https://lobste.rs/s/lvnvnn/testing_is_better_than_data_structures - fpsvogel: "mocks everywhere, testing the implementation rather than the result"; andyc: tests you must change whenever you change the code are "less useful".
-- Hacker News, "My AI skeptic friends are all nuts" (2025-06): https://news.ycombinator.com/item?id=44163063 - a comment argues LLM unit tests that couple to implementation provide "DISVALUE rather than value."
-- VibeCheck, POVC '26 / arXiv (2026-09): https://arxiv.org/abs/2609.05978 - runnable tests lacking strong assertions.
-- TestGenEval, arXiv (2024): https://arxiv.org/abs/2410.00752 - 35.2% average statement coverage on real code.
-- Thorsten Ball, "A Few Words on Testing", Register Spill (2024-03): https://registerspill.thorstenball.com/p/a-few-words-on-testing - "I never believed in testing coverage as a metric".
-- JetBrains YouTrack GO-15896: https://youtrack.jetbrains.com/issue/GO-15896 - stub test bodies from AI Assistant.
-- ICSE 2026 SEIP, "On the Flakiness of LLM-Generated Tests for DBMSs": https://arxiv.org/abs/2601.08998 - order assumptions; "flakiness transfer".
-- "Understanding LLM-Driven Test Oracle Generation", AIware 2025 / arXiv: https://arxiv.org/abs/2601.05542 - generators only encode what the code currently does; oracles must derive from intent.
-- r/ExperiencedDevs, "My teammates are generating enormous test suites now" (dead link per the research document; PullPush archive content) - regenerating easier than maintaining; PRs over half tests: https://www.reddit.com/r/ExperiencedDevs/comments/1po8uud/my_teammates_are_generating_enormous_test_suites/
-- Meta's Hermes CLAUDE.md, the anti-gaming fence (2026-08): https://github.com/facebook/hermes/blob/static_h/CLAUDE.md - "Do not blindly regenerate tests to make them pass."
-- LinkedInLearning ralph-loop CLAUDE.md, tests as read-only acceptance criteria (2026-03): https://github.com/LinkedInLearning/mastering-ai-assisted-development-10666010/blob/main/4.1-demo-ralph-loop/CLAUDE.md - "Do NOT modify tests — they are your acceptance criteria".
+- [Test oracle generation](https://arxiv.org/abs/2601.05542): intent-derived expectations.
+- [ISSTA replication study](https://arxiv.org/abs/2607.22880): limits of coverage and mutation metrics.
+- [Senko Rašić](https://blog.senko.net/improving-ai-generated-tests-using-mutation-testing): bounded mutation diagnostics.
+- [TDD Buddy](https://tddbuddy.com/blog/characterization-tests-are-the-on-ramp/): review and triage of captured behavior.
+- [Hermes](https://github.com/facebook/hermes/blob/static_h/CLAUDE.md): understand failures before updating tests.
+- [Larah](https://blog.larah.me/test-slop/): reduce redundant, brittle generated tests.
