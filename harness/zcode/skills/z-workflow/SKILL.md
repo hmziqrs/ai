@@ -1,74 +1,190 @@
 ---
 name: z-workflow
 description: >-
-  Fresh-per-task dynamic workflow composer: a scout reads the task and repo, the
-  workflow-author agent picks the shape from the dynamic-workflow catalogue and writes a
-  new script for this use case only, a fresh reviewer audits it, and one CreateWorkflow
-  run executes it with phase barriers, parallel fan-out inside each phase, and a mixed
-  pro/flash model matrix. Use for features, multi-area changes, audits, research,
-  refactors with strict quality bars, or any time the user names a workflow.
+  Parallel dynamic-workflow composer: the workflow-author reads the task (directly for
+  small work, through parallel per-area explorers for larger work), picks the shape from
+  the dynamic-workflow catalogue, and writes a fresh script whose areas run as independent
+  pipelines (implement, gate, judge) with pro and flash subagents in one run. Joins are
+  used only where a whole-set step needs every area. Runs only when the user explicitly
+  asks for a workflow (z-workflow, or a saved workflow by name); never start one unasked.
 ---
 
 # z-workflow
 
-The main agent is the **composer-coordinator**. It triages the task, dispatches a scout
-and the workflow-author, reviews the script, launches one run, and relays the report.
-Every run gets a script written for that use case. Nothing is reused from a template
-unless the user names a saved workflow.
+The main agent is the **composer-coordinator**. It triages the task, gathers the facts the
+author needs, dispatches the workflow-author, shows the user what the script will run,
+launches one run, and relays the report. Every run gets a script written for that use case.
+Nothing is reused from a template unless the user names a saved workflow.
 
 ## Pillars
 
-1. **Fresh per use case.** The shape and script come from the brief, never from an old
-   run or a fixed chain. Copy rules and helpers from this skill, never a previous topology.
-2. **Scale to the task.** Triage decides the workflow's size before any script exists.
-   A one-file change gets a one-phase run. A cross-domain auth change gets the full chain.
-3. **Phase = barrier.** A phase starts only when the previous phase's `Promise.all` has
-   resolved. Inside a phase, everything runs in parallel: fan-out per area or per item,
-   and per-item chains when one item's next step needs only that item.
-4. **Mixed models.** Pro for judgment, flash for checkable output, no model for mechanical
-   gates and git. The matrix is pinned per role with `model()` literals.
-5. **Fresh eyes and honest gates.** Plans, drafts, and audits go to a fresh subagent that
-   never saw the authoring. Mechanical checks are `world.run` with literal commands. Nonzero
-   exits are values the script reads, never ignored.
-6. **Bounded and honest.** Every loop has a round cap and a stagnation rule. Unverified
-   stays unverified in the report.
+1. **Parallel by default.** Each area is its own pipeline. Areas never wait for each other
+   unless an edge says so.
+2. **Joins are explicit.** A join is an `await` on a set of lanes that a named whole-set step
+   needs: a merge into the run's integration worktree, a cross-area check, a final report, or
+   a task rule that says "all plans before any implementation". A join without a reason is a
+   finding.
+3. **At least one flash role.** Any run with two or more asks includes at least one flash role
+   from the allowed list (see Model matrix). Flash never decides pass or fail. Pins are
+   `model()` literals per role. The pillar is checked by counting flash actors in the run.
+4. **Scale to measured signals.** Size is a spectrum. Triage measures areas, changed files,
+   risk, and uncertainty, and each dial of the run follows its own signal (Step 0).
+5. **Fresh eyes and honest gates.** Judges are new agents every round. Gates are `world.run`
+   with literal commands; a nonzero exit is a value the script reads.
+6. **Bounded and honest.** Every loop uses the one stop rule below. Only command-backed
+   results are labelled verified.
+7. **Never destroy, always ask.** Scripts never run destructive git, never touch the user's
+   checkout, and launch only through the approval dialog.
+8. **Proportionate.** The run's machinery matches the task, not the rule set. The dials set a
+   complexity budget (Step 0). Going over it needs a written reason in the plan. The smallest
+   shape that meets the rules wins.
 
-## Step 0 — triage (main agent, no subagent)
+## Definitions
 
-The user named a workflow, so a workflow runs. Triage only sets its size.
+- **Area**: a unit of behaviour that can be built, gated, and judged on its own. A
+  feature's code, its tests, and its docs are one area, because the tests and docs depend on
+  the code's API. Directories are not areas. Two pieces are separate areas only when neither
+  needs the other's output to be written or checked, for example two unrelated modules. When
+  in doubt, merge them into one area.
+- **Fresh**: a judge or confirmer is a new `agent()` with a name unique to its area and round
+  (`judge-${area}-r${round}`). It has never seen the implementer's reasoning or an earlier
+  round's verdict text. Reusing one agent across rounds is a topology finding.
+- **Verified**: a result whose evidence a `world.run` command produced in this run: a gate's
+  exit code, a grep match of a quoted `file:line`, or a confirmer's reproduction command. A
+  judge verdict alone is **judged**, not verified. A finding no command reproduced is
+  **unconfirmed**. These three labels are the only status labels.
+- **Reproduced**: a confirmer marks a finding reproduced only by running a command whose
+  output shows the defect. Reading code and agreeing is not reproduction.
+- **Stop rule** (every loop): stop when open findings reach zero, or when the
+  open count does not drop for two consecutive rounds, or at the round cap. "Does not drop"
+  means the open count after round r is greater than or equal to the count after round r-1.
 
-| Tier | Signal | Run shape |
+## Step 0 — triage (main agent)
+
+Size is a spectrum, not three boxes. Triage measures four signals, and each dial of the run
+is set from the signal that drives it. Dials move independently: a three-file change with a
+security angle gets heavy review and a single lane; a twelve-file mechanical rename gets
+several lanes and light review.
+
+### Signals (measured, written into the brief with the command that produced each)
+
+| Signal | How it is measured | Values |
 |---|---|---|
-| S (small) | one area, up to about 3 files, no security or data-model change | Phases: implement, gate, fresh judge. Round cap 2. |
-| M (medium) | 2 to 4 areas in one domain, or more than 3 files | Plan, implement, gate, judge, fix loop per area, in parallel. Round cap 3. |
-| L (large) | multi-domain, auth, data migration, public API, or the user asks for strict bars | Full chain below, with a planner per area, a fresh plan attack, a judge panel, and per-finding confirmers. Round cap 5. |
+| Areas `A` | the Area definition applied to the task | 1, 2, 3, ... |
+| Changed files `F` | one command over the declared files, for example `git -C <repoRoot> ls-files -- <files...> \| wc -l`, plus the new files the task names | 1, 2, 3, ... |
+| Risk `R` | the task text and the touched paths | `low`, `medium`, `high` |
+| Uncertainty `U` | whether the task fixes the behaviour and the API | `low` (spec given), `high` (shape to be discovered) |
+| Visible surface `V` | whether a changed file renders on screen (HTML, CSS, a UI component, a desktop or mobile view) or the task states something visible | `none`, `web`, `desktop`, `mobile` |
 
-Any tier can carry a visual check. Add a capture phase only when a UI area is in scope.
-Round caps are always explicit. An unbounded loop is never authored.
+Risk levels:
+- `low`: new code behind a stated spec; nothing existing changes behaviour.
+- `medium`: changes the behaviour of existing code, error paths, input handling, a CLI or
+  file-format contract, shared utilities, or edits to existing tests.
+  Additive changes stay `low`: a new function, a new subcommand, a new section, or a new
+  file that leaves every existing behaviour unchanged, even when it touches a contract file
+  such as a CLI dispatcher. Rate by what existing callers would notice, not by which file
+  changes.
+- `high`: the touched code handles auth, data or schema migration, a public API, money, or
+  secrets, or is otherwise security-sensitive. A task that asks for an audit turns on the
+  Auditor dial; it does not raise risk by itself. Rate risk by what the code does, not by
+  the words in the task.
 
-## Step 1 — scout (fresh read-only subagent)
+### Dials (each set by its own signal)
 
-Send ONE read-only scout (Agent tool, Explore) with the task verbatim. The scout returns
-this brief as data, not chat:
+| Dial | Rule |
+|---|---|
+| Lanes | one per area (`A`) |
+| Worktrees | 1 when `A` = 1 or areas never write at the same time; otherwise one per writing area plus 1 integration |
+| Exploration | direct when `A` = 1; one explorer per area otherwise |
+| Plan stage | only when `U` = high, or `F` >= 9, or `R` = high |
+| Plan attack | only when `R` = high |
+| Round cap | `F` 1-3: 2; `F` 4-8: 3; `F` 9-15: 4; `F` >= 16 or `R` = high: 5 |
+| Judges per lane per round | 1 fresh judge; 2 when `R` = medium or `F` >= 9; a panel of 3 when `R` = high |
+| Confirmers | only when `R` >= medium; a judge's finding is a fix target only after a command reproduces it |
+| Flash tracer | one per lane per round whenever the run has two or more asks |
+| Auditor | only when the task asks for an audit; a separate pro agent with read-only access, one per audit topic |
+| Pre-launch REVIEW | when `R` >= medium, or the budget below exceeds 6 asks per round |
+| Vision | on when `V` is not `none`: capture, flash vision audit, and command checks per lane per round (see Vision phase) |
+
+### Band label (for reporting only)
+
+The band is a label for the dial settings, never an input to them:
+
+| Band | Typical signals |
+|---|---|
+| S | `A` = 1, `F` <= 3, `R` = low |
+| S-M | `A` = 1, `F` <= 3, `R` = medium; or `F` 4-5 with `R` = low |
+| M | `A` <= 3, `F` <= 8, `R` <= medium |
+| M-L | `F` 9-15, or `A` = 4, or `R` = high with `F` <= 8 |
+| L | `F` >= 16, `A` >= 5, or `R` = high with `F` >= 9 |
+
+Write the four signals, the dial values, and the band into the brief.
+
+### Complexity budget
+
+The budget follows the dials, not the band:
+
+- **Asks per round** = per lane (1 implementer + tracer + judges + confirmers + 1 vision
+  auditor when Vision is on) + 1 cross-area
+  judge when `A` >= 2 + auditors.
+- **Distinct roles**: one per dial that is on. A role is one `agent()` name pattern
+  (`judge-${area}-r${round}` counts once).
+- **Script length**: about 300 lines for one lane with safe git, gate, tracer, and judge
+  (measured: 280 to 430 across the first four dial runs), plus about 100 per extra lane.
+  Extra dials add asks, not much code. Length is a soft target: flag it above 1.5 times the
+  target. Asks per round, roles, and worktrees are the hard budget. Lanes share one lane
+  function; a copy-pasted lane body is a proportion defect.
+- **Gate**: the task's own command. A smoke check is added only for a stated requirement the
+  gate cannot check, and it stays under about 20 lines.
+
+Anything over the computed budget needs a one-line reason per item in the plan's `budget`
+field. REVIEW and the coordinator flag any unjustified overage.
+
+## Step 1 — explore
+
+- **One area: direct.** No scout is dispatched. The workflow-author reads
+  the files it needs with its own Read, Glob, and Grep tools.
+- **Two or more areas: parallel explorers.** Split the work into areas first, using the Area
+  definition, never the directory layout.
+  Dispatch one read-only explorer per area (Agent tool, Explore), all in the same message, so
+  they run concurrently. The main agent merges their briefs into one `WorkflowBrief`.
 
 ```ts
 interface WorkflowBrief {
   /** code | research | draft | mixed: the shape of the work. */
   workKind: "code" | "research" | "draft" | "mixed";
-  /** S | M | L from triage, adjusted by what the scout found. */
-  size: "S" | "M" | "L";
-  /** low | high: high for auth, data, public API, money, or security-sensitive code. */
-  risk: "low" | "high";
+  /** Band label for reporting only: S | S-M | M | M-L | L. */
+  band: "S" | "S-M" | "M" | "M-L" | "L";
+  /** Dial values from Step 0, each with the signal that set it. */
+  dials: { name: string; value: string; drivenBy: string }[];
+  /** Uncertainty: low when the task fixes behaviour and API, high otherwise. */
+  uncertainty: "low" | "high";
+  /** low | medium | high, from Step 0. */
+  risk: "low" | "medium" | "high";
+  /** The risk signals found, each with where it was seen. Empty when risk is low. */
+  riskSignals: string[];
+  /** Measured counts and the command that produced them. */
+  counts: { areas: number; changedFiles: number; command: string };
   /** The task, verbatim. */
   task: string;
-  /** Absolute repo root (the one anchor every other path is relative to); "" when none. */
+  /** Absolute repo root, verified with a command. The script's only repo anchor. */
   repoRoot: string;
+  /** Base commit the run starts from, verified with git rev-parse. */
+  baseCommit: string;
   /** AGENTS.md path relative to repoRoot that binds subagents; "" when none. */
   agentsMd: string;
-  /** Files the task touches or must read, relative to repoRoot. */
-  files: string[];
-  /** Areas the work divides into, each with its files and whether it has a UI. */
-  areas: { name: string; files: string[]; hasUI: boolean }[];
+  /** Whether the task text asks for commits on the user's branch. */
+  commitsRequested: boolean;
+  /** Per area: its files, whether it has a UI, and what it contends on. */
+  areas: {
+    name: string;
+    files: string[];
+    hasUI: boolean;
+    /** terminal: shared-checkout work | web | desktop | mobile */
+    contention: "terminal" | "web" | "desktop" | "mobile";
+    /** Area names whose output this area needs before it can implement. */
+    dependsOn: string[];
+  }[];
   /** Mechanical checks the repo already has, as literal {tool, args[]}, non-mutating. */
   gates: { tool: string; args: string[] }[];
   /** What could make the run fail or lie. */
@@ -76,118 +192,278 @@ interface WorkflowBrief {
 }
 ```
 
-Verify what must be exact (repoRoot, agentsMd, baseSha, each gate's exit code) with one
-command each. Scout claims are data to check, not facts.
+Verify what must be exact (repoRoot, baseCommit, agentsMd, each gate's exit code, the counts)
+with one command each. Explorer claims are data to check, not facts.
 
 ## Step 2 — shape (workflow-author, AUTHOR mode)
 
-Dispatch the workflow-author with the verbatim task and the brief. It returns a
-TopologyPlan (defined in `harness/zcode/agents/workflow-author.md`). Use the catalogue
-below to pick shapes; the author must name the pattern numbers it used.
+Resolve the platform-contract path first: take the `dynamic-workflows` entry's `file:` path
+from this session's available-skills index. Dispatch the workflow-author with the verbatim
+task, the brief (for one area: the task, repoRoot, baseCommit, signals, and dials), and that absolute path.
+The author returns a TopologyPlan (defined in `harness/zcode/agents/workflow-author.md`)
+naming the pattern numbers it used. If the author's dials differ from the brief's, stop and
+resolve the signals before going on.
+
+Shape rules for every plan:
+
+- **One area, one lane, one worktree.** A one-area task runs in a single run-owned worktree on
+  `wf/<slug>`: implement, gate, trace, fresh judge, looped by the stop rule. No integration
+  worktree, no merges, no per-round checkpoint commits, and no join other than the final
+  report. The script makes one commit on `wf/<slug>` at the end so Step 6 has a branch to
+  merge.
+- **Pipeline is the default edge.** Each area is a lane. A stage starts as soon as its own
+  input is ready. Lanes start together and are not awaited in sequence.
+- **A join needs a reason from this list only:** (a) a merge of parallel work into the run's
+  integration worktree, (b) a whole-set check across areas (dedupe, consistency, ranking),
+  (c) the final report, (d) a rule in the task text that requires every plan before any
+  implementation. Any other join is a finding.
+- **Parallel writers need workspaces.** When two or more areas write code at the same time,
+  each area works in its own run-owned worktree on a `wf/<slug>/<area>` branch, and merges go
+  through one serialized git lane into a run-owned `wf/<slug>/integration` worktree. Areas
+  that never write concurrently may share one run-owned worktree.
+- **Exclusive resources serialize.** A desktop or mobile capture uses one single-worker lane.
+  Web areas run in parallel, each with its own dev-server port and browser session.
+- **Dependencies are per edge.** An area that `dependsOn` another awaits only that area's
+  merge or plan, never the whole run.
+- **Whole-set steps are not streamed per item.** A dedupe, ranking, or consistency check
+  runs once after its join, never once per arriving item.
 
 | Use case | Shapes (dynamic-workflows patterns.md) |
 |---|---|
-| Change across several areas | 1 fan-out per area, 3 planner↔reviewer per area, 9 gated verifier loop, 4 judge panel |
+| Change in one area | 9 gated verifier loop, one lane |
+| Change across several areas | 10 per-item pipeline (one lane per area), 9 gated verifier loop, 4 judge panel (when the judge dial is 3), 3 planner↔reviewer (when the plan dial is on) |
 | Review changed files | 2 changed-file review sweep, plus per-finding confirmers |
 | Research a question | 7 bounded discovery, 10 per-item search→cite-check, 8 salvage by report |
 | Triage flaky tests | 10 per-item pipeline, 9 gated loop on the test command |
 | Migrate call sites | 1 fan-out, 9 gate on the build and tests |
-| Prove or verify against a checker | 5 loop until approved, 9 gate on the checker |
 | Shape unknown until discovery | 14 growth by tail holes, 15 stage shaped by discovery |
 | Route cheap work to flash | 13 model routing |
-| Back-edge from a late stage to an early one | 12 feedback loop with a counted close (justify it: it crosses phases) |
-| Streaming items between stages | 11 streaming pipeline (justify it: it crosses phases) |
-| Fallback when a step fails | 16 remedy the plan could not enumerate |
+| Back-edge from a late stage to an early one | 12 feedback loop with a counted close (name it as a crossing edge) |
+| Streaming items between stages | 11 streaming pipeline (name it as a crossing edge) |
 
-Phase rules for every plan:
+## Step 3 — author the script
 
-- Each phase ends in one join (`await Promise.all(...)`). The join reason is the phase
-  itself. Name it in the TopologyPlan.
-- Parallel width inside a phase is the number of independent items. Never serialize
-  independent items inside a phase.
-- A per-item chain inside a single fan-out stays inside one phase. Example: review a file,
-  then confirm each of its findings, all in one fan-out. This is allowed and preferred.
-- Cross-phase pipelining (11 or 12) is the only exception. The plan must name it and say
-  why a barrier would be wrong.
+1. Load the **dynamic-workflows** skill with the Skill tool before submitting anything.
+   CreateWorkflow refuses to submit until it is loaded in this session.
+2. The workflow-author writes the script from the TopologyPlan, new each time, never copied
+   from an older run. The coordinator passes the author's script text unchanged. The
+   coordinator never writes script logic: a defect goes back to the author, which returns a
+   revised script or an exact patch. The coordinator applies that patch verbatim (Edit on
+   the run's draft file), then a fresh REVIEW when the REVIEW dial is on, then launch or
+   AmendWorkflow. A coordinator-written change is a finding.
+3. Script rules (binding; the platform contract wins on any conflict):
+   - Phase names are string literals. `phase("...")` goes at the head of a stage's future, one
+     per stage, never inside a per-item callback. Every phase contains at least one `ask` or
+     `world.run`, as the §16.2 facade states, even though a publish-only phase may compile.
+   - Lanes are futures started together, one per area. The author does not `await` a lane
+     before starting the next one.
+   - Each join is one `await Promise.all(...)` (or an `await` on named lanes) with a comment
+     `// JOIN: <reason>` that gives its reason from the list above.
+   - `const REPO` is set from the brief's `repoRoot`, passed as a script argument or literal
+     taken from the brief. Never the cwd, never a path from an older run.
+   - Each role is a named `agent()` with a `model()` literal. Names are unique per area and,
+     for judges and confirmers, per round.
+   - Loops use a literal round cap and the stop rule. Feedback carries forward. Never an
+     unbounded `while`.
+   - Gates are `world.run` with literal commands. A nonzero exit is a value the script reads.
+   - Command output is parsed per line without trimming the whole output first. `git status`
+     uses `--porcelain -z` (NUL-separated, path after the 3-character status) or
+     `git diff --name-only` plus `git ls-files --others --exclude-standard`. Trimming the
+     whole porcelain output eats the first line's leading space and corrupts the first path
+     (`app.js` became `pp.js`, `README.md` became `EADME.md` in two separate runs).
+   - A finding that names a path is labelled verified only when that exact path exists in the
+     command output it came from.
+   - The script stays within the computed complexity budget, or the plan's `budget` field says
+     why it does not.
+   - No `import`, `Date.now`, `Math.random`, `fetch`, `fs`, or nested workflows.
+   - Deliverable: one primary markdown artifact and the final `{conclusion, findings,
+     verified, notCovered}` return.
 
-## Step 3 — author the script fresh
+## Git rules for generated scripts
 
-1. Load the **dynamic-workflows** skill with the Skill tool before writing or submitting
-   anything. CreateWorkflow refuses to submit until it is loaded in this session. The
-   workflow-author reads the same file by path.
-2. The workflow-author writes the full script from the TopologyPlan. It is a new file each
-   time, named `zflow-<task-slug>`. It is never copied from an older run.
-3. The script follows the dynamic-workflows contract (section 16.3 of its SKILL.md):
-   `phase()` markers, typed `ask<T>()` results with JSDoc on each field, literal `world.run`
-   commands, literal `model()` ids, no `import`, `Date.now`, `Math.random`, `fetch`, `fs`, or
-   nested workflows.
-4. Gates follow the strongest tier the task implies, and each runs at least once before
-   the final `return`.
+- **Allowed git**: read-only commands (`status`, `diff`, `log`, `rev-parse`, `ls-files`,
+  `show`), `worktree add` for run-owned worktrees, `commit` and `merge` on run-owned `wf/*`
+  branches inside run-owned worktrees, and `worktree remove` without `--force`.
+- **Forbidden git**: `checkout --` or `restore` on any path, `reset --hard`, `clean`,
+  `worktree remove --force`, `branch -D`, `push`, `rebase`, `stash`, `add -A`, `--no-verify`,
+  and any mutation of the user's checkout or current branch.
+- **Every git call checks its exit code.** A nonzero exit is recorded in findings and stops
+  that lane's git chain. A merge with a nonzero exit runs `git merge --abort` in that
+  worktree and records the conflict; it never retries with a strategy flag.
+- **Purity checks report, never restore.** A check that finds edits outside an area's paths
+  lists them as findings with the paths. It never reverts them.
+- **Worktree cleanup**: remove a worktree only after its lane reports `merged` (in a
+  one-area run: after the final commit succeeded), without `--force`. A lane that did not merge keeps its worktree. All `wf/*` branches are kept.
+- **Commits**: commits on run-owned `wf/*` branches are the transport for merges and are
+  allowed. A one-area run makes exactly one, at the end; a multi-area run makes one per lane
+  before its merge, not one per round. A commit on the user's branch happens only when `commitsRequested` is true, and
+  then only after the user approves the merge (Step 6).
+- Git mutations go through one serialized chain, for example
+  `gitTail = gitTail.then(() => world.run("git", ["-C", wt, "merge", "--no-ff", branch]))`,
+  followed by an exit-code check. Read-only git and file reads may run in parallel.
+- Subagents never run git mutations. The script does, through the chain.
 
-## Step 4 — pre-flight (before any launch)
+## Step 4 — pre-flight
 
-- **Snippet check.** For each piece of fixed logic (gate-argument building, parsers,
-  refusal rules), run EvalWorkflowSnippet. It is synchronous, has no subagents, and persists
-  nothing.
-- **Fresh review.** Dispatch a second fresh workflow-author in REVIEW mode with the script
-  text only. Fix every compile-blocking and topology finding, then rerun the review on the
-  new text. Contract-shape findings are fixed or listed for the user.
-- Launch only after the review passes.
+- **Snippet check.** For fixed logic (gate-argument building, parsers, refusal rules), run
+  EvalWorkflowSnippet. It is synchronous, has no subagents, and persists nothing.
+- **Parser rehearsal.** Run every output parser in EvalWorkflowSnippet against real output
+  from a scratch worktree in the state the run will see: one unstaged modification, one
+  untracked file, and a path whose first character would be lost to a stray trim. A parser
+  that names a path not in the output goes back to the author.
+- **Command set.** Extract every `world.run` call from the script (tool and args template)
+  and check each against the git rules. Any forbidden command goes back to the author.
+- **Budget check.** Count the script's lines, distinct `agent()` roles, asks per round, and
+  worktrees with one command (for example `wc -l` and `grep -c`), and compare them with the
+  computed budget. An overage without a reason in the plan's `budget` field goes back to the
+  author as a defect. Report the counts with the command set in Step 5.
+- **Fresh REVIEW, when the REVIEW dial is on.** Dispatch a second fresh
+  workflow-author in REVIEW mode with the script text, the TopologyPlan, and the resolved
+  contract path. Every compile-blocking, topology, and safety finding goes back to the author;
+  the revised script gets a new REVIEW. Otherwise the in-run judges are the review.
 
-## Step 5 — launch and watch
+## Step 5 — approve, launch, and watch
 
-- ONE CreateWorkflow call with the inline `script` and a `name`. Add `max_concurrency` or
-  `subagent_model` only when the user asks for them.
-- The user confirms the script in the dialog. Do not poll. Completion arrives as a
-  notification.
-- If a subagent escalates, answer it with ResolveWorkflowQuestion, or ask the user with
-  AskUserQuestion first. If the script is wrong, use AmendWorkflow with the file path. Never
-  relaunch. ResumeWorkflowRun continues a stopped run unchanged.
-- When a hole is reached, write its body from the findings so far and FillWorkflowHole.
+- **Show the command set first.** Before CreateWorkflow, list for the user every command the
+  script can run (tool and args template), grouped as gates, read-only git, and git
+  mutations, plus the signals, dials, band, and model per role.
+- **Approval is the gate.** Every workflow launches through the approval dialog. The dialog
+  appears in every permission mode, including Full access, unless "Always allow in this
+  session" was chosen earlier in the session. Never pick that option, or "always allow", for
+  a workflow that runs any git mutation; choose "Allow only this time". If an earlier
+  workflow in this session was always-allowed, stop and ask the user before launching.
+- ONE CreateWorkflow call with the inline `script` and `name: "zflow-<task-slug>"`. Add
+  `max_concurrency` or `subagent_model` only when the user asks for them.
+- Do not poll. Completion arrives as a notification.
+- If a subagent escalates, answer with ResolveWorkflowQuestion, or ask the user first with
+  AskUserQuestion. If the script is wrong, send the defect to the author, get a fresh REVIEW,
+  then AmendWorkflow with the revised file path. Never relaunch. ResumeWorkflowRun continues
+  a stopped run unchanged.
+- When a hole is reached, write its body from the findings so far and use FillWorkflowHole.
+
+## Step 6 — merge approval (after the run)
+
+The run leaves its result on `wf/<slug>/integration` (or the shared run worktree). Merging
+it into the user's checkout is a separate step:
+
+1. Show the user the branch, its diff stat against `baseCommit`, and the gate results.
+2. Ask with AskUserQuestion. Without a yes, stop and report the branch name.
+3. On a yes, check that the user's checkout is clean, merge with one command, and check the
+   exit code. On a conflict, run `git merge --abort`, report the conflicting paths, and stop.
+
+## Vision phase (when the Vision dial is on)
+
+The vision phase checks what the user will see, which gates and unit tests cannot. It runs
+inside the lane after the gate, every round, and uses all three model tiers on purpose:
+
+1. **Capture (no model when possible).** The script captures with `world.run`, for example
+   `agent-browser --session <lane> open file://<worktree>/<page>`, then
+   `agent-browser --session <lane> screenshot <worktree>/.zflow/evidence/<lane>-r<round>-<n>.png`,
+   then `close`. A `file://` URL works only for a page with no module scripts and no `fetch`;
+   browsers refuse ES modules over `file://`, so the page renders empty and the screenshot
+   lies. A page that needs HTTP is served inside ONE blocking `world.run`, for example a
+   `python3 -c` program that starts `http.server` on port 0 in a thread, runs the
+   `agent-browser` commands with `subprocess`, closes the browser, and shuts the server down.
+   The capture records the HTTP status of the page and its scripts, and a capture whose page
+   loaded no scripts or rendered no content is a finding. Only when capture needs a
+   long-running dev server, a desktop app, or a device does a flash capture driver do it,
+   and desktop and mobile captures go through one single-worker lane. A capture that
+   wrote no file is a finding, never a pass.
+2. **Vision audit (flash).** A fresh `vision-audit-<lane>-r<round>` agent reads the PNGs and
+   returns one row per visible requirement stated in the task: the requirement, what the
+   screenshot shows, the evidence path, and `met`, `not met`, or `cannot tell`. It never
+   decides pass or fail and never edits files.
+   **The audit is blind.** Its ask carries only the screenshot paths, the viewport, and the
+   requirement text copied from the task. Never put measured values (colours, contrast,
+   boxes, text content), code, file contents, or the coordinator's expectations into it: a
+   primed auditor repeats the numbers instead of reading the image, and the run can no
+   longer tell whether vision works. Command measurements run after the audit, never before
+   it is asked.
+3. **Command check (no model).** Every `not met` or `cannot tell` row gets a command that
+   decides it, written by the script from the requirement: `agent-browser eval` for computed
+   styles or contrast, `agent-browser is visible <sel>`, `agent-browser get box <sel>` for
+   layout and overlap, `agent-browser get text <sel>` for content. A row a command reproduces
+   is **verified** and becomes a fix target. A row no command reproduces stays
+   **unconfirmed**: it goes to the implementer as a hint and into the report, never into the
+   stop count.
+   Run the same commands for `met` rows too, and record every row where the blind audit and
+   the command disagree as a vision-reliability finding in the report. A command result
+   decides the row either way.
+   Screenshots stay on this machine. Agents and the coordinator read them with the local
+   Read tool; never send evidence to a remote image-analysis tool or URL.
+4. **Judge (pro).** The lane's fresh judge gets the screenshot paths and the audit rows with
+   their command results, along with the diff. Pro reads images too; a judge's own visual
+   finding is labelled judged.
+
+The run's model mix is checked from its actors: pro only for implementer, judge, planner,
+attacker, auditor, and writer roles; flash only for the roles in the Model matrix; and no
+model for capture and command checks when they can run as `world.run`.
 
 ## Model matrix
 
-| Role | Tier | Why |
+| Role | Tier | Rule |
 |---|---|---|
-| Planner, plan reviewer, implementer, judge, confirmer, committer | pro | Quality is judged, not checked. |
-| Search, capture, citation check, triage | flash | Output is checkable. |
-| Gates, git state, file reads, size checks | none | `world.run`, `files.*`, `git.*` in script. |
+| Implementer, judge verdict, reviewer, planner, plan attacker, auditor, writer, committer | pro | Quality is judged, not checked. |
+| Confirmer | pro, or flash only when a command decides the finding | The command, not the model, makes the call. |
+| Requirement tracer | flash | One row per requirement with a `file:line` quote. The script greps each quote; the pro judge sees only unmatched rows. |
+| Citation checker | flash | Existence and exact quote match only. |
+| Gate-log classifier | flash | Sorts failures into categories; never decides pass or fail. |
+| Read-only explorer | flash | Search and listing only. |
+| Vision auditor | flash | Reads screenshots and returns one row per stated visible requirement; never decides pass or fail. |
+| Capture driver | flash, only when capture needs a long-running server or a device | Runs capture commands exactly as told; never fixes anything. |
+| Gates, git, file reads, size checks | none | `world.run`, `files.*`, `git.*` in script. |
 
-Pin every role with a `model()` literal. Use the provider ids already used in this repo's
-engine until the open question on ids is settled (see Grounded in).
+Flash is never a judge. Evidence: the verification campaign `dwfrun-d14998c7` found that
+flash judges passed properties with no independent check. Flash is fit for checkable output:
+the plain-r citation checker ran on flash and finished. A code run meets pillar 3 with a
+requirement tracer; a research run with a citation checker.
 
-## Git and commits
+Use the provider ids already in this repo's engine until the open question on ids is settled
+(see Grounded in).
 
-- Default: leave changes on disk and report them. Commit only when the user asks.
-- When committing, commit through `world.run` with explicit paths. Never `git add -A`,
-  `--no-verify`, or push unless asked.
-- Subagents never run git mutations. The script does, in one serialized section.
+## Review rules for judges (inside the run)
+
+- A judge sees the area's diff, spec, and any unmatched tracer rows, never the implementer's
+  reasoning.
+- When the confirmer dial is on, a finding becomes a fix target only after a fresh confirmer
+  reproduces it by command; unreproduced findings stay unconfirmed and are reported, never
+  silently dropped. When it is off, judge findings are fix targets labelled judged.
+- An area is clean when it has zero open findings and every gate is green. Otherwise the stop
+  rule ends its loop.
 
 ## Honesty and evidence
 
 - Each subagent prompt tells it to read `agentsMd` first when the repo has one.
-- Verified and unverified findings keep their labels. Nothing is silently dropped.
+- Findings keep their labels (verified, judged, unconfirmed). Nothing is silently dropped.
 - Evidence (screenshots, logs) is written by a `world.run` command under `.zflow/evidence/`.
-  Its paths go in the report. The script never inlines file contents.
-- Half-done work stays on disk and is listed in notCovered.
+  Its paths go in the report.
+- Gate output may be inlined in findings, trimmed to the failing lines. Source and document
+  file contents are never inlined; pass paths.
+- Half-done work stays on disk and appears in notCovered.
 
 ## Final report (coordinator relays)
 
-From the run's WorkflowReport: `conclusion`, `findings` with status labels, `verified`,
-and `notCovered`. Add the phase trace (which phases ran, with barrier joins), the model
-per role, the round count per area, changed paths, and artifact paths. Name every
+From the run's WorkflowReport: `conclusion`, `findings` with status labels, `verified`, and
+`notCovered`. Add the measured signals, dial values, and band, the budget counts (script lines,
+roles, asks per round, worktrees) against the computed budget, the lane trace (stages per area, joins with
+their reasons), the model per role with the flash count, the round count and stop reason per
+area, the `wf/*` branches and worktrees left, changed paths, and artifact paths. Name every
 pattern number the plan used.
 
 ## Grounded in
 
-- Platform contract: the `dynamic-workflows` skill, `SKILL.md` (§1 entry gate, §2 topology,
-  §8 phases, §12 anti-patterns, §13 lifecycle, §14 escalation, §15 holes, §16.1
-  CreateWorkflow, §16.2 facade, §16.3 compile rules, §16.4 AmendWorkflow, §16.6
-  EvalWorkflowSnippet). Load it with the Skill tool.
-- Catalogue: the `dynamic-workflows` skill's `patterns.md` (16 shapes) and `examples.md`
-  (7 worked scripts).
+- Platform contract: the `dynamic-workflows` skill, `SKILL.md`. Sections: §1 entry gate, §2
+  topology, §3 fresh eyes, §7 pipelining and streaming, §8 phases, §12 anti-patterns, §13
+  lifecycle, §14 escalation, §15 holes, §16.1 CreateWorkflow, §16.2 facade, §16.3 compile
+  rules, §16.4 AmendWorkflow, §16.6 EvalWorkflowSnippet.
+- Catalogue: the same skill's `patterns.md` (16 shapes), and `examples.md` (7 worked scripts).
+- Parallel design reference: `harness/zcode/workflows/zflow-engine.dwf.ts` (per-area lanes on
+  channels and futures, serialized git, single-worker device lane) and `zflow-SPEC.md`. The
+  engine's pattern is reused as knowledge, not as a fixed template.
 - Subagent definition: `harness/zcode/agents/workflow-author.md`.
 - Repo rules: `ai/AGENTS.md` (skill folder naming and harness kit layout).
+- Run evidence behind these rules: plain-s, plain-m, plain-r, and the pending plain-l script
+  (destructive git, hard-coded repo, mislabelled tier), and campaign `dwfrun-d14998c7`.
 - Open question: model ids. The engine pins `account:zai-individual-coding-plan/GLM-5.3`,
   while `AGENTS.md` names `glm-5.3` against the `zai` providers. Verify with ListModels before
   first use.
