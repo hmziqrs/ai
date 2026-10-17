@@ -127,6 +127,8 @@ Each reference lives at `references/<category>.md` relative to this skill's fold
 
 The corpus total of 807 quote blocks includes 98 meta-checklist restatements folded into the category status lines; the ten references carry the 709 deduplicated entries.
 
+**Deep references:** `references/deep/<category>.md` holds the verbatim spec pages for each of the ten categories, and `references/deep/checklist.md` holds the site's own checklist. Load them when a check fails, when remediation needs the full rule text or cited standards, or when working offline. They are a 2026-10-17 snapshot — check deltas via the specification-website skill (`get_changes`) before a fresh audit.
+
 ## Pairing
 
 - **specification-website skill** — live lookups against the source of truth: `search` and `get_topic` pull the primary-source page behind any entry, `audit_url` generates per-URL audit plans, and `get_changes` reports spec deltas.
