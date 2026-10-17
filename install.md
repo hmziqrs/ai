@@ -97,6 +97,11 @@ from the session's available-skills index before dispatch, and install missing r
 from approved sources. Do not copy another machine's absolute paths into personas or treat
 an absent required skill as available.
 
+`z-cloudflare-engineer` requires the bundled category skill `cloudflare-stack`. It resolves
+Cloudflare's maintained skills from the session or their official URLs, loading only the
+task's products. Full upstream packs are optional; preserve their reference folders when
+installing them from [cloudflare/skills](https://github.com/cloudflare/skills).
+
 Persona change guards require Bun and Git at runtime. They execute embedded TypeScript
 with project configuration and environment-file autoloading disabled.
 

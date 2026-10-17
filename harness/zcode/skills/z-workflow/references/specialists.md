@@ -14,6 +14,7 @@ copies. Do not infer a framework from `hasUI` or file extensions alone.
 | GPUI entities, views and desktop interaction | `z-gpui-engineer` |
 | Flutter widgets and application behavior | `z-flutter-engineer` |
 | ElysiaJS services | `z-elysiajs-engineer` |
+| Cloudflare Workers, D1, R2, KV and Durable Objects | `z-cloudflare-engineer` |
 | Rust/frontend IPC and native integration | `z-tauri-integrator` |
 | Profiling and optimization selection | `z-rust-perf-engineer` |
 | Buffer ownership, allocations and zero-copy interfaces | `z-rust-memory-engineer` |
