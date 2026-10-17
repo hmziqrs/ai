@@ -97,10 +97,16 @@ from the session's available-skills index before dispatch, and install missing r
 from approved sources. Do not copy another machine's absolute paths into personas or treat
 an absent required skill as available.
 
-`z-cloudflare-engineer` requires the bundled category skill `cloudflare-stack`. It resolves
-Cloudflare's maintained skills from the session or their official URLs, loading only the
-task's products. Full upstream packs are optional; preserve their reference folders when
-installing them from [cloudflare/skills](https://github.com/cloudflare/skills).
+`z-cloudflare-engineer` references [Cloudflare-maintained skills](https://github.com/cloudflare/skills)
+directly, using installed copies or official source URLs. D1, R2 and KV use the relevant
+product references inside `cloudflare`; Workers, Durable Objects and CLI tasks select their
+own skills. Install only needed upstream folders and retain their references.
+
+`z-tanstack-engineer` references existing per-package skills directly: installed TanStack
+Intent core/task/adapter skills where available, and explicitly scoped community Query,
+Store, Form and Virtual skills. Its source links distinguish framework-neutral guidance
+from React examples. Resolve only relevant dependencies before dispatch; retain linked
+references when installing an upstream skill. Runtime loading follows project source policy.
 
 Persona change guards require Bun and Git at runtime. They execute embedded TypeScript
 with project configuration and environment-file autoloading disabled.

@@ -15,6 +15,7 @@ copies. Do not infer a framework from `hasUI` or file extensions alone.
 | Flutter widgets and application behavior | `z-flutter-engineer` |
 | ElysiaJS services | `z-elysiajs-engineer` |
 | Cloudflare Workers, D1, R2, KV and Durable Objects | `z-cloudflare-engineer` |
+| TanStack data, routing, forms, tables and cross-library behavior | `z-tanstack-engineer` |
 | Rust/frontend IPC and native integration | `z-tauri-integrator` |
 | Profiling and optimization selection | `z-rust-perf-engineer` |
 | Buffer ownership, allocations and zero-copy interfaces | `z-rust-memory-engineer` |
@@ -38,6 +39,8 @@ resolve their current paths and read the relevant guidance before work. Local fr
 skills are separate dependencies, not bundled by this kit. Missing required primary or
 project-mandated skills block the assignment; report optional gaps without loading unrelated
 packs. The coordinator carries the resolved paths in each area's `skills` field.
+When a persona explicitly supplies upstream skill sources, resolve permitted guidance before
+dispatch and carry cached absolute paths in `skills`; do not bypass project source restrictions.
 
 ## Dispatch contract
 
