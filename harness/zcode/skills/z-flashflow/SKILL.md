@@ -1,8 +1,8 @@
 ---
 name: z-flashflow
 description: >-
-  z-workflow on Flash only: the same triage, dials, author, git safety, approval, and guarded automatic
-  fast-forward, but every model in the run (explorers, workflow-author, implementers, judges,
+  z-workflow on Flash only: the same triage, dials, planner, author, git safety, approval, and guarded automatic
+  fast-forward, but every model in the run (planner, explorers, workflow-author, implementers, judges,
   tracers, vision) is GLM-5.3-Flash and no pro model is used anywhere. Judge verdicts are
   labelled judged, never verified. Runs only when the user asks for it.
 ---
@@ -29,8 +29,8 @@ with these overrides:
 
 | z-workflow step | z-flashflow override |
 |---|---|
-| Step 1, explore | Explorers use the `explore-flash` agent, never `Explore` or a pro agent. |
-| Step 2, shape | Dispatch the `workflow-author-flash` agent (not `workflow-author`) and put `profile: flash` in the brief. |
+| Step 1, explore | The planner is `workflow-planner-flash`; explorers it dispatches use the `explore-flash` agent, never `Explore` or a pro agent. |
+| Step 2, shape | The planner dispatches the `workflow-author-flash` agent (not `workflow-author`) with `profile: flash` in the brief; on the planner's brief-only fallback the coordinator dispatches it with `profile: flash`. |
 | Step 4, REVIEW | When the REVIEW dial is on, the fresh reviewer is also `workflow-author-flash`. |
 | Model matrix | Every instantiated agent uses `account:zai-individual-coding-plan/GLM-5.3-Flash` (a `$level` suffix is allowed). Every `loadPersona` call forces `tier: "flash"`. The unchanged persona kit may declare both tiers. |
 | Pillar 3 (one flash role) | Satisfied by every role. |
@@ -55,6 +55,7 @@ no-merge request and read-only runs never merge.
 ## Grounded in
 
 - `harness/zcode/skills/z-workflow/SKILL.md`: the workflow this skill follows.
+- `harness/zcode/agents/workflow-planner-flash.md`: the Flash planner.
 - `harness/zcode/agents/workflow-author-flash.md`: the Flash author.
 - Verification campaign `dwfrun-d14998c7`: Flash judges passed properties with no
   independent check, which is why their verdicts stay judged.

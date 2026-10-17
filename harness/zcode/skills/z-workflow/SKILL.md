@@ -1,9 +1,10 @@
 ---
 name: z-workflow
 description: >-
-  Parallel dynamic-workflow composer: the workflow-author reads the task (directly for
-  small work, through parallel per-area explorers for larger work), picks the shape from
-  the dynamic-workflow catalogue, and writes a fresh script whose areas run as independent
+  Parallel dynamic-workflow composer: for small work the workflow-author reads the task
+  itself, for larger work the workflow-planner gathers the facts (goals, files, signals,
+  specialists) and dispatches the workflow-author, which picks the shape from the
+  dynamic-workflow catalogue and writes a fresh script whose areas run as independent
   pipelines (implement, gate, judge) with pro and flash subagents in one run. Joins are
   used only where a whole-set step needs every area. Runs only when the user explicitly
   asks for a workflow (z-workflow, or a saved workflow by name); never start one unasked.
@@ -11,9 +12,10 @@ description: >-
 
 # z-workflow
 
-The main agent is the **composer-coordinator**. It triages the task, gathers the facts the
-author needs, dispatches the workflow-author, shows the user what the script will run,
-launches one run, and relays the report. Every run gets a script written for that use case.
+The main agent is the **composer-coordinator**. It captures the repo anchors, decides
+small-or-complex from the task text, dispatches the workflow-planner or the
+workflow-author, shows the user what the script will run, launches one run, and relays
+the report. Every run gets a script written for that use case.
 Nothing is reused from a template unless the user names a saved workflow.
 
 ## Pillars
@@ -41,6 +43,12 @@ Nothing is reused from a template unless the user names a saved workflow.
 8. **Proportionate.** The run's machinery matches the task, not the rule set. The dials set a
    complexity budget (Step 0). Going over it needs a written reason in the plan. The smallest
    shape that meets the rules wins.
+9. **Clean coordinator context.** The coordinator's context holds only compact control
+   data: the task text, repo anchors, signals and dials, briefs, plans, scripts, and
+   command outputs that are a count, ref, path list, or exit code. It never reads file
+   contents, never fetches URLs, and never builds inventories; all fact-gathering lives
+   in the workflow-planner or the workflow-author. The main thread stays small so the
+   session stays long-running.
 
 ## Definitions
 
@@ -62,14 +70,25 @@ Nothing is reused from a template unless the user names a saved workflow.
   open count does not drop for two consecutive rounds, or at the round cap. "Does not drop"
   means the open count after round r is greater than or equal to the count after round r-1.
 
-## Step 0 — triage (main agent)
+## Step 0 — triage (coordinator triggers; planner or author measures)
 
-Size is a spectrum, not three boxes. Triage measures four signals, and each dial of the run
+The coordinator does two things only (Pillar 9): capture the repo anchors — `repoRoot`,
+`baseCommit` (`git rev-parse HEAD`), `baseBranch` (`git symbolic-ref --quiet HEAD`),
+`agentsMd` — with compact-output commands, and set the **trigger** from the task text and
+the paths it names, without reading file contents or fetching anything. The trigger is
+**SMALL** when the task is one area, low uncertainty, and repo-local; it is **COMPLEX**
+otherwise, including any task whose material lives off-repo (websites, external docs,
+remote inventories). Misfires self-correct: an author that finds the work not small stops
+and says so, and the coordinator escalates to the planner; a planner that finds the work
+small returns a minimal brief and says so.
+
+Size is a spectrum, not three boxes. The signals are measured by the workflow-author
+(SMALL) or the workflow-planner (COMPLEX), and each dial of the run
 is set from the signal that drives it. Dials move independently: a three-file change with a
 security angle gets heavy review and a single lane; a twelve-file mechanical rename gets
 several lanes and light review.
 
-### Signals (measured, written into the brief with the command that produced each)
+### Signals (measured by the planner or author, written into the brief with the command that produced each)
 
 | Signal | How it is measured | Values |
 |---|---|---|
@@ -98,7 +117,7 @@ Risk levels:
 |---|---|
 | Lanes | one per area (`A`) |
 | Worktrees | 1 when `A` = 1 or areas never write at the same time; otherwise one per writing area plus 1 integration |
-| Exploration | direct when `A` = 1; one explorer per area otherwise |
+| Exploration | direct when the trigger is SMALL; on COMPLEX the planner explores directly when `A` = 1 and fans out one read-only explorer per area otherwise |
 | Plan stage | only when `U` = high, or `F` >= 9, or `R` = high |
 | Plan attack | only when `R` = high |
 | Round cap | `F` 1-3: 2; `F` 4-8: 3; `F` 9-15: 4; `F` >= 16 or `R` = high: 5 |
@@ -143,14 +162,21 @@ The budget follows the dials, not the band:
 Anything over the computed budget needs a one-line reason per item in the plan's `budget`
 field. REVIEW and the coordinator flag any unjustified overage.
 
-## Step 1 — explore
+## Step 1 — explore (delegated; never on the main thread)
 
-- **One area: direct.** No scout is dispatched. The workflow-author reads
-  the files it needs with its own Read, Glob, and Grep tools.
-- **Two or more areas: parallel explorers.** Split the work into areas first, using the Area
-  definition, never the directory layout.
-  Dispatch one read-only explorer per area (Agent tool, Explore), all in the same message, so
-  they run concurrently. The main agent merges their briefs into one `WorkflowBrief`.
+- **SMALL: direct.** No scout and no planner are dispatched. The coordinator passes the
+  verbatim task and the anchors only. The workflow-author reads the files it needs with
+  its own Read, Glob, and Grep tools and measures the signals itself.
+- **COMPLEX: the workflow-planner.** Dispatch one `workflow-planner` (Agent tool;
+  `workflow-planner-flash` in z-flashflow) with the verbatim task, the anchors, the
+  trigger reasons, the resolved dynamic-workflows contract path, and this skill's folder
+  path. The planner measures the signals, explores the repo and any off-repo material,
+  may fan out read-only explorers per area (split by the Area definition, never the
+  directory layout) and merge them itself, resolves specialists, fills the
+  `WorkflowBrief` below, then dispatches the workflow-author itself and returns the
+  brief, the TopologyPlan, and the script together. If the planner returns only a brief
+  (its author-dispatch fallback), the coordinator dispatches the author with it,
+  unchanged.
 
 ```ts
 interface WorkflowBrief {
@@ -201,21 +227,32 @@ interface WorkflowBrief {
 ```
 
 Verify what must be exact (repoRoot, baseCommit, baseBranch, agentsMd, each gate's exit code, the counts)
-with one command each. Explorer claims are data to check, not facts.
+with one command each — inside the planner's or author's dispatch, never on the main
+thread. Explorer claims are data to check, not facts.
 
-Resolve relevant specialists before authoring using [Specialist routing](references/specialists.md)
-and the session's discovered agent descriptions. Record absolute paths and explicit authority
+Specialists are resolved before authoring using [Specialist routing](references/specialists.md)
+and the session's discovered agent descriptions — by the planner (COMPLEX) or the author
+(SMALL); the coordinator relays the resolved paths and never resolves them itself. Record
+absolute paths and explicit authority
 in `personas`; the user need not name a file. Validate required skill availability and list
 missing expertise. Select only roles justified by the task, independently of review depth.
 
 ## Step 2 — shape (workflow-author, AUTHOR mode)
 
 Resolve the platform-contract path first: take the `dynamic-workflows` entry's `file:` path
-from this session's available-skills index. Dispatch the workflow-author with the verbatim
-task, the brief (for one area: the task, repoRoot, baseCommit, signals, and dials), and that absolute path.
+from this session's available-skills index. On the COMPLEX path the planner has already
+dispatched the author with the complete brief and that path, resolving dial mismatches
+itself; the coordinator receives the TopologyPlan together with the script. Otherwise
+(SMALL, or the planner's brief-only fallback) dispatch the workflow-author with the
+verbatim task, the brief (for one area: the task, repoRoot, baseCommit, signals, and
+dials), and that absolute path.
 The author returns a TopologyPlan (defined in `harness/zcode/agents/workflow-author.md`)
 naming the pattern numbers it used. If the author's dials differ from the brief's, stop and
-resolve the signals before going on.
+resolve the signals before going on. On the COMPLEX path the planner already retried
+mismatches itself (at most two retries); if it returned with a mismatch still named,
+dispatch a fresh `workflow-planner` with that mismatch and the current brief, never by the
+coordinator reading the material itself. On SMALL, the coordinator re-dispatches the
+workflow-author with the signals corrected.
 
 Shape rules for every plan:
 
@@ -536,7 +573,8 @@ Use the provider ids already in this repo's engine until the open question on id
 From the run's WorkflowReport: `conclusion`, `findings` with status labels, `verified`, and
 `notCovered`. Add the measured signals, dial values, and band, the budget counts (script lines,
 roles, asks per round, worktrees) against the computed budget, the lane trace (stages per area, joins with
-their reasons), the model per role with the flash count, the round count and stop reason per
+their reasons), the planning actor (planner or author-direct) with its fallback state if
+any, the model per role with the flash count, the round count and stop reason per
 area, the `wf/*` branches and worktrees left, changed paths, and artifact paths. Name every
 pattern number the plan used.
 
@@ -550,7 +588,8 @@ pattern number the plan used.
 - Parallel design reference: `harness/zcode/workflows/zflow-engine.dwf.ts` (per-area lanes on
   channels and futures, serialized git, single-worker device lane) and `zflow-SPEC.md`. The
   engine's pattern is reused as knowledge, not as a fixed template.
-- Subagent definition: `harness/zcode/agents/workflow-author.md`.
+- Subagent definitions: `harness/zcode/agents/workflow-author.md` and
+  `harness/zcode/agents/workflow-planner.md` (with its flash variant).
 - Repo rules: `ai/AGENTS.md` (skill folder naming and harness kit layout).
 - Run evidence behind these rules: plain-s, plain-m, plain-r, and the pending plain-l script
   (destructive git, hard-coded repo, mislabelled tier), and campaign `dwfrun-d14998c7`.

@@ -36,8 +36,10 @@ ai/
 | `general-pro` | glm-5.3 | Full-tools general agent for judgment-heavy work (complex implementation, audit verdicts, continue/stop decisions) |
 | `workflow-author` | glm-5.3 | Dynamic-workflow architect and reviewer (`AUTHOR` and `REVIEW` modes) |
 | `workflow-author-flash` | glm-5.3-flash | Flash dynamic-workflow architect and reviewer for `z-flashflow` |
+| `workflow-planner` | glm-5.3 | Planning agent (`PLAN`/`PLAN+AUTHOR`) that gathers all facts into the WorkflowBrief for complex tasks, then dispatches the workflow-author itself |
+| `workflow-planner-flash` | glm-5.3-flash | Flash planning agent for `z-flashflow` |
 
-Only these five core agents install globally into `~/.zcode/agents/`. The 22 reusable `z-*`
+Only these seven core agents install globally into `~/.zcode/agents/`. The 22 reusable `z-*`
 domain/verification specialists and 20 `shipflow-*` queue roles install **per project**
 into `<project>/.zcode/agents/` via `z-project-init` and are tracked in
 `<project>/.zcode/hmziqrs-ai-snapshot.json`. Agent descriptions select expertise; the
@@ -47,7 +49,10 @@ coordinator assigns scope and explicit analysis, implementation, or review autho
 ### Workflow skills
 
 - **Global Core (`~/.zcode/skills/`):**
-  - `z-workflow`: the author creates a task-specific script from measured signals, with
+  - `z-workflow`: for small work the workflow-author explores directly; for larger
+    work the workflow-planner gathers every fact into the WorkflowBrief (keeping the
+    coordinator's context clean) and dispatches the author. Either way the script is
+    task-specific from measured signals, with
     independent worktree lanes, command gates, fresh review, and bounded feedback.
   - `z-proflow`: pro-only profile without vision.
   - `z-flashflow`: Flash-only profile with command-backed checks and labelled judgments.

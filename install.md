@@ -24,19 +24,21 @@ Installation is strictly split into two tiers:
 
 | Tier | Destination | What belongs here |
 |---|---|---|
-| **1. Global Core (machine-wide)** | `~/.zcode/agents/`, `~/.zcode/skills/`, `~/.agents/skills/` | **Only the 5 core orchestration/general agents** (`general-pro.md`, `general-flash.md`, `explore-flash.md`, `workflow-author.md`, `workflow-author-flash.md`), **the 5 general workflow/initializer skills** (`z-workflow`, `z-proflow`, `z-flashflow`, `z-liteflow`, `z-project-init`), and **the 5 universal cross-project baseline skills** (`antislop-copy`, `code-comments`, `test-quality-guardrails`, `test-quality-tdd-agents`, `test-quality-audit`). |
+| **1. Global Core (machine-wide)** | `~/.zcode/agents/`, `~/.zcode/skills/`, `~/.agents/skills/` | **Only the 7 core orchestration/general agents** (`general-pro.md`, `general-flash.md`, `explore-flash.md`, `workflow-author.md`, `workflow-author-flash.md`, `workflow-planner.md`, `workflow-planner-flash.md`), **the 5 general workflow/initializer skills** (`z-workflow`, `z-proflow`, `z-flashflow`, `z-liteflow`, `z-project-init`), and **the 5 universal cross-project baseline skills** (`antislop-copy`, `code-comments`, `test-quality-guardrails`, `test-quality-tdd-agents`, `test-quality-audit`). |
 | **2. Per-Project Niche (project-scoped via `z-project-init`)** | `<project>/.zcode/agents/`, `<project>/.zcode/skills/`, `<project>/.agents/skills/`, `<project>/.zcode/hmziqrs-ai-snapshot.json` | **Only the niche `z-*.md` specialists** (and `shipflow-*.md` when Shipflow is enabled), **niche workflow profiles** (`z-gpui-workflow`, `z-tauri-workflow`, `z-super-rustflow`, `shipflow`, plus a project-pinned copy of `z-workflow`), and **stack-specific domain skills** (`languages/rust/rust-*` and external framework skills) that `<project>` actually uses, pinned by commit SHA and file hashes in `<project>/.zcode/hmziqrs-ai-snapshot.json`. |
 
-Never install `general-pro`, `general-flash`, `explore-flash`, `workflow-author`, or `workflow-author-flash` per-project. Never install `z-*.md`, `shipflow-*.md`, `z-gpui-workflow`, `z-tauri-workflow`, `z-super-rustflow`, or `shipflow` globally.
+Never install `general-pro`, `general-flash`, `explore-flash`, `workflow-author`, `workflow-author-flash`, `workflow-planner`, or `workflow-planner-flash` per-project. Never install `z-*.md`, `shipflow-*.md`, `z-gpui-workflow`, `z-tauri-workflow`, `z-super-rustflow`, or `shipflow` globally.
 
 ## Step 1 — Global Core install (ZCode kit + universal baseline)
 
-1. Copy **only the 5 global core agents** from `harness/zcode/agents/` to `~/.zcode/agents/`:
+1. Copy **only the 7 global core agents** from `harness/zcode/agents/` to `~/.zcode/agents/`:
    - `general-pro.md`
    - `general-flash.md`
    - `explore-flash.md`
    - `workflow-author.md`
    - `workflow-author-flash.md`
+   - `workflow-planner.md`
+   - `workflow-planner-flash.md`
    Copy as regular files, never symlinks — ZCode silently skips symlinked agent files. Do **not** copy `z-*.md` or `shipflow-*.md` into `~/.zcode/agents/`.
 2. Copy **only the 5 global core ZCode skills** from `harness/zcode/skills/` to `~/.zcode/skills/` (whole folders, keeping folder names):
    - `z-workflow/` (carries `persona-kit.dwf.ts` and `references/specialists.md`)
@@ -97,7 +99,8 @@ ZCode-kit steps above.
 
 - **Global Core (`~/.zcode/` and `~/.agents/skills/`):**
   - `ls ~/.zcode/agents/` lists **only** `general-flash.md`, `explore-flash.md`,
-    `general-pro.md`, `workflow-author.md`, and `workflow-author-flash.md` (no
+    `general-pro.md`, `workflow-author.md`, `workflow-author-flash.md`,
+    `workflow-planner.md`, and `workflow-planner-flash.md` (no
     `z-*.md` or `shipflow-*.md`). `find ~/.zcode/agents -type l` prints nothing.
   - `ls ~/.zcode/skills/` lists **only** the 5 global core ZCode skills
     (`z-workflow`, `z-proflow`, `z-flashflow`, `z-liteflow`, `z-project-init`),
@@ -111,7 +114,7 @@ ZCode-kit steps above.
     installed agent, workflow, and domain skill.
   - `<project>/.zcode/agents/` contains only the project's selected `z-*.md`
     specialists (and `shipflow-*.md` if Shipflow is enabled), as regular files
-    (`find <project>/.zcode/agents -type l` prints nothing), and none of the 5
+    (`find <project>/.zcode/agents -type l` prints nothing), and none of the 7
     global core agents.
   - `<project>/.zcode/skills/` contains `z-workflow/` plus only the project's
     selected niche workflows (`z-gpui-workflow`, `z-tauri-workflow`,

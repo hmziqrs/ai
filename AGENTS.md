@@ -47,8 +47,9 @@ llms.txt                     entry point for consuming agents
   alphanumerics and hyphens). Names must be unique across all
   categories and kits. Installation uses a strict **Global Core vs
   Per-Project Niche** split (see `install.md` and `z-project-init`):
-  - **Global Core**: only the 5 core agents (`general-pro`, `general-flash`,
-    `explore-flash`, `workflow-author`, `workflow-author-flash`) install into
+  - **Global Core**: only the 7 core agents (`general-pro`, `general-flash`,
+    `explore-flash`, `workflow-author`, `workflow-author-flash`,
+    `workflow-planner`, `workflow-planner-flash`) install into
     `~/.zcode/agents/`; only the 5 core ZCode skills (`z-workflow`,
     `z-proflow`, `z-flashflow`, `z-liteflow`, `z-project-init`) install into
     `~/.zcode/skills/`; and only the 5 universal baseline skills
@@ -77,7 +78,10 @@ llms.txt                     entry point for consuming agents
   `languages/rust/`, `languages/go/`) over adding new top-level
   directories. Skill folders still install flat by folder name, so
   nesting is organizational only.
-- z-workflow writes a fresh script per task through the workflow-author;
+- z-workflow writes a fresh script per task through the workflow-author: for
+  small work the author explores directly, for larger work the workflow-planner
+  (a clean-context planning agent that then dispatches the author) gathers the
+  facts; the coordinator itself never gathers facts (Pillar 9).
   z-proflow (pro only, no vision) and z-flashflow (Flash only) are
   profiles of it, and z-liteflow is its fast small-task form (a filled,
   pre-tested template, no author). z-gpui-workflow and z-tauri-workflow

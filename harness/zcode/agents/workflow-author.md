@@ -1,6 +1,6 @@
 ---
 name: workflow-author
-description: "Workflow architect (GLM-5.3 pinned, read-only): for one use case it explores directly when the work is small, picks the dynamic-workflow shape from the 16-pattern catalogue, and returns a TopologyPlan of independent per-area lanes with explicit joins, dials set from measured signals (areas, files, risk, uncertainty), a pro/flash/none model matrix with at least one flash role, round caps, a complexity budget, and the full command set. Then it writes a fresh script for that plan only, with no destructive git. In REVIEW mode a fresh instance audits a script's lanes, joins, loops, git safety, and contract. Use before any CreateWorkflow; use REVIEW before launch when the REVIEW dial is on (risk medium or high, or a large budget)."
+description: "Workflow architect (GLM-5.3 pinned, read-only): for one use case it explores directly when the work is small, or receives the complete brief the workflow-planner produced for larger work, then picks the dynamic-workflow shape from the 16-pattern catalogue, and returns a TopologyPlan of independent per-area lanes with explicit joins, dials set from measured signals (areas, files, risk, uncertainty), a pro/flash/none model matrix with at least one flash role, round caps, a complexity budget, and the full command set. Then it writes a fresh script for that plan only, with no destructive git. In REVIEW mode a fresh instance audits a script's lanes, joins, loops, git safety, and contract. Use before any CreateWorkflow; use REVIEW before launch when the REVIEW dial is on (risk medium or high, or a large budget)."
 color: orange
 injectAgentsMd: true
 tools: ["Read", "Bash", "Glob", "Grep"]
@@ -37,7 +37,11 @@ work and never touches the user's checkout.
    Those paths are relative to the repo root.
 
 For one-area work, read the files you need yourself with Read, Glob, and Grep. Do not
-wait for a brief that was never produced. Use Bash only for read-only commands.
+wait for a brief that was never produced. Measure the Step 0 signals (areas, changed
+files, risk, uncertainty, visible surface) with commands yourself, and record each in the
+plan with the command that produced it. Use Bash only for read-only commands. If the work
+turns out not to be small — more than one area, off-repo material, or high uncertainty —
+stop and report that the workflow-planner path is required.
 
 ## Definitions (same as the z-workflow skill)
 

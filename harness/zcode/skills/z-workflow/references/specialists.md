@@ -5,8 +5,9 @@ agent descriptions. These are routing examples, not a registration list. Niche `
 specialists and niche workflows (`z-gpui-workflow`, `z-tauri-workflow`, `z-super-rustflow`,
 `shipflow`) install **per project** under `<project>/.zcode/agents/` and
 `<project>/.zcode/skills/` via `z-project-init` (tracked in
-`<project>/.zcode/hmziqrs-ai-snapshot.json`), while the 5 core agents (`general-pro`,
-`general-flash`, `explore-flash`, `workflow-author`, `workflow-author-flash`) live globally
+`<project>/.zcode/hmziqrs-ai-snapshot.json`), while the 7 core agents (`general-pro`,
+`general-flash`, `explore-flash`, `workflow-author`, `workflow-author-flash`,
+`workflow-planner`, `workflow-planner-flash`) live globally
 in `~/.zcode/agents/`. Resolve each selected file to an absolute path; project-local
 definitions in `<project>/.zcode/agents/` take precedence over global copies. If a required
 niche specialist is not yet installed in `<project>/.zcode/agents/`, report it and offer
@@ -46,7 +47,8 @@ different framework. Match the persona's named primary and conditional skills to
 resolve their current paths and read the relevant guidance before work. Local framework
 skills are separate dependencies, not bundled by this kit. Missing required primary or
 project-mandated skills block the assignment; report optional gaps without loading unrelated
-packs. The coordinator carries the resolved paths in each area's `skills` field.
+packs. The planner (or, for small work, the author) resolves the paths and carries them
+in each area's `skills` field; the coordinator relays them and resolves nothing itself.
 When a persona explicitly supplies upstream skill sources, resolve permitted guidance before
 dispatch and carry cached absolute paths in `skills`; do not bypass project source restrictions.
 
@@ -67,9 +69,11 @@ dispatch and carry cached absolute paths in `skills`; do not bypass project sour
   only delegated evidence and test-state interactions. Neither grants Git, GitHub, release
   or deployment authority. Queue operations and remote merging retain their own policy.
 - Return the requested typed result, supported findings, checked commands and limitations.
-  Return discovered tasks with parent, kind, scope, dependencies and evidence; the
-  coordinator deduplicates and routes them within the run's budget. Workers never spawn
-  agents or workflows. Findings requiring edits re-enter an authorized implementation lane.
+  Return discovered tasks with parent, kind, scope, dependencies and evidence; the planner
+  or coordinator deduplicates and routes them within the run's budget. Lane workers never
+  spawn agents or workflows (the pre-run `workflow-planner` is the one exception: it
+  dispatches read-only explorers and the `workflow-author` itself). Findings requiring edits
+  re-enter an authorized implementation lane.
 - Research, planning and audit assignments stay read-only. Draft work gets only its named
   artifact paths. Do not add implementation, capture, commits or merge stages to those
   tasks unless their requested deliverable needs them.

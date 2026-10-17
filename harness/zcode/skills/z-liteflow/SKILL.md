@@ -26,6 +26,7 @@ Step 0.
 |---|---|---|
 | Areas (z-workflow Area definition) | exactly 1 | hand off to z-workflow |
 | Changed files | 1 to 5 | hand off to z-workflow |
+| Change surface | nameable from the task text alone (the coordinator never reads code to discover it) | hand off to z-workflow |
 | Risk | low, or medium only for edits to existing tests the task allows | hand off to z-workflow |
 | Uncertainty | low (the task fixes the behaviour and API) | hand off to z-workflow |
 | Visible surface | none (no capture or vision phase in liteflow) | hand off to z-workflow |
@@ -62,7 +63,10 @@ Asks per round: 3 (implementer, tracer, judge). Roles: 3. Worktrees: 1.
    the destination full branch ref (`git symbolic-ref --quiet HEAD`),
    and the gate (run it once; it must exit 0 on the base). Never edit the user's checkout
    to make the run work: no `.gitignore` edits, no helper files, no commits. A gate that
-   needs a helper means the task is not a liteflow task.
+   needs a helper means the task is not a liteflow task. z-workflow's Pillar 9 applies
+   here too: only compact-output commands; never read file contents or fetch URLs to
+   derive `FILES` — if the change surface must be discovered from code, hand off to
+   z-workflow (its planner does the discovering).
 2. **Fill the template by copy, never by retyping.** Copy the file with one command,
    `cp <this skill folder>/liteflow-template.dwf.ts <repo>/.zcode/workflow-drafts/zflow-lite-<slug>.dwf.ts`
    (ZCode git-ignores that folder), then change only the constant lines with exact-match

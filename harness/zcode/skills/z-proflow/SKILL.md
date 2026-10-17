@@ -28,8 +28,8 @@ with these overrides:
 | z-workflow step | z-proflow override |
 |---|---|
 | Step 0, triage | Measure the visible-surface signal `V` as usual, but force the Vision dial off. |
-| Step 1, explore | Explorers use the `Explore` agent or `general-pro`, never a Flash agent. |
-| Step 2, shape | Dispatch `workflow-author` (pro) and put `profile: pro` in the brief. |
+| Step 1, explore | The planner is `workflow-planner` (pro); explorers it dispatches use the `Explore` agent or `general-pro`, never a Flash agent. |
+| Step 2, shape | The planner dispatches `workflow-author` with `profile: pro` in the brief; on the planner's brief-only fallback the coordinator dispatches it with `profile: pro`. |
 | Model matrix | Every instantiated agent uses `account:zai-individual-coding-plan/GLM-5.3` (a `$level` suffix is allowed). Every `loadPersona` call forces `tier: "pro"`. The unchanged persona kit may declare both tiers. Tracers, confirmers, and citation checkers run on pro. |
 | Pillar 3 (one flash role) | Does not apply. |
 | Vision phase | Absent: no screenshots, no capture, no image reading by any agent. |

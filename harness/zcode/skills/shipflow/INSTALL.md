@@ -6,7 +6,7 @@ paths ANYWHERE — no home-directory or user-level destinations of any
 kind; every destination below is inside the target project.
 
 1. **Copy the package** (from this repo, `hmziqrs/ai`, at its root, or via `z-project-init` with Shipflow enabled):
-   - `harness/zcode/agents/shipflow-*.md` and only the project's required `harness/zcode/agents/z-*.md` specialists (never the 5 global core agents `general-pro.md`, `general-flash.md`, `explore-flash.md`, `workflow-author.md`, `workflow-author-flash.md`) →
+   - `harness/zcode/agents/shipflow-*.md` and only the project's required `harness/zcode/agents/z-*.md` specialists (never the 7 global core agents `general-pro.md`, `general-flash.md`, `explore-flash.md`, `workflow-author.md`, `workflow-author-flash.md`, `workflow-planner.md`, `workflow-planner-flash.md`) →
      `<project>/.zcode/agents/`
    - Whole `harness/zcode/skills/shipflow/` and `harness/zcode/skills/z-workflow/`
      folders → `<project>/.zcode/skills/`

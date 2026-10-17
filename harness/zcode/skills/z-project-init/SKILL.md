@@ -6,7 +6,8 @@ description: >-
   niche domain skills (.agents/skills/), and a versioned hmziqrs/ai snapshot
   manifest (.zcode/hmziqrs-ai-snapshot.json). Enforces the global-vs-project
   split: core agents (general-pro, general-flash, explore-flash,
-  workflow-author, workflow-author-flash) and core workflows (z-workflow,
+  workflow-author, workflow-author-flash, workflow-planner,
+  workflow-planner-flash) and core workflows (z-workflow,
   z-proflow, z-flashflow, z-liteflow, z-project-init) stay global, while niche
   specialists, niche workflows (z-gpui-workflow, z-tauri-workflow,
   z-super-rustflow, shipflow), and stack skills install per project.
@@ -32,7 +33,7 @@ Never mix global core files with per-project niche files:
 
 | Tier | Scope & Destination | Exact Content |
 |---|---|---|
-| **Global Core Agents** | `~/.zcode/agents/` (machine-wide, regular files, never symlinks) | **Only the 5 core agents:** `general-pro.md`, `general-flash.md`, `explore-flash.md`, `workflow-author.md`, `workflow-author-flash.md`. Never install these into `<project>/.zcode/agents/`, and never install `z-*.md` or `shipflow-*.md` into `~/.zcode/agents/`. |
+| **Global Core Agents** | `~/.zcode/agents/` (machine-wide, regular files, never symlinks) | **Only the 7 core agents:** `general-pro.md`, `general-flash.md`, `explore-flash.md`, `workflow-author.md`, `workflow-author-flash.md`, `workflow-planner.md`, `workflow-planner-flash.md`. Never install these into `<project>/.zcode/agents/`, and never install `z-*.md` or `shipflow-*.md` into `~/.zcode/agents/`. |
 | **Global Core Workflow Skills** | `~/.zcode/skills/` (machine-wide, whole folders) | **Only the 5 general skills:** `z-workflow/`, `z-proflow/`, `z-flashflow/`, `z-liteflow/`, `z-project-init/`. Never install `z-gpui-workflow`, `z-tauri-workflow`, `z-super-rustflow`, or `shipflow` into `~/.zcode/skills/`, and never copy ZCode harness skills into `~/.agents/skills/`. |
 | **Global Universal Baseline Skills** | `~/.agents/skills/` (machine-wide, whole folders) | **Only universal cross-project policies:** `antislop-copy/`, `code-comments/`, `test-quality-guardrails/`, `test-quality-tdd-agents/`, `test-quality-audit/`. |
 | **Per-Project Niche Sub-Agents** | `<project>/.zcode/agents/` (regular files, never symlinks) | **Only the `z-*.md` specialists** (and `shipflow-*.md` when Shipflow is enabled) required by `<project>`'s actual manifests and deliverables. |
@@ -76,7 +77,7 @@ Inspect the target project's manifests (`Cargo.toml`, `src-tauri/Cargo.toml`, `s
 
 ### Step 2 — Check global core prerequisites (`~/.zcode/` and `~/.agents/skills/`)
 
-1. Verify that `~/.zcode/agents/` contains the 5 global core agents as regular files (`general-pro.md`, `general-flash.md`, `explore-flash.md`, `workflow-author.md`, `workflow-author-flash.md`) and that `find ~/.zcode/agents -type l` prints nothing. If any of the 5 core agents are missing, install them to `~/.zcode/agents/`.
+1. Verify that `~/.zcode/agents/` contains the 7 global core agents as regular files (`general-pro.md`, `general-flash.md`, `explore-flash.md`, `workflow-author.md`, `workflow-author-flash.md`, `workflow-planner.md`, `workflow-planner-flash.md`) and that `find ~/.zcode/agents -type l` prints nothing. If any of the 7 core agents are missing, install them to `~/.zcode/agents/`.
 2. Verify that `~/.zcode/skills/` contains the 5 global core skills (`z-workflow`, `z-proflow`, `z-flashflow`, `z-liteflow`, `z-project-init`) and that `~/.agents/skills/` contains the 5 universal baseline skills (`antislop-copy`, `code-comments`, `test-quality-guardrails`, `test-quality-tdd-agents`, `test-quality-audit`).
 3. Check whether any niche `z-*.md`, `shipflow-*.md`, `z-gpui-workflow`, `z-tauri-workflow`, `z-super-rustflow`, or `shipflow` entries exist globally in `~/.zcode/agents/` or `~/.zcode/skills/`. Report them to the user and remove them from the global directory only when the user confirms migrating to strict per-project isolation.
 
@@ -97,7 +98,7 @@ Inspect the target project's manifests (`Cargo.toml`, `src-tauri/Cargo.toml`, `s
 ### Step 4 — Copy real files and write `<project>/.zcode/hmziqrs-ai-snapshot.json`
 
 1. Create `<project>/.zcode/agents/`, `<project>/.zcode/skills/`, and (when domain skills are selected) `<project>/.agents/skills/`.
-2. Copy the selected `harness/zcode/agents/z-*.md` files (and `shipflow-*.md` only when Shipflow is selected) to `<project>/.zcode/agents/` as **regular files** (`cp`, never `ln -s`). Never copy `general-pro.md`, `general-flash.md`, `explore-flash.md`, `workflow-author.md`, or `workflow-author-flash.md` into `<project>/.zcode/agents/`.
+2. Copy the selected `harness/zcode/agents/z-*.md` files (and `shipflow-*.md` only when Shipflow is selected) to `<project>/.zcode/agents/` as **regular files** (`cp`, never `ln -s`). Never copy `general-pro.md`, `general-flash.md`, `explore-flash.md`, `workflow-author.md`, `workflow-author-flash.md`, `workflow-planner.md`, or `workflow-planner-flash.md` into `<project>/.zcode/agents/`.
 3. Copy `<aiRepo>/harness/zcode/skills/z-workflow/` and the selected niche workflow folders (`z-gpui-workflow/`, `z-tauri-workflow/`, `z-super-rustflow/`, `shipflow/`) wholesale into `<project>/.zcode/skills/`. Never copy ZCode workflow skills into `<project>/.agents/skills/`.
 4. Copy selected `hmziqrs/ai` domain skills (such as `languages/rust/rust-*`) wholesale into `<project>/.agents/skills/<skill-name>/`, never from `research/`.
 5. Write `<project>/.zcode/hmziqrs-ai-snapshot.json` with the exact schema below:
@@ -120,7 +121,9 @@ Inspect the target project's manifests (`Cargo.toml`, `src-tauri/Cargo.toml`, `s
       "general-flash",
       "explore-flash",
       "workflow-author",
-      "workflow-author-flash"
+      "workflow-author-flash",
+      "workflow-planner",
+      "workflow-planner-flash"
     ],
     "workflowSkills": [
       "z-workflow",
@@ -179,7 +182,7 @@ Inspect the target project's manifests (`Cargo.toml`, `src-tauri/Cargo.toml`, `s
 
 Run these checks before reporting completion:
 1. **No symlinks:** `find <project>/.zcode/agents -type l` prints nothing.
-2. **No global-only core agents leaked into project:** none of `general-pro.md`, `general-flash.md`, `explore-flash.md`, `workflow-author.md`, `workflow-author-flash.md` exists in `<project>/.zcode/agents/`.
+2. **No global-only core agents leaked into project:** none of `general-pro.md`, `general-flash.md`, `explore-flash.md`, `workflow-author.md`, `workflow-author-flash.md`, `workflow-planner.md`, `workflow-planner-flash.md` exists in `<project>/.zcode/agents/`.
 3. **No harness skills in `.agents/skills/`:** none of `z-workflow`, `z-proflow`, `z-flashflow`, `z-liteflow`, `z-project-init`, `z-gpui-workflow`, `z-tauri-workflow`, `z-super-rustflow`, or `shipflow` exists in `<project>/.agents/skills/` or `~/.agents/skills/`.
 4. **Persona-kit drift check:** `<project>/.zcode/skills/z-workflow/persona-kit.dwf.ts` matches `personaKitSha256` in `<project>/.zcode/hmziqrs-ai-snapshot.json` (and matches `<project>/.zcode/workflows/shipflow-queue.dwf.ts` if Shipflow is installed).
 5. **Snapshot hash verification:** every entry in `installed.agents`, `installed.workflowSkills`, and `installed.domainSkills` exists on disk and its `shasum -a 256` equals the recorded `sha256`.
