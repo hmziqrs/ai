@@ -97,6 +97,9 @@ from the session's available-skills index before dispatch, and install missing r
 from approved sources. Do not copy another machine's absolute paths into personas or treat
 an absent required skill as available.
 
+Persona change guards require Bun and Git at runtime. They execute embedded TypeScript
+with project configuration and environment-file autoloading disabled.
+
 ## Source validation
 
 Run `bun harness/zcode/scripts/check-personas.mjs` for metadata, loader behavior and

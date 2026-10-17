@@ -73,7 +73,7 @@ Asks per round: 3 (implementer, tracer, judge). Roles: 3. Worktrees: 1.
    it must print nothing.
 3. **Show the command set** before launch: `git` (worktree add, status, grep, diff, add,
    commit in the run worktree only) and the gate command, with the worktree path and branch.
-   Selected personas also require `cat`, `shasum`, and `python3` for loading and read-only
+   Selected personas also require `cat`, `shasum`, and `bun` for loading and read-only
    source-state fingerprints; show their paths, hashes, models and authority.
 4. **Launch** with CreateWorkflow using `path` (the filled copy) and
    `name: "zflow-lite-<slug>"`. Approve with "Allow only this time", never "Always allow".

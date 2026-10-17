@@ -75,7 +75,7 @@ async function runScenario(options = {}) {
         const hash = createHash("sha256").update(personaText(path.split("/").at(-1).replace(/\.md$/, ""))).digest("hex");
         return { exitCode: 0, stdout: hash + "  " + path + "\n", stderr: "" };
       }
-      if (command === "python3") {
+      if (command === "bun") {
         const digest = createHash("sha256").update(String(snapshotVersion)).digest("hex");
         return { exitCode: 0, stdout: digest + "\n", stderr: "" };
       }

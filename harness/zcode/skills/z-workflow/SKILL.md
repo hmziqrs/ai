@@ -395,8 +395,9 @@ inside the lane after the gate, every round, and uses all three model tiers on p
    then `close`. A `file://` URL works only for a page with no module scripts and no `fetch`;
    browsers refuse ES modules over `file://`, so the page renders empty and the screenshot
    lies. A page that needs HTTP is served inside ONE blocking `world.run`, for example a
-   `python3 -c` program that starts `http.server` on port 0 in a thread, runs the
-   `agent-browser` commands with `subprocess`, closes the browser, and shuts the server down.
+   `bun --eval` TypeScript helper that starts a local server on port 0, awaits the
+   `agent-browser` subprocesses asynchronously, then closes the browser and server in
+   `finally`. Do not use synchronous subprocesses while that server needs its event loop.
    The capture records the HTTP status of the page and its scripts, and a capture whose page
    loaded no scripts or rendered no content is a finding. Only when capture needs a
    long-running dev server, a desktop app, or a device does a flash capture driver do it,
@@ -438,7 +439,7 @@ A workflow cannot call an agent by name: `agent()` takes only a system prompt an
 It can load an agent file at run time and use its body as the prompt. Every workflow does
 this through one shared, tested block: `persona-kit.dwf.ts` in this skill's folder.
 
-1. Paste the canonical block, from `// persona-kit:start v3` to `// persona-kit:end v3`,
+1. Paste the canonical block, from `// persona-kit:start v4` to `// persona-kit:end v4`,
    unchanged into the script. Workflow scripts cannot import it.
 2. Load each selected file with `loadPersona(path, { tier, access })`. Use `tier: "pro"`
    in z-proflow, `"flash"` in z-flashflow, and `"any"` elsewhere. Set `access: "write"`
@@ -450,14 +451,15 @@ this through one shared, tested block: `persona-kit.dwf.ts` in this skill's fold
    writer in that worktree. Guard errors block progress; retain findings even if an ask throws.
 5. Include `personaFindings` in run findings and `personaReport()` in the report. List each
    path, sha256, access and selected model with the command set before launch. Include the
-   loader's `cat`/`shasum` and guard's `python3` commands in that set.
+   loader's `cat`/`shasum` and guard's `bun --eval` commands in that set.
 
 The kit validates the declared model before profile overrides. Model selection uses the
 file's `model` and `thoughtLevel` among declared GLM variants. The reasoning effect of the
 `$level` suffix remains unverified. `tools` metadata is advisory inside workflows; explicit
 access controls the prompt and change detection. Fingerprints detect source, index and HEAD
 changes outside ignored paths and `research/`; they do not prevent writes or prove absence
-of external effects. Python 3 and Git are required for the guard. Report uncovered
+of external effects. Bun and Git are required for the guard. The Bun helper disables project config and
+`.env` autoloading and refuses filenames it cannot decode losslessly. Report uncovered
 surfaces; never call this a sandbox. Agent files must follow the project rules and required
 skills in addition to the run's instructions.
 

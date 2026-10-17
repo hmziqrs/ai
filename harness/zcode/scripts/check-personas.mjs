@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { mkdtemp, mkdir, readFile, readdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, mkdir, readFile, readdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -28,8 +28,8 @@ const canonicalPath = resolve(root, "skills/z-workflow/persona-kit.dwf.ts");
 const liteflowPath = resolve(root, "skills/z-liteflow/liteflow-template.dwf.ts");
 const canonical = await readFile(canonicalPath, "utf8");
 const liteflow = await readFile(liteflowPath, "utf8");
-const start = "// persona-kit:start v3";
-const end = "// persona-kit:end v3";
+const start = "// persona-kit:start v4";
+const end = "// persona-kit:end v4";
 const extract = (text) => {
   const from = text.indexOf(start);
   const to = text.indexOf(end, from);
@@ -83,6 +83,7 @@ async function evaluate(body, world) {
   globalThis.model = (id) => ({ id });
   globalThis.agent = (name, options) => ({ name, options, ask: async () => ({}) });
   globalThis.writeFixture = writeFile;
+  globalThis.chmodFixture = chmod;
   globalThis.retargetFixture = async (path) => {
     await unlink(path);
     await symlink("targets/b.txt", path);
@@ -155,7 +156,9 @@ async function makeRepo(parent, name, files = { "src/file.txt": "committed" }) {
 }
 
 function repoWorld(docs = {}) {
+  const calls = [];
   return {
+    calls,
     async run(command, args) {
       if (command === "cat") {
         const text = docs[args[0]];
@@ -167,7 +170,8 @@ function repoWorld(docs = {}) {
         const hash = createHash("sha256").update(text).digest("hex");
         return { exitCode: 0, stdout: `${hash}  ${args.at(-1)}\n`, stderr: "" };
       }
-      if (command === "python3") {
+      if (command === "bun") {
+        calls.push([command, args]);
         try {
           const stdout = execFileSync(command, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
           return { exitCode: 0, stdout, stderr: "" };
@@ -184,7 +188,7 @@ function failSnapshot(world, failAt) {
   let calls = 0;
   return {
     async run(command, args) {
-      if (command === "python3" && ++calls === failAt) return { exitCode: 1, stdout: "", stderr: "fixture snapshot failure" };
+      if (command === "bun" && ++calls === failAt) return { exitCode: 1, stdout: "", stderr: "fixture snapshot failure" };
       return await world.run(command, args);
     },
   };
@@ -229,6 +233,56 @@ await withFixture(async (base) => {
   `, repoWorld({ "/review.md": valid }));
   const afterStatus = git(repo, "status", "--porcelain", "--untracked-files=all");
   assert.equal(afterStatus, beforeStatus, "the fixture mutation should preserve Git's status classification");
+});
+
+await withFixture(async (base) => {
+  const path = "src/naïve\n名前.txt";
+  const repo = await makeRepo(base, "unicode-newline-path", { [path]: "baseline" });
+  await checkNoop(repo);
+  await evaluate(`
+    const p = await loadPersona("/review.md", { access: "read-only" });
+    await assert.rejects(() => guardWrites(p, ${JSON.stringify(repo)}, async () => {
+      await globalThis.writeFixture(${JSON.stringify(join(repo, path))}, "changed");
+    }), /changed repository state/);
+  `, repoWorld({ "/review.md": valid }));
+});
+
+await withFixture(async (base) => {
+  const repo = await makeRepo(base, "mode-only-edit");
+  git(repo, "config", "core.fileMode", "false");
+  const path = join(repo, "src/file.txt");
+  const beforeStatus = git(repo, "status", "--porcelain", "--untracked-files=all");
+  await evaluate(`
+    const p = await loadPersona("/review.md", { access: "read-only" });
+    await assert.rejects(() => guardWrites(p, ${JSON.stringify(repo)}, async () => {
+      await globalThis.chmodFixture(${JSON.stringify(path)}, 0o755);
+    }), /changed repository state/);
+  `, repoWorld({ "/review.md": valid }));
+  const changedStatus = git(repo, "status", "--porcelain", "--untracked-files=all");
+  assert.equal(changedStatus, beforeStatus, "the fixture mutation should preserve Git's status classification");
+});
+
+await withFixture(async (base) => {
+  const repo = await makeRepo(base, "excluded-paths", {
+    ".gitignore": "ignored.txt\n",
+    "research/source.txt": "baseline research",
+    "ignored.txt": "baseline ignored",
+    "src/file.txt": "committed",
+  });
+  const environment = repoWorld({ "/review.md": valid });
+  await evaluate(`
+    const p = await loadPersona("/review.md", { access: "read-only" });
+    await guardWrites(p, ${JSON.stringify(repo)}, async () => {
+      await globalThis.writeFixture(${JSON.stringify(join(repo, "research/source.txt"))}, "changed research");
+      await globalThis.writeFixture(${JSON.stringify(join(repo, "ignored.txt"))}, "changed ignored");
+    });
+    assert.equal(personaFindings.length, 0);
+  `, environment);
+  assert.ok(environment.calls.length >= 2);
+  for (const [command, args] of environment.calls) {
+    assert.equal(command, "bun");
+    assert.deepEqual(args.slice(0, 3), ["--no-env-file", "--config=/dev/null", "--eval"]);
+  }
 });
 
 await withFixture(async (base) => {
@@ -295,4 +349,4 @@ await withFixture(async (base) => {
   `, failSnapshot(repoWorld({ "/review.md": valid }), 2));
 });
 
-console.log("Persona kit validation passed: exact embedded copy, authority restrictions, fail-closed loading, deletion baselines, content and symlink identity, initialized/uninitialized submodules, and read-only no-op/error paths.");
+console.log("Persona kit validation passed: exact embedded copy, authority restrictions, fail-closed loading, raw paths, file modes, excluded paths, isolated Bun snapshots, submodules, and read-only guard behavior.");

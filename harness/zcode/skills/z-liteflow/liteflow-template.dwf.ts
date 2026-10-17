@@ -69,7 +69,7 @@ async function gateInWorktree(): Promise<{ code: number; out: string; raw: strin
   return result(await world.run("sh", ["-c", 'cd "$1" && shift && exec "$@"', "sh", WT, GATE.tool, ...GATE.args]));
 }
 
-// persona-kit:start v3
+// persona-kit:start v4
 const PERSONA_MODELS: Record<string, ModelRef> = {
   "account:zai-individual-coding-plan/GLM-5.3": model("account:zai-individual-coding-plan/GLM-5.3"),
   "account:zai-individual-coding-plan/GLM-5.3$low": model("account:zai-individual-coding-plan/GLM-5.3$low"),
@@ -191,88 +191,102 @@ function personaAgent(p: Persona, name: string, rules?: string): Agent {
   return agent(name, { system, model: p.model });
 }
 
-const PERSONA_SNAPSHOT_PY = String.raw`import hashlib
-import json
-import os
-import stat
-import subprocess
-import sys
+const PERSONA_SNAPSHOT_TS = String.raw`import { createHash } from "node:crypto";
+import { closeSync, constants, fstatSync, lstatSync, openSync, readSync, readlinkSync, realpathSync } from "node:fs";
+import { join, resolve } from "node:path";
 
-EXCLUDED = [".", ":(exclude)research", ":(exclude)research/**"]
-MAX_SUBMODULE_DEPTH = 8
+const excluded = [".", ":(exclude)research", ":(exclude)research/**"];
+const buffer = Buffer.allocUnsafe(1024 * 1024);
 
-def git(repo, *args, allow_failure=False):
-    result = subprocess.run(["git", *args], cwd=repo, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if result.returncode and not allow_failure:
-        raise RuntimeError("git " + " ".join(args[:3]) + " failed: " + result.stderr.decode("utf-8", "replace")[:300])
-    return result
+function git(repo: string, args: string[], allowFailure = false) {
+  const result = Bun.spawnSync({ cmd: ["git", ...args], cwd: repo, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+  if (result.exitCode !== 0 && !allowFailure) {
+    throw new Error("git " + args.slice(0, 3).join(" ") + " failed: " + result.stderr.toString().slice(0, 300));
+  }
+  return result;
+}
 
-def repo_snapshot(repo, depth=0):
-    if depth > MAX_SUBMODULE_DEPTH:
-        raise RuntimeError("submodule nesting exceeds the snapshot limit")
-    status = git(repo, "status", "--porcelain=v1", "-z", "--untracked-files=all", "--ignore-submodules=none", "--", *EXCLUDED).stdout
-    head_result = git(repo, "rev-parse", "--verify", "HEAD", allow_failure=True)
-    head = head_result.stdout.strip() if head_result.returncode == 0 else b"<unborn>"
-    staged = git(repo, "diff", "--cached", "--binary", "--", *EXCLUDED).stdout
-    entries = git(repo, "ls-files", "--stage", "-z", "--", *EXCLUDED).stdout
-    others = git(repo, "ls-files", "--others", "--exclude-standard", "-z", "--", *EXCLUDED).stdout
-    index = {}
-    paths = set()
-    for entry in entries.split(b"\0"):
-        if not entry:
-            continue
-        metadata, raw_path = entry.split(b"\t", 1)
-        mode, object_id, stage = metadata.split(b" ", 2)
-        path = os.fsdecode(raw_path)
-        index[path] = (mode.decode("ascii"), object_id.decode("ascii"), stage.decode("ascii"))
-        paths.add(path)
-    paths.update(os.fsdecode(path) for path in others.split(b"\0") if path)
-    files = []
-    for path in sorted(paths, key=os.fsencode):
-        full = os.path.join(repo, path)
-        try:
-            info = os.lstat(full)
-        except FileNotFoundError:
-            files.append([path, "missing", index.get(path)])
-            continue
-        mode = index.get(path)
-        if stat.S_ISLNK(info.st_mode):
-            files.append([path, "symlink", os.readlink(full), stat.S_IMODE(info.st_mode), mode])
-        elif mode is not None and mode[0] == "160000":
-            if not stat.S_ISDIR(info.st_mode):
-                files.append([path, "gitlink-uninitialized", mode])
-            else:
-                nested = git(full, "rev-parse", "--show-toplevel", allow_failure=True)
-                if nested.returncode != 0 or os.path.realpath(os.fsdecode(nested.stdout.strip())) != os.path.realpath(full):
-                    files.append([path, "gitlink-uninitialized", mode])
-                else:
-                    files.append([path, "gitlink", mode, repo_snapshot(full, depth + 1)])
-        elif stat.S_ISREG(info.st_mode):
-            digest = hashlib.sha256()
-            flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-            fd = os.open(full, flags)
-            try:
-                current = os.fstat(fd)
-                if not stat.S_ISREG(current.st_mode):
-                    raise RuntimeError("file type changed while fingerprinting " + repr(path))
-                while True:
-                    chunk = os.read(fd, 1024 * 1024)
-                    if not chunk:
-                        break
-                    digest.update(chunk)
-            finally:
-                os.close(fd)
-            files.append([path, "file", digest.hexdigest(), stat.S_IMODE(info.st_mode), mode])
-        else:
-            files.append([path, "other", info.st_mode, info.st_rdev, mode])
-    return [status.hex(), head.decode("ascii", "replace"), staged.hex(), files]
+function records(data: Buffer): Buffer[] {
+  const values: Buffer[] = [];
+  let start = 0;
+  for (let end = data.indexOf(0); end !== -1; end = data.indexOf(0, start)) {
+    if (end > start) values.push(data.subarray(start, end));
+    start = end + 1;
+  }
+  return values;
+}
 
-snapshot = json.dumps(repo_snapshot(os.path.abspath(sys.argv[1])), ensure_ascii=True, separators=(",", ":")).encode("ascii")
-print(hashlib.sha256(snapshot).hexdigest())
+function pathText(raw: Buffer): string {
+  const text = raw.toString("utf8");
+  if (!Buffer.from(text).equals(raw)) throw new Error("Cannot fingerprint a non-UTF-8 filename");
+  return text;
+}
+
+function repoSnapshot(repo: string, depth = 0): unknown[] {
+  if (depth > 8) throw new Error("submodule nesting exceeds the snapshot limit");
+  const status = git(repo, ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--ignore-submodules=none", "--", ...excluded]).stdout;
+  const head = git(repo, ["rev-parse", "--verify", "HEAD"], true);
+  const staged = git(repo, ["diff", "--cached", "--binary", "--", ...excluded]).stdout;
+  const entries = git(repo, ["ls-files", "--stage", "-z", "--", ...excluded]).stdout;
+  const others = git(repo, ["ls-files", "--others", "--exclude-standard", "-z", "--", ...excluded]).stdout;
+  const index = new Map<string, string[]>();
+  const paths = new Set<string>();
+  for (const entry of records(entries)) {
+    const tab = entry.indexOf(9);
+    if (tab === -1) throw new Error("Malformed git index entry");
+    const path = pathText(entry.subarray(tab + 1));
+    index.set(path, entry.subarray(0, tab).toString("ascii").split(" "));
+    paths.add(path);
+  }
+  for (const path of records(others)) paths.add(pathText(path));
+  const files: unknown[] = [];
+  for (const path of [...paths].sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)))) {
+    const full = join(repo, path);
+    const mode = index.get(path) ?? null;
+    let info;
+    try {
+      info = lstatSync(full);
+    } catch (error) {
+      if (!(error instanceof Error) || !("code" in error) || (error.code !== "ENOENT" && error.code !== "ENOTDIR")) throw error;
+      files.push([path, "missing", mode]);
+      continue;
+    }
+    if (info.isSymbolicLink()) {
+      files.push([path, "symlink", readlinkSync(full, { encoding: "buffer" }).toString("hex"), info.mode & 0o7777, mode]);
+    } else if (mode?.[0] === "160000") {
+      const nested = info.isDirectory() ? git(full, ["rev-parse", "--show-toplevel"], true) : undefined;
+      const nestedRoot = nested?.stdout.toString("utf8").replace(/\r?\n$/, "");
+      if (nested?.exitCode !== 0 || !nestedRoot || realpathSync(nestedRoot) !== realpathSync(full)) {
+        files.push([path, "gitlink-uninitialized", mode]);
+      } else {
+        files.push([path, "gitlink", mode, repoSnapshot(full, depth + 1)]);
+      }
+    } else if (info.isFile()) {
+      const digest = createHash("sha256");
+      const fd = openSync(full, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+      try {
+        if (!fstatSync(fd).isFile()) throw new Error("File type changed while fingerprinting " + JSON.stringify(path));
+        for (let length = readSync(fd, buffer, 0, buffer.length, null); length > 0; length = readSync(fd, buffer, 0, buffer.length, null)) {
+          digest.update(buffer.subarray(0, length));
+        }
+      } finally {
+        closeSync(fd);
+      }
+      files.push([path, "file", digest.digest("hex"), info.mode & 0o7777, mode]);
+    } else {
+      files.push([path, "other", info.mode, info.rdev, mode]);
+    }
+  }
+  return [status.toString("hex"), head.exitCode === 0 ? head.stdout.toString("ascii").trim() : "<unborn>", staged.toString("hex"), files];
+}
+
+const root = process.argv[1];
+if (!root) throw new Error("Repository path is required");
+console.log(createHash("sha256").update(JSON.stringify(repoSnapshot(resolve(root)))).digest("hex"));
 `;
 
 async function personaSnapshot(dir: string): Promise<string> {
-  const result = await world.run("python3", ["-c", PERSONA_SNAPSHOT_PY, dir]);
+  const result = await world.run("bun", ["--no-env-file", "--config=/dev/null", "--eval", PERSONA_SNAPSHOT_TS, "--", dir]);
   const digest = result.stdout.trim();
   if (result.exitCode !== 0 || !/^[a-fA-F0-9]{64}$/.test(digest)) {
     throw new Error("repository snapshot failed: " + result.stderr.slice(0, 300) + result.stdout.slice(0, 100));
@@ -321,7 +335,7 @@ async function guardWrites<T>(p: Persona, dir: string, work: () => PromiseLike<T
 function personaReport(): string[] {
   return personaLoaded.map((p) => p.name + ": " + p.path + " sha256 " + p.sha256 + ", model " + p.modelId + ", " + p.access + (p.note === "" ? "" : "; " + p.note));
 }
-// persona-kit:end v3
+// persona-kit:end v4
 
 function changedPaths(z: string): string[] {
   const entries = z.split(String.fromCharCode(0));

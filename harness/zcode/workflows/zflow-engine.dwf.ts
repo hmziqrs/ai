@@ -592,7 +592,7 @@ async function visionOne(it: Item): Promise<void> {
     const webAsk = [
       `Capture visual evidence for the web UI of area "${name}" (round ${round}).`,
       "Use the agent-browser CLI with an isolated session named " + `"zflow-${name}":`,
-      `  If the task names a dev-server URL, start the repo's own dev command and audit that URL. Otherwise run \`python3 -m http.server ${port}\` in the background inside ${it.worktree}/${it.area.paths[0] ?? ""}, and wait until ${url} answers (if a repo dev command exists, prefer it).`,
+      `  Prefer the repo's own dev command and any dev-server URL named by the task. For static files only, use a Bun inline TypeScript server rooted at ${it.worktree} on loopback port ${port}, confined to that root. Disable project config/environment-file autoloading and wait until ${url} answers.`,
       `  agent-browser --session zflow-${name} open ${url}`,
       `  agent-browser --session zflow-${name} screenshot ${EVIDENCE_DIR}/${name}-r${round}-web-1.png`,
       `  agent-browser --session zflow-${name} close`,

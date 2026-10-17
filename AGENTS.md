@@ -77,6 +77,9 @@ llms.txt                     entry point for consuming agents
   the script and use its functions; never hand-write a persona loader.
   A change to the kit goes into that file first (new version marker),
   then into every script that carries it (z-liteflow's template and Shipflow queue too).
+- Embedded filesystem/process helpers use TypeScript executed by Bun through
+  `world.run`. Pass data as arguments and disable project config and environment-file
+  autoloading for read-only checks. Declare Bun as a runtime dependency.
 - Codex templates keep `__ZAI_MODEL_CATALOG__` until install renders an
   absolute user path. `ZAI_API_KEY` imports into the Codex-only
   `~/.codex/secrets/zai-api-key` file with mode `0600`; command-backed
