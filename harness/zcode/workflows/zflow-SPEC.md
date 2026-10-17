@@ -75,11 +75,12 @@ The chain starts by creating a run-owned integration worktree
 (`.zflow/worktrees/_integration-<runTag>`, branch `zflow/<runTag>/integration`)
 from HEAD. Clean areas' branches merge into it along the `dependsOn` DAG; a
 conflicting merge is aborted there and reported. A clean merge removes the area
-worktree without `--force`; every branch is kept. The user's checkout is never
-written: merging the integration branch into it is a separate step the
-coordinator takes only after the user says yes (exit code checked, conflicts
-aborted). A failed dependency blocks its dependents honestly (never runs them
-blind).
+worktree without `--force`; every branch is kept. The engine never writes the user's
+checkout. When `commit=true`, the coordinator may deliver the completed clean integration
+branch under z-workflow Step 6: record destination branch/base HEAD before launch, require
+both unchanged and a clean checkout, fast-forward only, then rerun every task gate. High
+risk or review-first requires approval; no-merge, `commit=false`, incomplete work or any
+open finding disables automatic delivery. A failed dependency blocks its dependents.
 
 ## 3. Engine contract — `zflow-engine.dwf.ts`
 

@@ -160,6 +160,29 @@ thereafter; saving is the user's call, never silent.
      recorded as baseline, never burned as findings. Launch failures are
      findings, not hangs.
 
+## Worktrees and checkout delivery
+
+Phase R stays read-only: no worktrees, commits or checkout merges. At the start of an
+opt-in Phase I, record the repository root, base commit and full destination branch ref.
+Use z-workflow's safe Git rules and Step 6 delivery checks; its stage/commit cadence does
+not replace this campaign's benchmark and per-green-round commit rules.
+
+One writing area uses one run-owned worktree on `wf/<slug>`. Concurrent independent
+areas use `wf/<slug>/<area>` worktrees and a run-owned `wf/<slug>/integration` worktree.
+Carry those paths and branch identities across campaign nodes. Workers never edit the
+user's checkout or run Git. Serialize script-owned Git mutations, check every exit code,
+and integrate a completed clean lane only after its dependencies. Abort conflicts in the
+run worktree without force; retain unresolved branches and worktrees.
+
+Before checkout delivery, complete the whole campaign, integrate clean lanes and rerun
+all required correctness, parity and benchmark gates on the combined result. Every
+remaining finding, including unconfirmed or deferred findings, blocks automatic delivery.
+The coordinator then follows z-workflow Step 6: same captured destination branch and base
+HEAD, clean checkout, fast-forward only, and all task gates again in the checkout. Low or
+medium risk may deliver without another prompt; high risk or review-first requires
+approval. An explicit no-merge request, disabled committing, an incomplete campaign or
+research-only work never auto-merges. A failed post-merge gate is reported without a reset.
+
 ## Skill menu by bucket
 
 - routing, measurement discipline, PGO/BOLT, cargo-show-asm tooling →
@@ -206,5 +229,5 @@ Phase R: hygiene verdict, ranked findings with Amdahl math and owner
 skills, measurement plan, stop-at-target definition, explicit note that
 nothing was edited. Phase I (when run): rounds to convergence,
 per-finding disposition (fixed-verified / open / deferred to the user),
-honest numbers vs baseline, regression gates added, items left for the
-user.
+honest numbers vs baseline, regression gates added, retained branches/worktrees,
+checkout delivery outcome with old/new HEAD and gates, and items left for the user.

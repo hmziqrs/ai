@@ -30,22 +30,27 @@ with these overrides:
 | Step 0, triage | Measure the visible-surface signal `V` as usual, but force the Vision dial off. |
 | Step 1, explore | Explorers use the `Explore` agent or `general-pro`, never a Flash agent. |
 | Step 2, shape | Dispatch `workflow-author` (pro) and put `profile: pro` in the brief. |
-| Model matrix | Every `model()` literal in the script is `account:zai-individual-coding-plan/GLM-5.3` (a `$level` suffix is allowed). No Flash literal may appear. Tracers, confirmers, and citation checkers run on pro. |
+| Model matrix | Every instantiated agent uses `account:zai-individual-coding-plan/GLM-5.3` (a `$level` suffix is allowed). Every `loadPersona` call forces `tier: "pro"`. The unchanged persona kit may declare both tiers. Tracers, confirmers, and citation checkers run on pro. |
 | Pillar 3 (one flash role) | Does not apply. |
 | Vision phase | Absent: no screenshots, no capture, no image reading by any agent. |
 | Visible requirements | Checked by commands where possible (for example `agent-browser get text`, `is visible`, or a computed-style `eval`, which read the page without screenshots); anything left is listed under notCovered as "not checked visually". |
 | Final report | States that every model was pro and that no visual check ran. |
 
-Before launch, check the script with one command, for example
-`grep -c 'Flash' <script>` (must print 0) and a search for `screenshot` (must find none),
-and include the result with the command set. A Flash literal or a screenshot step goes
-back to the author.
+Before launch, inspect every agent constructor and persona load: require pro model selections
+and explicit `tier: "pro"`, with no capture, screenshot, or image-reading stage. Exempt only
+the unchanged marked persona-kit block's shared model declarations. Include this check with
+the command set; any Flash selection or visual stage goes back to the author.
 
 ## Rules that do not change
 
 Everything else is z-workflow: Area definition, the signals and dials (except Vision),
 the complexity budget, git rules, "Allow only this time" approval, the Step 6 merge, the
 stop rule, confirmers when risk is medium or high, and honest reporting.
+
+Checkout delivery follows Step 6 without another prompt for eligible clean low/medium-risk
+runs: verify the original destination branch and base HEAD, require a clean checkout,
+fast-forward the completed result, then rerun all gates. High risk or review-first requires
+approval; no-merge/read-only work is never delivered automatically.
 
 ## Grounded in
 

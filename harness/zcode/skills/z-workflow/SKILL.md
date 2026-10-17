@@ -37,7 +37,7 @@ Nothing is reused from a template unless the user names a saved workflow.
    results are labelled verified.
 7. **Never destroy, never surprise.** Scripts never run destructive git and never touch the
    user's checkout; runs launch only through the approval dialog. The coordinator merges a
-   clean result by fast-forward on its own (Step 6) and asks only when a check fails.
+   clean eligible result by fast-forward under Step 6; high risk and review-first need approval.
 8. **Proportionate.** The run's machinery matches the task, not the rule set. The dials set a
    complexity budget (Step 0). Going over it needs a written reason in the plan. The smallest
    shape that meets the rules wins.
@@ -174,6 +174,8 @@ interface WorkflowBrief {
   repoRoot: string;
   /** Base commit the run starts from, verified with git rev-parse. */
   baseCommit: string;
+  /** Full refs/heads/... destination captured before launch; empty when detached. */
+  baseBranch: string;
   /** AGENTS.md path relative to repoRoot that binds subagents; "" when none. */
   agentsMd: string;
   /** Whether the task text asks for commits on the user's branch. */
@@ -198,7 +200,7 @@ interface WorkflowBrief {
 }
 ```
 
-Verify what must be exact (repoRoot, baseCommit, agentsMd, each gate's exit code, the counts)
+Verify what must be exact (repoRoot, baseCommit, baseBranch, agentsMd, each gate's exit code, the counts)
 with one command each. Explorer claims are data to check, not facts.
 
 Resolve relevant specialists before authoring using [Specialist routing](references/specialists.md)
@@ -360,29 +362,41 @@ Shape rules for every plan:
 
 ## Step 6 — merge into the user's checkout (after the run)
 
-The run leaves its result on a run-owned branch (`wf/<slug>`, or `wf/<slug>/integration`
-when areas merged). The coordinator merges it into the user's checkout **by itself, without
-asking**, when every check below passes, each measured with a command:
+The coordinator owns checkout delivery; workflow scripts merge only into run-owned
+worktrees. This step applies to successful local writing runs, including profiles and
+opt-in Rustflow implementation. Read-only work has no checkout merge. A run with committing
+or delivery disabled leaves its result for review. An explicit "don't merge" also leaves
+the destination branch untouched; do not ask to override it.
+
+Before launch, record the checkout's `HEAD` and full branch ref with
+`git -C <repo> symbolic-ref --quiet HEAD`. Detached HEAD disables automatic delivery.
+The final result is the run-owned branch (`wf/<slug>` or `wf/<slug>/integration`), or the
+explicit saved engine's integration branch. Finish every lane before delivery, require the
+result worktree clean with all intended changes committed, and rerun every task gate on
+that combined committed result. Per-lane gate results alone do not establish integration safety.
+
+The coordinator fast-forwards **without asking** only for low/medium-risk work when the
+user has not requested review first, and every command check below passes in order:
 
 | Check | Command | Must show |
 |---|---|---|
-| The run ended clean | the run's report | zero open findings and every gate green |
-| The checkout has no local changes | `git -C <repo> status --porcelain` | empty output |
-| The checkout has not moved since the run started | `git -C <repo> rev-parse HEAD` | the run's base commit |
-| The merge rewrites nothing | `git -C <repo> merge --ff-only <branch>` | exit 0 |
-| The merged checkout still passes | the task's gate, run in `<repo>` | exit 0 |
+| The run ended clean | the run report and recorded gate results | zero open findings, every lane complete, every required gate green |
+| The checkout is clean | `git -C <repo> status --porcelain` | exit 0 and empty output |
+| The destination branch is unchanged | `git -C <repo> symbolic-ref --quiet HEAD` | exit 0 and the captured full branch ref |
+| The checkout commit is unchanged | `git -C <repo> rev-parse HEAD` | exit 0 and the captured base commit |
+| Delivery is a fast-forward | `git -C <repo> merge --ff-only <result-branch>` | exit 0 |
+| The delivered checkout passes | every task gate, scoped to `<repo>` | every gate exits 0 |
 
-Run the checks in that order and stop at the first failure. `--ff-only` moves the branch
-forward to the run's commits without a merge commit; if it cannot, git refuses and nothing
-changes. Report the merge (old and new HEAD, the diff stat, the gate result) in the final
-report. Never push, never delete the run branch, and never copy files into the checkout by
-hand.
+Stop at the first failure. Never merge while lanes are still writing or between fix rounds.
+If a pre-merge check fails, keep the branches/worktrees and report the exact failed check;
+ask before any alternative integration. High-risk work and an explicit review-first request
+also require approval before merging, after the result and evidence are ready. Approval does
+not permit force, resets, bypassed gates or an unreviewed conflict resolution.
 
-Ask with AskUserQuestion instead, and merge only on a yes, when any of these is true: a check
-above failed (say which), the user asked to review before merging (for example "ask before
-merging" or "don't merge"), or the task was risk high. If the gate fails after a
-fast-forward, do not undo it: report the failing gate with the old HEAD so the user can
-decide (`git -C <repo> reset --hard <old HEAD>` is theirs to run, never the coordinator's).
+If post-merge gates fail, report that delivery occurred, old/new HEAD and failing commands.
+Do not merge again or automatically undo it. Never push, delete run branches, or copy files
+into the checkout by hand. Report the destination branch, result branch, old/new HEAD,
+diff stat, gate results and whether delivery happened, was declined or was blocked.
 
 ## Vision phase (when the Vision dial is on)
 

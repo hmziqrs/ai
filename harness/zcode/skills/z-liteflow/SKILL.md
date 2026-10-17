@@ -59,6 +59,7 @@ Asks per round: 3 (implementer, tracer, judge). Roles: 3. Worktrees: 1.
 ## Coordinator steps
 
 1. **Measure** the checks above. Verify `repoRoot`, the base commit (`git rev-parse HEAD`),
+   the destination full branch ref (`git symbolic-ref --quiet HEAD`),
    and the gate (run it once; it must exit 0 on the base). Never edit the user's checkout
    to make the run work: no `.gitignore` edits, no helper files, no commits. A gate that
    needs a helper means the task is not a liteflow task.
@@ -79,9 +80,12 @@ Asks per round: 3 (implementer, tracer, judge). Roles: 3. Worktrees: 1.
    `name: "zflow-lite-<slug>"`. Approve with "Allow only this time", never "Always allow".
 5. **Merge.** Follow z-workflow Step 6: fast-forward `wf/<slug>` into the checkout by
    yourself (`git -C <repo> merge --ff-only wf/<slug>`) when the run ended with zero open
-   findings, `git status --porcelain` in the checkout is empty, `HEAD` is still the base
+   findings, `git status --porcelain` exits 0 with empty output, the full destination
+   branch is still the captured branch, `HEAD` is still the base
    commit, and the gate passes again in the checkout afterwards. Ask with AskUserQuestion
-   only when a check fails or the user asked to review first. Report old and new `HEAD`.
+   only when a pre-merge check fails or the user asked to review first. An explicit
+   no-merge request skips delivery. Detached HEAD never auto-merges. Report old/new `HEAD`;
+   a post-merge gate failure is reported without a reset or a second merge.
    Never copy the diff into the checkout by hand, never push.
 
 ## Specialist personas

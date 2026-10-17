@@ -10,8 +10,8 @@ description: "zflow engine: the parallel chain — one launch, everything in-run
   single-worker device lane. Worktree branches merge into a run-owned
   integration worktree (branch zflow/<runTag>/integration) along the dependsOn
   DAG; merged worktrees are removed without --force and every branch is kept.
-  The user's checkout is never written: merging the integration branch into it
-  is a separate step the coordinator asks the user about. Models per profile:
+  The engine never writes the user's checkout. The coordinator delivers a clean
+  committed result under z-workflow Step 6's guarded fast-forward policy. Models per profile:
   balanced (default) pins pro judgment + flash capture/audit; flash pins every
   role on flash, and flash verdicts are labelled judged, never verified. All commands anchor to repoRoot (git/make/go/pnpm
   via -C, npm via --prefix, yarn/bun via --cwd, cargo via a gate's own honored
@@ -1044,7 +1044,7 @@ async function runChain(): Promise<{ conclusion: string; findings: EF[]; verifie
   phase("Collect the final state and publish the report");
   const head = await gitRun(["rev-parse", "HEAD"], INT === "" ? undefined : INT);
   const log2 = await gitRun(["log", "--oneline", "-12"], INT === "" ? undefined : INT);
-  if (INT !== "") notCovered.push(`Your checkout is untouched. The result is on ${INT_BRANCH} (worktree ${INT}); merging it into your checkout is a separate step the coordinator asks you about.`);
+  if (INT !== "") notCovered.push(`Your checkout is untouched. The result is on ${INT_BRANCH} (worktree ${INT}). The coordinator applies z-workflow Step 6 only after all areas and gates are clean, no findings remain, and commit=true; otherwise no automatic delivery.`);
   if (modelProfile === "flash") notCovered.push("Judges and confirmers ran on Flash (modelProfile=flash): their findings are labelled judged, and an area's clean means gates green with no Flash-judged findings, not a pro review.");
   const cleanCount = finalItems.filter((i) => i.settledOk === true).length;
   const standingAll = finalItems.flatMap((i) => i.standing);
@@ -1073,7 +1073,7 @@ async function runChain(): Promise<{ conclusion: string; findings: EF[]; verifie
       ...(blockedAreas.length > 0 ? ["", "## Blocked", ...blockedAreas.map((b) => `- **${b}**: dependency did not finish with visible work`)] : []),
       ...(deferredVision.length > 0 ? ["", "## Unconfirmed vision findings (deferred to the user)", ...deferredVision.map((f) => `- **${f.where}** (${f.severity}): ${f.what} — ${f.evidence.slice(0, 200)}`)] : []),
       "",
-      ...(INT !== "" ? ["## Integration", `- Branch ${INT_BRANCH}, worktree ${INT}`, `- Merged areas: ${mergedAreas.join(", ") || "none"}`, "- Your checkout was not written. Merging this branch into it is a separate step the coordinator asks you about.", ""] : []),
+      ...(INT !== "" ? ["## Integration", `- Branch ${INT_BRANCH}, worktree ${INT}`, `- Merged areas: ${mergedAreas.join(", ") || "none"}`, "- The engine did not write your checkout. The coordinator follows z-workflow Step 6; commit=false or any incomplete work/open finding prevents automatic delivery.", ""] : []),
       "## Recent git history",
       ...log2.output.split("\n").map((l) => `- ${l}`),
     ].join("\n"),
@@ -1081,10 +1081,10 @@ async function runChain(): Promise<{ conclusion: string; findings: EF[]; verifie
   );
   return {
     conclusion:
-      standingAll.length === 0 && cleanCount === finalItems.length && blockedAreas.length === 0
+      standingAll.length === 0 && deferredVision.length === 0 && cleanCount === finalItems.length && blockedAreas.length === 0
         ? `Chain finished clean: ${cleanCount} of ${finalItems.length} area(s), ${commits} size-budgeted commit(s), ${deferredVision.length} unconfirmed vision finding(s) deferred to the user.`
-        : `Chain finished: ${cleanCount} of ${finalItems.length} area(s) clean; ${standingAll.length} finding(s) standing across the rest; ${blockedAreas.length} blocked; ${commits} commit(s) — half-done work is on disk and listed, never claimed clean.`,
-    findings: standingAll,
+        : `Chain finished: ${cleanCount} of ${finalItems.length} area(s) clean; ${standingAll.length} standing finding(s); ${deferredVision.length} unconfirmed vision finding(s); ${blockedAreas.length} blocked; ${commits} commit(s) — unfinished work is on disk and listed, never claimed clean.`,
+    findings: [...standingAll, ...deferredVision],
     verified: [
       ...finalItems.flatMap((i) => i.gates.filter((g) => g.ran).map((g) => `${g.argv} → exit ${g.exitCode} (area ${i.area.name})`)),
       ...finalItems.flatMap((i) => (i.commitShas.length > 0 ? [`${i.area.name}: commits ${i.commitShas.join(", ")}`] : [])),

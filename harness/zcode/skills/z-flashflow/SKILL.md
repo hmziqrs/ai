@@ -1,8 +1,8 @@
 ---
 name: z-flashflow
 description: >-
-  z-workflow on Flash only: the same triage, dials, author, git safety, approval, and merge
-  question, but every model in the run (explorers, workflow-author, implementers, judges,
+  z-workflow on Flash only: the same triage, dials, author, git safety, approval, and guarded automatic
+  fast-forward, but every model in the run (explorers, workflow-author, implementers, judges,
   tracers, vision) is GLM-5.3-Flash and no pro model is used anywhere. Judge verdicts are
   labelled judged, never verified. Runs only when the user asks for it.
 ---
@@ -32,21 +32,25 @@ with these overrides:
 | Step 1, explore | Explorers use the `explore-flash` agent, never `Explore` or a pro agent. |
 | Step 2, shape | Dispatch the `workflow-author-flash` agent (not `workflow-author`) and put `profile: flash` in the brief. |
 | Step 4, REVIEW | When the REVIEW dial is on, the fresh reviewer is also `workflow-author-flash`. |
-| Model matrix | Every `model()` literal in the script is `account:zai-individual-coding-plan/GLM-5.3-Flash` (a `$level` suffix is allowed). No pro literal may appear. |
+| Model matrix | Every instantiated agent uses `account:zai-individual-coding-plan/GLM-5.3-Flash` (a `$level` suffix is allowed). Every `loadPersona` call forces `tier: "flash"`. The unchanged persona kit may declare both tiers. |
 | Pillar 3 (one flash role) | Satisfied by every role. |
 | Labels | Judge and confirmer findings are labelled judged, never verified. Only commands (gates, greps, purity checks, computed-style checks) produce verified results. |
 | Final report | States that every model was Flash and lists the judged findings separately from the verified ones. |
 
-Before launch, check the script with one command, for example
-`grep -c -E 'GLM-5\.3(\$[a-z]+)?"' <script>` (pro literals, must print 0) plus a count of Flash literals, and include
-the result with the command set. A pro literal in the script goes back to the author.
+Before launch, inspect every agent constructor and persona load: require Flash model
+selections and explicit `tier: "flash"`. Exempt only the unchanged marked persona-kit
+block's shared model declarations. Include this check with the command set; any pro
+selection goes back to the author.
 
 ## Rules that do not change
 
 Everything else is z-workflow: Area definition, the four signals and the dials, the
 complexity budget, the vision phase (capture by command, blind Flash audit, command check
 per row), git rules, "Allow only this time" approval, the Step 6 merge, the stop rule,
-and honest reporting.
+and honest reporting. Checkout delivery follows Step 6: a complete clean low/medium-risk
+run may fast-forward automatically only into the captured destination branch at its unchanged
+base HEAD, followed by all gates. High risk or review-first requires approval; an explicit
+no-merge request and read-only runs never merge.
 
 ## Grounded in
 
