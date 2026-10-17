@@ -5,16 +5,24 @@
 > pointed at this repo installs it by following the procedures below.
 
 Layout: harness-specific kits under `harness/` (`zcode/`, `codex/`);
-other top-level directories except `research/` (`copy/`, …) are cross-harness
-skill categories that apply to every harness. To install, follow
-[install.md](install.md) (ZCode kit + categories) or
-[harness/codex/install.md](harness/codex/install.md) (Codex kit +
-categories) — plain copies into `~/.zcode/agents/`,
-`~/.zcode/skills/` (the seven z-flow skills and the engine — harness
-skills never go to `~/.agents/`), `~/.agents/skills/` (cross-harness
-category skills only), and `~/.codex/`. Agent definitions must be
-regular files — ZCode's discovery silently skips symlinks; `find
-~/.zcode/agents -type l` printing nothing confirms none.
+other top-level directories except `research/` (`copy/`, `coding/`, `languages/rust/`)
+are cross-harness skill categories. To install, follow [install.md](install.md),
+which enforces a strict **Global Core vs Per-Project Niche** split:
+- **Global Core (`~/.zcode/` and `~/.agents/skills/`)**: only the 5 core agents
+  (`general-pro`, `general-flash`, `explore-flash`, `workflow-author`,
+  `workflow-author-flash`), the 5 general ZCode skills (`z-workflow`, `z-proflow`,
+  `z-flashflow`, `z-liteflow`, `z-project-init`), and the 5 universal baseline
+  skills (`antislop-copy`, `code-comments`, `test-quality-guardrails`,
+  `test-quality-tdd-agents`, `test-quality-audit`).
+- **Per-Project Niche (`<project>/.zcode/` and `<project>/.agents/skills/`, via `z-project-init`)**:
+  niche `z-*` specialists, `shipflow-*` roles, niche workflows (`z-gpui-workflow`,
+  `z-tauri-workflow`, `z-super-rustflow`, `shipflow`), and stack-specific domain
+  skills (`languages/rust/rust-*` and external framework skills) install only into
+  the project that uses them and record their `hmziqrs/ai` commit SHA and file
+  hashes in `<project>/.zcode/hmziqrs-ai-snapshot.json`.
+Agent definitions must be regular files — ZCode's discovery silently skips symlinks;
+`find ~/.zcode/agents -type l` and `find <project>/.zcode/agents -type l` printing
+nothing confirms none.
 
 `research/` is excluded from installation and routine exploration. Read it only
 when the user explicitly requests research material or the task is research-related.
@@ -30,6 +38,7 @@ Follow the hard rule in [AGENTS.md](AGENTS.md).
 - [harness/zcode/skills/z-proflow/SKILL.md](harness/zcode/skills/z-proflow/SKILL.md): z-workflow on the pro model only, with no vision — every role on GLM-5.3, no Flash anywhere, visible requirements checked by commands or listed as not covered.
 - [harness/zcode/skills/z-flashflow/SKILL.md](harness/zcode/skills/z-flashflow/SKILL.md): z-workflow on Flash only — every role, including the workflow-author, on GLM-5.3-Flash; judge verdicts stay labelled judged.
 - [harness/zcode/skills/z-liteflow/SKILL.md](harness/zcode/skills/z-liteflow/SKILL.md): the fast small-task form of z-workflow — no explorers and no author: the coordinator fills a pre-tested one-lane template (implement, gate, flash tracer, fresh pro judge); bigger tasks hand off to z-workflow.
+- [harness/zcode/skills/z-project-init/SKILL.md](harness/zcode/skills/z-project-init/SKILL.md): per-project ZCode initializer and snapshot manager — inspects project manifests, installs only the required niche `z-*` sub-agents (`.zcode/agents/`), niche workflows (`.zcode/skills/`), and domain skills (`.agents/skills/`), and writes `.zcode/hmziqrs-ai-snapshot.json` for drift detection and isolated per-project updates while keeping the 5 core agents global.
 - [harness/zcode/skills/z-gpui-workflow/SKILL.md](harness/zcode/skills/z-gpui-workflow/SKILL.md): GPUI (`gpui-kit`) domain profile of z-workflow — fresh script per task, `z-gpui-engineer` and companion Rust/verification specialists loaded via `persona-kit.dwf.ts` v4, crate-scoped Cargo and `#[gpui_kit::test]` UI integration gates, and serialized `V=desktop` capture via `z-native-device-verifier` (`open-computer-use` AX tree + PNG) with blind Flash vision audit before guarded Step 6 fast-forward delivery.
 - [harness/zcode/skills/z-tauri-workflow/SKILL.md](harness/zcode/skills/z-tauri-workflow/SKILL.md): Tauri v2 domain profile of z-workflow — fresh script per task separating Rust Core (`src-tauri/`), IPC/capability contracts, and static Frontend areas, `z-tauri-integrator` and framework specialists loaded via `persona-kit.dwf.ts` v4, scoped Cargo and package-manager gates, and explicit two-surface runtime verification (`V=web` browser lane vs serialized `V=desktop`/`V=mobile` `z-native-device-verifier` lane) before guarded Step 6 fast-forward delivery.
 - [harness/zcode/skills/z-super-rustflow/SKILL.md](harness/zcode/skills/z-super-rustflow/SKILL.md): Rust super-optimization campaign over the `rust-*` performance and soundness skill suite — read-only research phase by default (`z-rust-perf-engineer`, `z-rust-memory-engineer`, `z-rust-simd-engineer`, `z-rust-async-engineer`, `z-unsafe-ffi-auditor` via `persona-kit.dwf.ts` v4, zero edits), opt-in implement phase with a converge-until-auditors-go-silent audit-fix loop and guarded Step 6 delivery; Pro only, no vision, no Flash.

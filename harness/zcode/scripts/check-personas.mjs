@@ -59,6 +59,18 @@ assert.match(rustflowSkill, /guardWrites/);
 assert.match(rustflowSkill, /z-rust-perf-engineer/);
 assert.match(rustflowSkill, /z-unsafe-ffi-auditor/);
 
+const projectInitSkill = await readFile(resolve(root, "skills/z-project-init/SKILL.md"), "utf8");
+assert.match(projectInitSkill, /^---\nname: z-project-init\n/);
+assert.match(projectInitSkill, /hmziqrs-ai-snapshot\.json/);
+assert.match(projectInitSkill, /general-pro\.md/);
+assert.match(projectInitSkill, /workflow-author\.md/);
+assert.match(projectInitSkill, /personaKitVersion/);
+
+const installDoc = await readFile(resolve(root, "../../install.md"), "utf8");
+assert.match(installDoc, /Global Core vs Per-Project Niche/);
+assert.match(installDoc, /z-project-init/);
+assert.match(installDoc, /hmziqrs-ai-snapshot\.json/);
+
 const canonicalPath = resolve(root, "skills/z-workflow/persona-kit.dwf.ts");
 const liteflowPath = resolve(root, "skills/z-liteflow/liteflow-template.dwf.ts");
 const canonical = await readFile(canonicalPath, "utf8");

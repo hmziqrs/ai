@@ -34,25 +34,33 @@ ai/
 | `general-flash` | glm-5.3-flash | Full-tools general agent for objectively checkable work (CRUD, boilerplate, mechanical verification) |
 | `explore-flash` | glm-5.3-flash | Read-only search + read-only code audits (reports findings, no verdict authority) |
 | `general-pro` | glm-5.3 | Full-tools general agent for judgment-heavy work (complex implementation, audit verdicts, continue/stop decisions) |
+| `workflow-author` | glm-5.3 | Dynamic-workflow architect and reviewer (`AUTHOR` and `REVIEW` modes) |
+| `workflow-author-flash` | glm-5.3-flash | Flash dynamic-workflow architect and reviewer for `z-flashflow` |
 
-The kit includes workflow authors, reusable domain and verification specialists, and
-Shipflow roles. Agent descriptions select expertise; the coordinator assigns scope and
-explicit analysis, implementation or review authority. See
+Only these five core agents install globally into `~/.zcode/agents/`. The 22 reusable `z-*`
+domain/verification specialists and 20 `shipflow-*` queue roles install **per project**
+into `<project>/.zcode/agents/` via `z-project-init` and are tracked in
+`<project>/.zcode/hmziqrs-ai-snapshot.json`. Agent descriptions select expertise; the
+coordinator assigns scope and explicit analysis, implementation, or review authority. See
 [specialist routing](harness/zcode/skills/z-workflow/references/specialists.md).
 
 ### Workflow skills
 
-- `z-workflow`: the author creates a task-specific script from measured signals, with
-  independent worktree lanes, command gates, fresh review and bounded feedback.
-- `z-proflow`: pro-only profile without vision.
-- `z-flashflow`: Flash-only profile with command-backed checks and labelled judgments.
-- `z-liteflow`: a small single-area template with optional domain personas.
-- `z-gpui-workflow` and `z-tauri-workflow`: domain profiles of z-workflow, preserving
-  framework-specific gates, web/native coverage and serialized device capture.
-- `z-super-rustflow`: measurement-first Rust optimization; analysis by default,
-  implementation only when requested.
-- `shipflow`: a per-project issue-to-PR pipeline loading agent files for its roles and
-  planned domain specialists. Follow its [installation procedure](harness/zcode/skills/shipflow/INSTALL.md).
+- **Global Core (`~/.zcode/skills/`):**
+  - `z-workflow`: the author creates a task-specific script from measured signals, with
+    independent worktree lanes, command gates, fresh review, and bounded feedback.
+  - `z-proflow`: pro-only profile without vision.
+  - `z-flashflow`: Flash-only profile with command-backed checks and labelled judgments.
+  - `z-liteflow`: a small single-area template with optional domain personas.
+  - `z-project-init`: initializes, audits, or updates per-project niche sub-agents,
+    niche workflows, domain skills, and `.zcode/hmziqrs-ai-snapshot.json`.
+- **Per-Project Niche (`<project>/.zcode/skills/` via `z-project-init`):**
+  - `z-gpui-workflow` and `z-tauri-workflow`: domain profiles of z-workflow, preserving
+    framework-specific gates, web/native coverage, and serialized device capture.
+  - `z-super-rustflow`: measurement-first Rust optimization; analysis by default,
+    implementation only when requested.
+  - `shipflow`: a per-project issue-to-PR pipeline loading agent files for its roles and
+    planned domain specialists. Follow its [installation procedure](harness/zcode/skills/shipflow/INSTALL.md).
 
 The persona kit records source hashes and selected models, validates role loading and
 checks read-only repository state. Tool metadata is advisory within workflows; change

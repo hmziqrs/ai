@@ -478,10 +478,12 @@ surfaces; never call this a sandbox. Agent files must follow the project rules a
 skills in addition to the run's instructions.
 
 **Drift check.** Before launching any script that carries the block, prove the copy is
-unchanged; the command must print nothing:
+unchanged against the active `persona-kit.dwf.ts` (using `<repo>/.zcode/skills/z-workflow/persona-kit.dwf.ts` when the project was initialized with `z-project-init`, otherwise `~/.zcode/skills/z-workflow/persona-kit.dwf.ts`); the command must print nothing:
 
 ```bash
-diff <(sed -n '/^\/\/ persona-kit:start/,/^\/\/ persona-kit:end/p' ~/.zcode/skills/z-workflow/persona-kit.dwf.ts) <(sed -n '/^\/\/ persona-kit:start/,/^\/\/ persona-kit:end/p' <script>)
+KIT="<repo>/.zcode/skills/z-workflow/persona-kit.dwf.ts"
+[ -f "$KIT" ] || KIT="$HOME/.zcode/skills/z-workflow/persona-kit.dwf.ts"
+diff <(sed -n '/^\/\/ persona-kit:start/,/^\/\/ persona-kit:end/p' "$KIT") <(sed -n '/^\/\/ persona-kit:start/,/^\/\/ persona-kit:end/p' <script>)
 ```
 
 A changed kit is fixed in `persona-kit.dwf.ts` first (with a new version marker), then

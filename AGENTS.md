@@ -45,10 +45,25 @@ llms.txt                     entry point for consuming agents
   otherwise it belongs in a category.
 - Skill folder name MUST equal the frontmatter `name` (lowercase
   alphanumerics and hyphens). Names must be unique across all
-  categories and kits. Category skills install flat into
-  `~/.agents/skills/` by folder name; harness-kit skills install only
-  into their own harness's path (ZCode kit skills → `~/.zcode/skills/`)
-  and never into `~/.agents/skills/`.
+  categories and kits. Installation uses a strict **Global Core vs
+  Per-Project Niche** split (see `install.md` and `z-project-init`):
+  - **Global Core**: only the 5 core agents (`general-pro`, `general-flash`,
+    `explore-flash`, `workflow-author`, `workflow-author-flash`) install into
+    `~/.zcode/agents/`; only the 5 core ZCode skills (`z-workflow`,
+    `z-proflow`, `z-flashflow`, `z-liteflow`, `z-project-init`) install into
+    `~/.zcode/skills/`; and only the 5 universal baseline skills
+    (`antislop-copy`, `code-comments`, `test-quality-guardrails`,
+    `test-quality-tdd-agents`, `test-quality-audit`) install into
+    `~/.agents/skills/`.
+  - **Per-Project Niche**: `z-*` specialists, `shipflow-*` roles, niche
+    workflows (`z-gpui-workflow`, `z-tauri-workflow`, `z-super-rustflow`,
+    `shipflow`, plus a project-pinned copy of `z-workflow`), and stack-specific
+    domain skills (`languages/rust/rust-*` and external framework skills)
+    install per project into `<project>/.zcode/agents/`,
+    `<project>/.zcode/skills/`, and `<project>/.agents/skills/` via
+    `z-project-init`, tracked in `<project>/.zcode/hmziqrs-ai-snapshot.json`.
+  - Harness-kit skills never install into `~/.agents/skills/` or
+    `<project>/.agents/skills/`.
 - Agent frontmatter: `name`, `description`, `model`, `tools`, `color`.
   Valid colors: red, blue, green, yellow, purple, orange, pink, cyan.
   Model IDs resolve against zai / zai-coding-plan providers
@@ -88,14 +103,20 @@ llms.txt                     entry point for consuming agents
 
 ## When asked to install this kit
 
-Follow `install.md` (ZCode kit + categories) or
+Follow `install.md` (Global Core vs Per-Project Niche via `z-project-init`) or
 `harness/codex/install.md` (Codex kit). Perform the copies yourself
 with file tools; install skills and agents as real files, never
-symlinks — ZCode silently skips symlinked agent definitions. End by
+symlinks — ZCode silently skips symlinked agent definitions. Never install
+`z-*` niche specialists, `shipflow-*` roles, or niche workflows (`z-gpui-workflow`,
+`z-tauri-workflow`, `z-super-rustflow`, `shipflow`) globally; install them per
+project and record `<project>/.zcode/hmziqrs-ai-snapshot.json`. End by
 noting that ZCode loads agents at session start: restart or a new
 session is required.
 
 ## When asked to update an installed kit
 
-Re-run the same install procedure — copies replace folders wholesale.
+Re-run the Global Core procedure in `install.md` for global files, or run
+`z-project-init` inside a specific project to compare its
+`<project>/.zcode/hmziqrs-ai-snapshot.json` against disk, update only that
+project's niche agents/workflows/skills, and write the new snapshot.
 The Codex secret file is reused, never rewritten.

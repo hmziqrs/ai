@@ -5,8 +5,8 @@ symlinks (ZCode silently skips symlinked agent definitions). No global
 paths ANYWHERE — no home-directory or user-level destinations of any
 kind; every destination below is inside the target project.
 
-1. **Copy the package** (from this repo, `hmziqrs/ai`, at its root):
-   - `harness/zcode/agents/shipflow-*.md` and `harness/zcode/agents/z-*.md` →
+1. **Copy the package** (from this repo, `hmziqrs/ai`, at its root, or via `z-project-init` with Shipflow enabled):
+   - `harness/zcode/agents/shipflow-*.md` and only the project's required `harness/zcode/agents/z-*.md` specialists (never the 5 global core agents `general-pro.md`, `general-flash.md`, `explore-flash.md`, `workflow-author.md`, `workflow-author-flash.md`) →
      `<project>/.zcode/agents/`
    - Whole `harness/zcode/skills/shipflow/` and `harness/zcode/skills/z-workflow/`
      folders → `<project>/.zcode/skills/`
@@ -14,6 +14,7 @@ kind; every destination below is inside the target project.
      `<project>/.zcode/workflows/`
    - `harness/zcode/skills/shipflow/references/knowledge/*.md` (8 role
      checklists the personas cite) → `<project>/docs/agents/`
+   - Record the `hmziqrs/ai` commit SHA, `personaKitVersion`, `personaKitSha256`, and per-file `sha256` hashes in `<project>/.zcode/hmziqrs-ai-snapshot.json` (see `harness/zcode/skills/z-project-init/SKILL.md`).
 
 2. **Labels and pin issue**: ensure the pipeline labels exist (`gh label
    create pipeline:backlog pipeline:ready pipeline:claimed pipeline:done

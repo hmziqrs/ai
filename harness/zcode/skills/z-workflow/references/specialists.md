@@ -1,9 +1,17 @@
 # Specialist routing
 
 Select from the session's discovered agents using the task, manifests, affected code and
-agent descriptions. These are routing examples, not a registration list. Resolve each
-selected file to an absolute path; project-local definitions take precedence over global
-copies. Do not infer a framework from `hasUI` or file extensions alone.
+agent descriptions. These are routing examples, not a registration list. Niche `z-*`
+specialists and niche workflows (`z-gpui-workflow`, `z-tauri-workflow`, `z-super-rustflow`,
+`shipflow`) install **per project** under `<project>/.zcode/agents/` and
+`<project>/.zcode/skills/` via `z-project-init` (tracked in
+`<project>/.zcode/hmziqrs-ai-snapshot.json`), while the 5 core agents (`general-pro`,
+`general-flash`, `explore-flash`, `workflow-author`, `workflow-author-flash`) live globally
+in `~/.zcode/agents/`. Resolve each selected file to an absolute path; project-local
+definitions in `<project>/.zcode/agents/` take precedence over global copies. If a required
+niche specialist is not yet installed in `<project>/.zcode/agents/`, report it and offer
+to run `z-project-init` for the project rather than installing niche agents globally or
+inferring a framework from `hasUI` or file extensions alone.
 
 | Work | Persona | Primary domain skills |
 |---|---|---|
