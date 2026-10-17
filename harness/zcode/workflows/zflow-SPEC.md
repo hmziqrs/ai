@@ -202,6 +202,15 @@ nesting). Every launch carries `agentsMd` and `baseSha`; the AGENTS.md
 injection rule and the numbered commit budget (~400 lines / ~10 files, one
 commit per green round) hold everywhere.
 
+## 4a. Specialist agents in workflows
+
+Workflows cannot reference agent definitions by name; `agent()` takes only a system prompt
+and a model. Every dynamic workflow (z-workflow, its profiles, and z-liteflow's template)
+drives specialists through one shared block, `harness/zcode/skills/z-workflow/persona-kit.dwf.ts`,
+pasted unchanged and checked for drift before launch (see z-workflow's SKILL.md). The
+engine does not carry the kit; z-gpui-workflow and z-tauri-workflow gain it when they move
+off the engine.
+
 ## 5. Files, install, and no-drift discipline
 
 - Source of record: this repo — `harness/zcode/workflows/zflow-engine.dwf.ts`

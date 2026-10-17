@@ -145,7 +145,7 @@ Apply these rules to every plan:
 - Forbidden: `checkout --` or `restore` on any path, `reset --hard`, `clean`,
   `worktree remove --force`, `branch -D`, `push`, `rebase`, `stash`, `add -A`, `--no-verify`,
   and any write to the user's checkout or current branch. No merge into the user's branch; the
-  coordinator does that after the user approves.
+  coordinator fast-forwards it after the run (z-workflow Step 6).
 - Every git call's exit code is checked. A nonzero exit is recorded and stops that lane's git
   chain. A failed merge runs `git merge --abort` in that worktree and records the conflict.
 - Purity checks report the out-of-scope paths as findings. They never revert them.
@@ -239,13 +239,12 @@ Script rules (binding; the platform contract wins on any conflict):
 - Budget: the script stays within the plan's `budget`. Shared helpers (one gate runner, one
   purity check, one lane function called per area) beat copy-pasted lane bodies.
 - Persona text ends with: impossible instructions mean escalate and say so. Never fake a pass.
-- Kit personas: load workspace files with `files.read` and kit files with
-  `world.run("cat", [path])` plus an exit-code check; the body after the frontmatter is the
-  `system` prompt. Declare every allowed model (with `$level`) as a `model()` literal and pick
-  one from the file's `model:` and `thoughtLevel:`; an undeclared model or a missing file is
-  a finding and that role does not run. `tools:` is not enforced in workflows, so guard a
-  read-only persona with a `git status --porcelain -z` check before and after its asks.
-  Record each persona's path and sha256 in the plan's `commands` and in the report.
+- Specialist personas: when the brief or task names agent files, paste the persona kit
+  (`persona-kit.dwf.ts` in the z-workflow skill folder) unchanged, from its start marker to
+  its end marker, and use only its functions: `loadPersona(path, { tier })` with the
+  profile's tier, `personaAgent(p, name, RUN_RULES)`, `guardWrites` around read-only
+  personas, and `personaFindings` plus `personaReport()` in the report. Never hand-write a
+  persona loader or edit the block. List each persona's path in the plan's `commands`.
 
 Do not copy a previous script or topology. Write this use case's script from its plan. Shared
 rule text is fine to repeat. Shared topology is not. When the coordinator sends back a defect,

@@ -37,8 +37,9 @@ follow the research-access rule in [AGENTS.md](AGENTS.md).
    `harness/zcode/workflows/zflow-engine.dwf.ts` to
    `~/.zcode/workflows/`. Its contract is `zflow-SPEC.md` beside the
    source. z-workflow, z-proflow, z-flashflow, and z-liteflow write
-   their own scripts and need no engine; z-liteflow's folder carries
-   `liteflow-template.dwf.ts`, so copy the whole folder. z-super-rustflow
+   their own scripts and need no engine; copy whole skill folders, since
+   z-workflow carries `persona-kit.dwf.ts` and z-liteflow carries
+   `liteflow-template.dwf.ts`. z-super-rustflow
    composes its own inline runs and needs no engine either (it may offer
    to save a validated `rustflow-engine` later — the user's call).
 4. Update = re-copy; folders are replaced wholesale. Uninstall = delete

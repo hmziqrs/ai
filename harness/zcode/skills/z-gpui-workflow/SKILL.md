@@ -86,10 +86,11 @@ was not shot and audited this run.
   integration worktree; other areas work in their own worktrees and merge into it. The
   result lands on `zflow/<runTag>/integration`; area worktrees are removed after a clean
   merge (never `--force`) and every branch is kept.
-- After the run, show the integration branch, its diff stat against `baseSha`, and the gate
-  results, then ask with AskUserQuestion. Without a yes, stop and report the branch. On a
-  yes, check that the checkout is clean, merge with one command, check the exit code, and
-  run `git merge --abort` on a conflict.
+- After the run, merge the result into the user's checkout as in z-workflow Step 6: by
+  itself with `git merge --ff-only` when the run ended clean, the checkout has no local
+  changes and still sits at the base commit, and the gate passes again afterwards; ask
+  with AskUserQuestion only when one of those checks fails, the user asked to review first,
+  or the task was risk high. Never push; keep the branch.
 
 ## Conventions
 

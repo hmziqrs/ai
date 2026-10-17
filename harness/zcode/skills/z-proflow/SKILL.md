@@ -2,7 +2,7 @@
 name: z-proflow
 description: >-
   z-workflow on the pro model only, with no vision: the same triage, dials, author, git
-  safety, approval, and merge question, but every role runs on GLM-5.3, no Flash model is
+  safety, approval, and Step 6 merge, but every role runs on GLM-5.3, no Flash model is
   used anywhere, and no screenshot is captured or read. Visible requirements are checked by
   commands or reported as not covered. Runs only when the user asks for it.
 ---
@@ -44,7 +44,7 @@ back to the author.
 ## Rules that do not change
 
 Everything else is z-workflow: Area definition, the signals and dials (except Vision),
-the complexity budget, git rules, "Allow only this time" approval, the merge question, the
+the complexity budget, git rules, "Allow only this time" approval, the Step 6 merge, the
 stop rule, confirmers when risk is medium or high, and honest reporting.
 
 ## Grounded in

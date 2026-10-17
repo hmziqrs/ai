@@ -4,14 +4,14 @@ description: >-
   Light z-workflow for small, single-area tasks: the coordinator fills in one pre-tested
   script (implement, gate, flash tracer, fresh pro judge, round cap 2 or 3) and launches it,
   with no explorers, no workflow-author, and no pre-launch review, so it starts fast. Work
-  lands on a run-owned branch; merging into the user's checkout needs a yes. Anything bigger
+  lands on a run-owned branch and is fast-forwarded into the user's checkout when clean. Anything bigger
   hands off to z-workflow. Runs only when the user asks for it.
 ---
 
 # z-liteflow
 
 z-liteflow is z-workflow for small work, tuned to start fast and never grow complex. It
-keeps z-workflow's safety rules (run-owned worktree, safe git, approval, merge question,
+keeps z-workflow's safety rules (run-owned worktree, safe git, approval, Step 6 merge,
 honest labels) and drops the parts that make a run slow to start: per-area explorers, the
 workflow-author loop, and the pre-launch REVIEW. Instead of authoring a script, the
 coordinator fills six constants in `liteflow-template.dwf.ts` (next to this file) and
@@ -62,18 +62,35 @@ Asks per round: 3 (implementer, tracer, judge). Roles: 3. Worktrees: 1.
    and the gate (run it once; it must exit 0 on the base). Never edit the user's checkout
    to make the run work: no `.gitignore` edits, no helper files, no commits. A gate that
    needs a helper means the task is not a liteflow task.
-2. **Fill the template.** Read `liteflow-template.dwf.ts` from this skill's folder and
-   replace only the six constants: `TASK` (verbatim), `REPO`, `BASE`, `SLUG` (short,
-   lowercase, unique: no existing `wf/<slug>` branch), `FILES` (every file the task may
-   change), `GATE` (`{tool, args}`, the repo's own command), and `CAP`. Change nothing else.
+2. **Fill the template by copy, never by retyping.** Copy the file with one command,
+   `cp <this skill folder>/liteflow-template.dwf.ts <repo>/.zcode/workflow-drafts/zflow-lite-<slug>.dwf.ts`
+   (ZCode git-ignores that folder), then change only the constant lines with exact-match
+   edits: `TASK` (verbatim), `REPO`, `BASE`, `SLUG` (short, lowercase, unique: no existing
+   `wf/<slug>` branch), `FILES` (every file the task may change), `GATE` (`{tool, args}`,
+   the repo's own command), `CAP`, and optionally `IMPLEMENTER_PERSONA` and
+   `JUDGE_PERSONA` (see Specialist personas). Never re-emit the rest of the file: retyping
+   390 lines mangles characters. Then run z-workflow's persona-kit drift check on the copy;
+   it must print nothing.
 3. **Show the command set** before launch: `git` (worktree add, status, grep, diff, add,
    commit in the run worktree only) and the gate command, with the worktree path and branch.
-4. **Launch** with CreateWorkflow (inline script, `name: "zflow-lite-<slug>"`). Approve with
-   "Allow only this time", never "Always allow".
-5. **Merge question.** Show the branch, `git diff --stat <base> wf/<slug>`, and the gate
-   result, then ask with AskUserQuestion. Without a yes, stop and report the branch. On a
-   yes, check that the checkout is clean, merge with one command, check the exit code, and
-   run `git merge --abort` on a conflict. Never copy the diff into the checkout by hand.
+4. **Launch** with CreateWorkflow using `path` (the filled copy) and
+   `name: "zflow-lite-<slug>"`. Approve with "Allow only this time", never "Always allow".
+5. **Merge.** Follow z-workflow Step 6: fast-forward `wf/<slug>` into the checkout by
+   yourself (`git -C <repo> merge --ff-only wf/<slug>`) when the run ended with zero open
+   findings, `git status --porcelain` in the checkout is empty, `HEAD` is still the base
+   commit, and the gate passes again in the checkout afterwards. Ask with AskUserQuestion
+   only when a check fails or the user asked to review first. Report old and new `HEAD`.
+   Never copy the diff into the checkout by hand, never push.
+
+## Specialist personas
+
+The template can drive its implementer and judge with agent files (for example a framework
+specialist) through the shared persona kit (z-workflow, "Specialist agents in workflows").
+Set `IMPLEMENTER_PERSONA` or `JUDGE_PERSONA` to an agent file's absolute path when the user
+names one or the task clearly calls for one; leave them `""` otherwise. Both run on the pro
+model whatever the file says. A persona that fails to load falls back to the built-in role
+and the report says so. A judge persona whose `tools:` cannot write is checked with
+`git status` around its ask. List each persona's path and sha256 with the command set.
 
 ## Rules carried from z-workflow
 
@@ -88,7 +105,7 @@ Asks per round: 3 (implementer, tracer, judge). Roles: 3. Worktrees: 1.
 ## Grounded in
 
 - `harness/zcode/skills/z-workflow/SKILL.md`: Area definition, signals, stop rule, git
-  rules, approval, merge question, labels.
+  rules, approval, Step 6 merge, labels.
 - `liteflow-template.dwf.ts` in this folder: the script, type-checked against the
   `dynamic-workflows` facade (§16.2) with `tsc --strict`.
 - Run evidence: the static engine's flash-profile runs, the z-workflow spec-s run (280

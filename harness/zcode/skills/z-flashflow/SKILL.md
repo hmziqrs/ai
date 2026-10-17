@@ -12,7 +12,7 @@ description: >-
 z-flashflow is z-workflow with one change: no pro model anywhere. It is the cheapest and
 fastest full workflow, for tasks where gates and commands can check most of the result.
 Everything else, including the dials, the complexity budget, the git rules, the vision
-phase, and the merge question, follows z-workflow unchanged.
+phase, and the Step 6 merge, follows z-workflow unchanged.
 
 ## When to Use
 
@@ -45,7 +45,7 @@ the result with the command set. A pro literal in the script goes back to the au
 
 Everything else is z-workflow: Area definition, the four signals and the dials, the
 complexity budget, the vision phase (capture by command, blind Flash audit, command check
-per row), git rules, "Allow only this time" approval, the merge question, the stop rule,
+per row), git rules, "Allow only this time" approval, the Step 6 merge, the stop rule,
 and honest reporting.
 
 ## Grounded in

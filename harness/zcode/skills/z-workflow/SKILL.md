@@ -35,8 +35,9 @@ Nothing is reused from a template unless the user names a saved workflow.
    with literal commands; a nonzero exit is a value the script reads.
 6. **Bounded and honest.** Every loop uses the one stop rule below. Only command-backed
    results are labelled verified.
-7. **Never destroy, always ask.** Scripts never run destructive git, never touch the user's
-   checkout, and launch only through the approval dialog.
+7. **Never destroy, never surprise.** Scripts never run destructive git and never touch the
+   user's checkout; runs launch only through the approval dialog. The coordinator merges a
+   clean result by fast-forward on its own (Step 6) and asks only when a check fails.
 8. **Proportionate.** The run's machinery matches the task, not the rule set. The dials set a
    complexity budget (Step 0). Going over it needs a written reason in the plan. The smallest
    shape that meets the rules wins.
@@ -298,8 +299,8 @@ Shape rules for every plan:
   one-area run: after the final commit succeeded), without `--force`. A lane that did not merge keeps its worktree. All `wf/*` branches are kept.
 - **Commits**: commits on run-owned `wf/*` branches are the transport for merges and are
   allowed. A one-area run makes exactly one, at the end; a multi-area run makes one per lane
-  before its merge, not one per round. A commit on the user's branch happens only when `commitsRequested` is true, and
-  then only after the user approves the merge (Step 6).
+  before its merge, not one per round. The script never commits on the user's branch; the
+  run's commits reach it only through the coordinator's fast-forward in Step 6.
 - Git mutations go through one serialized chain, for example
   `gitTail = gitTail.then(() => world.run("git", ["-C", wt, "merge", "--no-ff", branch]))`,
   followed by an exit-code check. Read-only git and file reads may run in parallel.
@@ -313,6 +314,8 @@ Shape rules for every plan:
   from a scratch worktree in the state the run will see: one unstaged modification, one
   untracked file, and a path whose first character would be lost to a stray trim. A parser
   that names a path not in the output goes back to the author.
+- **Persona kit drift check.** When the script carries the persona-kit block, run the
+  drift check from "Specialist agents in workflows"; any output goes back to the author.
 - **Command set.** Extract every `world.run` call from the script (tool and args template)
   and check each against the git rules. Any forbidden command goes back to the author.
 - **Budget check.** Count the script's lines, distinct `agent()` roles, asks per round, and
@@ -343,15 +346,31 @@ Shape rules for every plan:
   a stopped run unchanged.
 - When a hole is reached, write its body from the findings so far and use FillWorkflowHole.
 
-## Step 6 — merge approval (after the run)
+## Step 6 — merge into the user's checkout (after the run)
 
-The run leaves its result on `wf/<slug>/integration` (or the shared run worktree). Merging
-it into the user's checkout is a separate step:
+The run leaves its result on a run-owned branch (`wf/<slug>`, or `wf/<slug>/integration`
+when areas merged). The coordinator merges it into the user's checkout **by itself, without
+asking**, when every check below passes, each measured with a command:
 
-1. Show the user the branch, its diff stat against `baseCommit`, and the gate results.
-2. Ask with AskUserQuestion. Without a yes, stop and report the branch name.
-3. On a yes, check that the user's checkout is clean, merge with one command, and check the
-   exit code. On a conflict, run `git merge --abort`, report the conflicting paths, and stop.
+| Check | Command | Must show |
+|---|---|---|
+| The run ended clean | the run's report | zero open findings and every gate green |
+| The checkout has no local changes | `git -C <repo> status --porcelain` | empty output |
+| The checkout has not moved since the run started | `git -C <repo> rev-parse HEAD` | the run's base commit |
+| The merge rewrites nothing | `git -C <repo> merge --ff-only <branch>` | exit 0 |
+| The merged checkout still passes | the task's gate, run in `<repo>` | exit 0 |
+
+Run the checks in that order and stop at the first failure. `--ff-only` moves the branch
+forward to the run's commits without a merge commit; if it cannot, git refuses and nothing
+changes. Report the merge (old and new HEAD, the diff stat, the gate result) in the final
+report. Never push, never delete the run branch, and never copy files into the checkout by
+hand.
+
+Ask with AskUserQuestion instead, and merge only on a yes, when any of these is true: a check
+above failed (say which), the user asked to review before merging (for example "ask before
+merging" or "don't merge"), or the task was risk high. If the gate fails after a
+fast-forward, do not undo it: report the failing gate with the old HEAD so the user can
+decide (`git -C <repo> reset --hard <old HEAD>` is theirs to run, never the coordinator's).
 
 ## Vision phase (when the Vision dial is on)
 
@@ -401,33 +420,50 @@ The run's model mix is checked from its actors: pro only for implementer, judge,
 attacker, auditor, and writer roles; flash only for the roles in the Model matrix; and no
 model for capture and command checks when they can run as `world.run`.
 
-## Kit personas (specialist subagents from agent files)
+## Specialist agents in workflows (persona kit)
 
-A workflow cannot reference an agent definition by name: `agent()` takes only a system
-prompt and a model. A script can load an agent file at run time and use it as a persona,
-which gives runs specialist roles (a framework expert, a researcher) without pasting their
-prompts into each script. Verified in probe run `dwfrun-ee616ce6` (2026-10-17):
+A workflow cannot call an agent by name: `agent()` takes only a system prompt and a model.
+It can load an agent file at run time and use its body as the prompt. Every workflow does
+this through one shared, tested block: `persona-kit.dwf.ts` in this skill's folder.
 
-- **Loading.** Files inside the workspace load with `files.read`. Kit files outside it (for
-  example `~/.zcode/agents/`) load with `world.run("cat", [path])`, and the exit code is
-  checked. A missing or empty file is a finding and that role does not run; it never runs
-  with an empty prompt. The agents folder comes from the brief, never a hard-coded user path.
-- **Prompt.** The body after the frontmatter becomes the subagent's `system` prompt.
-- **Model.** `model()` takes literals only, so the script declares every model it allows
-  (with its `$level` suffix, for example `GLM-5.3$max`) and picks one at run time from the
-  file's `model:` and `thoughtLevel:`. A model the script did not declare is a finding and
-  that role does not run; there is no fallback model. The `$level` suffix compiles and is
-  stored, but its effect on reasoning effort is not visible in ZCode's records: treat it as
-  unverified.
-- **Tools are not enforced.** Every workflow subagent gets the full tool set (Write, Edit,
-  Bash, MCP tools) whatever the file's `tools:` line says. A read-only persona is guarded by
-  the script: `git status --porcelain -z` before and after its asks, with any change
-  reported as a finding.
-- **AGENTS.md is injected.** Workflow subagents receive the workspace `AGENTS.md`
-  automatically, so a persona does not need to repeat it.
-- **Approval and report.** The approval dialog shows the script, not the persona files it
-  reads. Before launch, list each persona's path and sha256 with the command set; the final
-  report repeats them, so the user knows exactly which instructions ran.
+**How to use it**
+
+1. Paste the whole block, from `// persona-kit:start v2` to `// persona-kit:end v2`,
+   unchanged into the script. Workflow scripts cannot import, so this copy is the only
+   sharing mechanism.
+2. Load each specialist: `const p = await loadPersona("/abs/path/agent.md", { tier })`.
+   `tier` is `"pro"` in z-proflow, `"flash"` in z-flashflow, and `"any"` (keep the file's
+   model) elsewhere. A forced model is noted in the report.
+3. Create the subagent with `personaAgent(p, "<unique-name>", RUN_RULES)`. The persona body
+   comes first and the run's rules (worktree path, never run git, escalate when impossible)
+   come last, so the run's rules win.
+4. Wrap the asks of any persona whose `tools:` cannot write in
+   `guardWrites(p, worktree, () => ...)`, while no other writer uses that worktree.
+5. Add `personaFindings` to the run's findings and `personaReport()` lines to the report,
+   and list each persona's path and sha256 with the command set before launch.
+
+**What the kit guarantees** (tested in runs `dwfrun-ee616ce6`, `dwfrun-8a44229f`, and
+`dwfrun-6db2e8b4`):
+
+- A missing file, a file with no frontmatter or body, or a model the kit does not declare is
+  refused with a verified finding; that role never runs with an empty prompt.
+- The body drives the subagent, and run rules passed to `personaAgent` are followed too.
+- The model comes from the file's `model:` and `thoughtLevel:` among the eight declared
+  GLM-5.3 and GLM-5.3-Flash variants. The `$level` suffix compiles, but its effect on
+  reasoning effort is not observable, so treat it as unverified.
+- `tools:` is not enforced inside workflows (every subagent gets every tool). `guardWrites`
+  caught a read-only persona that edited a file.
+- `AGENTS.md` is injected into workflow subagents automatically.
+
+**Drift check.** Before launching any script that carries the block, prove the copy is
+unchanged; the command must print nothing:
+
+```bash
+diff <(sed -n '/^\/\/ persona-kit:start/,/^\/\/ persona-kit:end/p' ~/.zcode/skills/z-workflow/persona-kit.dwf.ts) <(sed -n '/^\/\/ persona-kit:start/,/^\/\/ persona-kit:end/p' <script>)
+```
+
+A changed kit is fixed in `persona-kit.dwf.ts` first (with a new version marker), then
+re-pasted everywhere that carries it, starting with the z-liteflow template.
 
 ## Model matrix
 
