@@ -1,0 +1,80 @@
+---
+title: "Preload, prefetch, preconnect"
+category: performance
+status: recommended
+url: https://specification.website/spec/performance/preload-prefetch-preconnect/
+updated: "2026-07-09T00:00:00.000Z"
+sources:
+  - title: "MDN — <link>: The External Resource Link element"
+    url: "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/link"
+    publisher: "MDN"
+  - title: "web.dev — Preload critical assets to improve loading speed"
+    url: "https://web.dev/articles/preload-critical-assets"
+    publisher: "web.dev"
+  - title: "web.dev — Establish network connections early to improve perceived page speed"
+    url: "https://web.dev/articles/preconnect-and-dns-prefetch"
+    publisher: "web.dev"
+  - title: "MDN — rel=preload"
+    url: "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/rel/preload"
+    publisher: "MDN"
+source_repo: https://github.com/jdevalk/specification.website
+licence: CC-BY-4.0
+---
+
+# Preload, prefetch, preconnect
+
+> Resource hints let you tell the browser what is coming. Preload the LCP image and critical fonts, preconnect to third-party origins, prefetch the next navigation.
+
+## What it is
+
+Four `<link rel>` hints in the head tell the browser to start work earlier than the parser would:
+
+- **preconnect** — open a TCP+TLS connection now, body comes later.
+- **dns-prefetch** — resolve DNS only. The cheap fallback when preconnect is too aggressive.
+- **preload** — fetch this exact resource now at high priority.
+- **prefetch** — fetch this resource at low priority for a future navigation.
+
+```html
+<link rel="preconnect" href="https://cdn.example.com" crossorigin>
+<link rel="dns-prefetch" href="https://analytics.example.com">
+<link rel="preload" href="/fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/hero.avif" as="image" fetchpriority="high">
+<link rel="prefetch" href="/next-article" as="document">
+```
+
+## Why it matters
+
+The browser only discovers resources as it parses HTML and CSS. By the time it sees a `<link rel="stylesheet">` that references a font, several round-trips have already passed. Hints move that discovery earlier — sometimes saving 200–500ms on the LCP element.
+
+But a hint does not add bandwidth or make the connection faster. `preload` in particular is not an accelerate button. The pipe is fixed, so every byte it pulls forward is a byte something else waits for. It helps only a resource the parser would otherwise discover late, such as a font referenced from CSS or an LCP image injected by script. Preload something already visible early in the HTML and you gain nothing, because the preload scanner found it anyway. Preload a dozen things and they fight for the same bandwidth, starving the one request that sets your LCP. Hint the few late-discovered resources on the critical path, and nothing else.
+
+## How to implement
+
+**Preload the LCP image.** If your LCP is a hero image, preload it. Combine with `fetchpriority="high"` so it jumps the queue. Do not preload images that already appear early in the HTML — the preload scanner finds them anyway.
+
+**Preload critical fonts — selectively.** Fonts requested from inside CSS are discovered late, so preloading shortens the path: `as="font" type="font/woff2" crossorigin`. The `crossorigin` attribute is mandatory even for same-origin fonts. The preload competes with critical CSS for bandwidth though, so reserve it for fonts that style above-the-fold text, and always pair with `font-display: swap` or `optional` — see [Web font loading](/spec/performance/font-loading/) for the full tradeoff.
+
+**Preconnect to third-party origins.** If you load images from a CDN, fonts from Google, or analytics from a third party, preconnect saves the TCP+TLS handshake (~100–300ms). Use `crossorigin` for resources fetched with CORS (fonts, fetch, modules).
+
+**Use dns-prefetch as a fallback.** Older browsers and proxies sometimes ignore preconnect. Pair it with dns-prefetch:
+
+```html
+<link rel="preconnect" href="https://cdn.example.com" crossorigin>
+<link rel="dns-prefetch" href="https://cdn.example.com">
+```
+
+**Prefetch the next likely page.** On a landing page, prefetch the obvious next step. The fetch happens at low priority and won't interfere with the current page.
+
+## Common mistakes
+
+- Preloading 10 things. They all fight for bandwidth and nothing wins.
+- Forgetting `crossorigin` on font preloads — the browser then fetches the font twice.
+- Preconnecting to origins you don't actually use.
+- Preloading a stylesheet then forgetting to add `<link rel="stylesheet">`. The preload sits unused; Chrome logs a warning.
+- Using prefetch for the LCP image of the current page. That is preload's job.
+
+## Verification
+
+- DevTools → Network → look at the priority and start time of LCP and font requests.
+- Chrome logs `<link rel="preload"> was preloaded using link preload but not used within a few seconds` for misused hints.
+- Lighthouse "Preload key requests" and "Preconnect to required origins" surface missing hints.

@@ -1,0 +1,78 @@
+---
+title: "Global Privacy Control (GPC)"
+category: privacy
+status: recommended
+url: https://specification.website/spec/privacy/global-privacy-control/
+updated: "2026-09-24T00:00:00.000Z"
+sources:
+  - title: "Global Privacy Control (GPC) — W3C Working Draft"
+    url: "https://www.w3.org/TR/gpc/"
+    publisher: "W3C Privacy Working Group"
+  - title: "California Attorney General — Frequently Asked Questions: CCPA"
+    url: "https://oag.ca.gov/privacy/ccpa"
+    publisher: "California Office of the Attorney General"
+  - title: "Colorado's approach to Universal Opt-Out requirements"
+    url: "https://iapp.org/news/a/colorados-approach-to-universal-opt-out-requirements"
+    publisher: "IAPP"
+source_repo: https://github.com/jdevalk/specification.website
+licence: CC-BY-4.0
+---
+
+# Global Privacy Control (GPC)
+
+> Global Privacy Control is a browser-level signal that tells websites the user opts out of the sale or sharing of their personal data. California and Colorado require sites to honour it.
+
+## What it is
+
+Global Privacy Control (GPC) is a simple machine-readable signal that a user — through their browser, an extension, or a privacy-focused tool like DuckDuckGo or Brave — broadcasts to every site they visit. It says: *I do not want my personal data sold or shared.*
+
+The signal is sent two ways:
+
+- An HTTP request header: `Sec-GPC: 1`
+- A JavaScript property: `navigator.globalPrivacyControl === true`
+
+Both are read-only and trivial to detect server-side or client-side.
+
+GPC is not Do Not Track. The `DNT` header shipped a decade earlier with the same ambition and failed, because nothing obliged a site to honour it: it was a polite request that sites were free to ignore, and almost all did. GPC sends the same kind of signal but carries different legal weight. Where DNT was voluntary everywhere, GPC is a binding opt-out under several US state privacy laws, so ignoring it is not a stylistic choice but a violation. If you dismissed GPC as "another header nobody enforces", that reasoning was true of DNT and is wrong about GPC.
+
+## Why it matters
+
+Under the California Consumer Privacy Act (CCPA/CPRA), the California Attorney General has confirmed that GPC is a valid opt-out signal that businesses must honour. Enforcement has followed — Sephora paid \$1.2 million in 2022 in part for failing to process GPC signals. The Colorado Privacy Act explicitly lists GPC-style universal opt-out mechanisms as a required path from July 2024 onward. Connecticut and several other states have followed.
+
+GPC does not replace cookie banners under EU law, because the EU regime is opt-in rather than opt-out. But it is a strong privacy signal everywhere, and respecting it costs almost nothing.
+
+## How to implement
+
+Detect the signal on every request:
+
+```js
+// Client-side
+if (navigator.globalPrivacyControl) {
+  // user has opted out
+}
+```
+
+```
+# Server-side (any language)
+if request.headers.get("Sec-GPC") == "1":
+    opt_out = True
+```
+
+When the signal is present:
+
+- **Do not sell or share** personal information as those terms are defined under the user's applicable law.
+- **Do not load advertising trackers**, retargeting pixels, or data-broker tags.
+- **Suppress consent-banner "accept" defaults** — the user has already expressed a preference.
+- **Record the opt-out** as you would any other privacy request, including the timestamp and the URL.
+- **Disclose your behaviour** in the privacy policy: state that you honour GPC and what that means in practice.
+
+For sites that serve both EU and US users, GPC should be treated as one of several inputs alongside cookie consent and any in-product privacy settings. The strictest preference wins.
+
+Once the signal is actually processed, you can say so in machine-readable form by publishing a [GPC support resource at `/.well-known/gpc.json`](/spec/well-known/gpc-json/). That file declares the origin's position for tooling that wants to ask without visiting; it is a declaration, not an implementation, so publish it second.
+
+## Common mistakes
+
+- Ignoring the signal entirely and continuing to load tracking scripts.
+- Honouring GPC only for users who identify themselves as Californian. The signal does not include a state, and the AG has been clear: process it for any user who sends it.
+- Treating GPC as a cookie banner replacement under GDPR. EU consent is opt-in; GPC is opt-out.
+- Failing to mention GPC in the privacy policy, so users have no way to verify the site respects it.
