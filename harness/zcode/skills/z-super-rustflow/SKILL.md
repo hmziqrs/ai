@@ -2,20 +2,22 @@
 name: z-super-rustflow
 description: >-
   Thin chain-coordinator skill for Rust super-optimization campaigns over the
-  custom rust skill family (rust-superopt, rust-simd-kernels,
-  rust-parallel-cache, rust-fast-architecture, rust-async-patterns,
-  rust-best-practices, rust-testing): a read-only research phase (explorer,
+  Rust performance and soundness skill suite (rust-superopt, rust-simd-crates,
+  rust-simd-kernels, rust-parallel-cache, rust-fast-architecture, plus
+  session-installed rust-string-perf, rust-succinct-structures,
+  rust-service-comms, rust-embedded-storage, rust-async-patterns,
+  rust-best-practices, and rust-testing): a read-only research phase (explorer,
   researcher, auditor) that is the DEFAULT and makes zero edits, plus an
   opt-in implement phase with a converge-until-auditors-go-silent audit-fix
-  loop. Pro personas only, with no vision or flash agents. Trigger
-  phrases: super rustflow, z-super-rustflow, rustflow campaign, superopt
-  workflow, super-optimization workflow, optimization orchestration,
-  superopt sub-agents, optimize-until-clean, audit this crate for
-  performance, research optimization opportunities. Does NOT fire
-  on single-shot "why is this slow" / "make this loop faster" — that is
-  rust-superopt routing; this page is the multi-agent campaign. Implement
-  runs ONLY on explicit user opt-in ("also implement", "research and
-  implement", "do the implementation of what we found").
+  loop. Pro personas only, loaded through persona-kit v4, with no vision or
+  flash agents. Trigger phrases: super rustflow, z-super-rustflow, rustflow
+  campaign, superopt workflow, super-optimization workflow, optimization
+  orchestration, superopt sub-agents, optimize-until-clean, audit this crate
+  for performance, research optimization opportunities. Does NOT fire on
+  single-shot "why is this slow" / "make this loop faster" — that is
+  rust-superopt routing; this page is the multi-agent campaign. Implement runs
+  ONLY on explicit user opt-in ("also implement", "research and implement",
+  "do the implementation of what we found").
 ---
 
 # z-super-rustflow
@@ -64,24 +66,32 @@ gate-runner exists to want. Use each persona's declared model and thought
 level; do not add a second model profile. If something seems to need eyes,
 text evidence covers it, or it is marked not-covered and said so.
 
-| Chain node | model | Why |
+| Chain node | Persona & access | Responsibility |
 |---|---|---|
-| routing, profiling, benchmark plan | `z-rust-perf-engineer`, read-only | baseline, noise, workload, lever selection |
-| memory, SIMD, or async research | matching `z-rust-memory-engineer`, `z-rust-simd-engineer`, or `z-rust-async-engineer`, read-only | domain-specific evidence |
-| Rust implementation | matching domain persona, write only in Phase I | scoped code changes |
-| audit | fresh read-only domain persona each round; `shipflow-security-audit` when safety invariants change | blind review and invariant checks |
-| gates + bench compare | nobody — script-run | mechanical, exit codes |
+| Routing, release hygiene, profiling, benchmark/variance harness, sorting, type-size/container layout | `z-rust-perf-engineer`, `read-only` in Phase R / `write` in Phase I | Step 0 release-profile check, criterion/cold-state baseline, variance budget, Amdahl triage, lever selection, PGO/BOLT |
+| Allocation rate, string representation, succinct sets, cache layout, RSS/allocator, zero-copy buffers | `z-rust-memory-engineer`, `read-only` in Phase R / `write` in Phase I | DHAT/allocation census, `Box<str>`/`Arc<str>`/`Cow`/SSO/interning, roaring/Elias-Fano/MPHF/ART, `CachePadded`, `bytes::Bytes` / `rkyv` / Arrow |
+| SIMD crate adoption, autovectorization diagnosis, portable SIMD, arch intrinsics & runtime dispatch | `z-rust-simd-engineer`, `read-only` in Phase R / `write` in Phase I | Lever 1 crate swap, `cargo asm` / `-C remark=loop-vectorize`, `as_chunks` / `algebraic_*`, `pulp`/`fearless_simd`/`rten-simd`/`wide`, `core::arch` + runtime detection |
+| Lock contention, single-writer sharding, group commit, Tokio/LocalSet, channels, HTTP/gRPC wire stack | `z-rust-async-engineer` (or `z-axum-engineer` for Axum HTTP routes/layers), `read-only` in Phase R / `write` in Phase I | Contention math (`1 / critical_section`), `LocalSet`/`compio`/Tokio tuning, lock downgrade, write-behind group commit, channel/map choice, `h2`/`tonic`/`prost` wire paths |
+| Embedded storage engine, per-write sync rungs, mmap vs pwrite, LSM fanout/bloom tuning | `z-rust-perf-engineer` or `z-database-migration-engineer`, `read-only` in Phase R / `write` in Phase I | `heed`/LMDB vs `fjall` vs `redb` vs `rusqlite`, `PersistMode`/`Durability`/WAL sync barriers, LSM read/write amplification |
+| General safe Rust refactoring, trait/generic dispatch (`cargo llvm-lines`), error paths | `z-rust-engineer`, `read-only` in Phase R / `write` in Phase I | Thin generic wrapper + non-generic inner fn, error/API preservation |
+| Per-round performance & parity audit | Fresh read-only domain persona (`auditor-<area>-r<round>`) matching the area's lever | Blind review against the 4-part `rust-superopt` "done" rubric and novel-finding hunt |
+| Unsafe, FFI, pointer provenance, `#[target_feature]`, `repr(packed)`, or custom allocator audit | Fresh `z-unsafe-ffi-auditor`, `read-only` (`shipflow-security-audit` only when broader service/auth trust boundaries also change) | Concrete invariant trace across every new or touched `unsafe`, intrinsic, unaligned, or FFI boundary |
+| Gates, `git status --porcelain -z`, `numstat`, and bench compare | None — script-run (`world.run`) | Mechanical exit codes and baseline comparisons |
 
 Every composed script pastes the complete current block from
-`harness/zcode/skills/z-workflow/persona-kit.dwf.ts` unchanged. Resolve each
-agent file to an absolute path, then use `loadPersona` with `tier: "pro"`
-and explicit `access`, followed by `personaAgent`;
-never paste persona text by hand. Phase R, judges, and auditors use
-`access: "read-only"`; only Phase I implementers use `access: "write"`.
-Use `guardWrites` for read-only asks, include persona findings and reports,
-and list persona paths and hashes before launch. When unsafe, FFI, aliasing,
-or memory-safety invariants change, add a fresh read-only audit of those
-invariants; never reuse the implementer as auditor.
+`harness/zcode/skills/z-workflow/persona-kit.dwf.ts` (`// persona-kit:start v4`
+to `// persona-kit:end v4`) unchanged and runs `z-workflow`'s persona-kit drift
+check before launch. Resolve each agent file to an absolute path, then use
+`loadPersona` with `tier: "pro"` and explicit `access`, followed by
+`personaAgent(p, uniqueName, RUN_RULES)`; never paste persona text by hand.
+Phase R, judges, confirmers, and auditors use `access: "read-only"`; only
+Phase I implementers use `access: "write"`. Wrap every read-only ask in
+`guardWrites(p, worktree, () => ...)` while no writer uses that worktree,
+include `personaFindings` and `personaReport()` in the report, and list persona
+paths, sha256 hashes, selected models, and access before launch. When `unsafe`,
+FFI, aliasing, `#[target_feature]`, `repr(packed)`, or memory-safety invariants
+change, add a fresh read-only `z-unsafe-ffi-auditor` ask; never reuse the
+implementer as auditor.
 
 **Fresh-context rule — universal:** every node above is a fresh agent per task;
 confirmers are fresh per finding. The single exception is `implementer-<area>`,
@@ -118,26 +128,30 @@ thereafter; saving is the user's call, never silent.
    checked FIRST — a debug-benchmarked or size-optimized hot path ends
    the campaign at that finding.
 3. **Phase I implement run**: choose `z-rust-memory-engineer`,
-   `z-rust-simd-engineer`, `z-rust-async-engineer`, or `z-rust-engineer`
-   by the confirmed lever; `z-rust-perf-engineer` owns benchmark and target
-   decisions. `implementer-<area>` works confirmed
-   findings in ladder order (crate swap → fix autovec → parallelize →
-   cache/affinity → hand SIMD → architecture), re-benchmark after each
-   lever, stop the moment the Phase R target is met — a satisfied target
-   is a finished optimization. The script runs gates +
-   `cargo bench -- --baseline main` itself; implementers never run gates
-   or git; no pass/fail claim is trusted. The script also runs a numstat
-   size check after every round: a round whose delta exceeds the area's
-   budget is a red round with reason `size` — shrink it or report the
-   split needed; two consecutive size-reds stop the area. A Committer role
-   drafts the message and the script commits
-   each green round separately, `perf:`
-   style matching `git log --oneline -10` — never one commit folding
-   several rounds' work.
+   `z-rust-simd-engineer`, `z-rust-async-engineer`, `z-rust-perf-engineer`,
+   or `z-rust-engineer` by the confirmed lever; `z-rust-perf-engineer` owns
+   benchmark and target decisions. `implementer-<area>` works confirmed
+   findings in ladder order (crate swap → fix autovec → cut allocation rate
+   and shrink types → parallelize → cache/affinity → hand SIMD →
+   architecture/storage/wire), re-benchmarks after each lever, and stops the
+   moment the Phase R target is met — a satisfied target is a finished
+   optimization. The script runs gates, `git status --porcelain -z` purity
+   checks (parsed per NUL entry without trimming the whole output first), and
+   `cargo bench -- --baseline main` itself; implementers never run gates or
+   git, and no pass/fail claim is trusted. Discovered tasks return to the
+   coordinator with `parent`, `kind`, `scope`, `dependencies`, and `evidence`.
+   The script also runs a `numstat` size check after every round: a round
+   whose delta exceeds the area's budget is a red round with reason `size` —
+   shrink it or report the split needed; two consecutive size-reds stop the
+   area. A Committer role drafts the message and the script commits each green
+   round separately, `perf:` style matching `git log --oneline -10` — never
+   one commit folding several rounds' work.
 4. **Phase I audit run**: fresh blind `auditor-<area>-r<round>` per area —
-   fresh auditors never judge fixes they inspired. Two jobs: score this
-   round's fixes against the rust-superopt "done" rubric — parity story,
-   codegen check (cargo-show-asm evidence path; every runtime-dispatch
+   fresh auditors never judge fixes they inspired, and any new or changed
+   `unsafe`, `#[target_feature]`, `repr(packed)`, raw-pointer, or FFI boundary
+   also gets a fresh read-only `z-unsafe-ffi-auditor`. Two jobs: score this
+   round's fixes against the `rust-superopt` "done" rubric — parity story,
+   codegen check (`cargo-show-asm` evidence path; every runtime-dispatch
    variant, not just the entry point), regression gate, honest number
    (ratio vs baseline, outside the noise band) — missing any one keeps
    the finding open; AND hunt for NOVEL findings. Each audit ask carries
@@ -185,21 +199,21 @@ research-only work never auto-merges. A failed post-merge gate is reported witho
 
 ## Skill menu by bucket
 
-- routing, measurement discipline, PGO/BOLT, cargo-show-asm tooling →
-  rust-superopt (its references/measurement.md and
-  references/codegen-tooling.md)
-- compute / autovec repair / hand-written SIMD → rust-simd-kernels
-- crate swaps (ladder lever 1) → rust-simd-crates; resolve the installed
-  path and report missing required coverage before that assignment
-- memory / rayon / false sharing / NUMA / cache layout →
-  rust-parallel-cache
-- lock + IO architecture / sharding / single-writer / group commit →
-  rust-fast-architecture
-- async runtime concerns → rust-async-patterns
-- code hygiene inside edits → rust-best-practices; parity + regression
-  tests → rust-testing
+Resolve required skills from the session's available-skills index before launching each node and carry their absolute `SKILL.md` paths in `area.skills`. Load only the skills and reference files that match the area's measured bucket and rung:
 
-A skill page is the door, not the room.
+- **Triage, release hygiene, benchmark/variance harness, sorting, type/container layout, and PGO/BOLT** → `rust-superopt` (`SKILL.md`, `references/measurement.md`, `references/codegen-tooling.md`, and `references/release-flags.md` when available).
+- **Lever 1 — SIMD-accelerated crate swaps** (JSON, byte/multi-pattern search, UTF-8, crypto/non-crypto hashing, CRC, compression `flate2`+`zlib-rs`, base64/hex/escaping, FFT, linear algebra `faer`, codecs) → `rust-simd-crates` (`references/crates-text-parsing.md`, `references/crates-numeric-media.md`, `references/json-migration.md`).
+- **Lever 2 & 6 — Autovectorization diagnosis and hand-written SIMD kernels** (`cargo asm`, `-C remark=loop-vectorize`, `slice::as_chunks`, `assert_unchecked`, Rust 1.98+ `algebraic_*`, portable SIMD `pulp`/`fearless_simd`/`rten-simd`/`wide`, `core::arch` + safe `#[target_feature]` + runtime dispatch) → `rust-simd-kernels` (`references/autovectorization.md`, `references/portable-simd.md`, `references/intrinsics.md`, `references/stability-matrix.md`, plus `references/hardware-costs.md` and `references/audio-dsp.md` when available).
+- **Lever 3a — String handle layout, allocation census, `Box<str>` / `Arc<str>` / `Cow<str>` / SSO (`CompactString`, `SmolStr`, `EcoString`) / interning (`lasso`, `ustr`), and case conversion** → `rust-string-perf` (`references/string-types.md`) when available in the session, paired with `rust-superopt`.
+- **Lever 3b — Compact/succinct integer sets and frozen lookups** (roaring ~6% density crossover, plain bitsets, `sucds` Elias-Fano, `phf`/`ph` MPHFs, `vers-vecs` rank/select, `artmap` adaptive radix tries, Morton/Hilbert keys) → `rust-succinct-structures` (`references/bitmaps-rank-select.md`, `references/ef-mphf-tries.md`) when available in the session.
+- **Lever 4 & 5 — Rayon pools, work-stealing vs pinned shards, false sharing (128 B / `CachePadded`), cache tiling & set-aliasing, NUMA first-touch, Apple Silicon QoS steering, concurrent maps (`papaya`/`scc`/`dashmap`) + hasher choice (`ahash`/`foldhash`), channels (`crossbeam`/`kanal`/`flume`), eviction (SIEVE/W-TinyLFU), and allocator/RSS/THP tuning (`jemalloc`/`mimalloc`)** → `rust-parallel-cache` (`references/topology.md`, `references/numa-pinning.md`, `references/false-sharing.md`, plus `references/cache-eviction-allocators.md`, `references/concurrent-maps-lockfree.md`, `references/channels.md` when available).
+- **Lever 7a — Service contention math, single-writer actors (`LocalSet`/`LocalRuntime`), early lock downgrade, write-behind group commit, adaptive linger, pooling, Tokio coop/wakeup/cancellation tuning, embedded zero-copy (`rkyv`, Arrow, `capnp`, `postcard`), runtime specialization (AOT/Cranelift/lazy DFA), and deterministic simulation testing** → `rust-fast-architecture` (`references/spacetimedb-case-study.md`, plus `references/production-case-studies.md` when available).
+- **Lever 7b — HTTP/1.1 vs `h2` (>= 0.4.16) vs `h3`, client connection pools, `tonic` multi-connection scaling & `prost` `Bytes` decode, wire formats (`prost`, `rust-protobuf`, `ciborium`, `minicbor`, `rmp-serde`), `bytes::Bytes` `split_to(n).freeze()` discipline, and `matchit`/Tower middleware costs** → `rust-service-comms` (`references/http-transport.md`, `references/rpc-grpc.md`, `references/wire-formats.md`) when available; add `axum-web-framework` and `axum-code-review` when modifying Axum routers/extractors/layers.
+- **Lever 7c — Durable local state** (`heed`/LMDB vs `fjall` vs `redb` vs `rusqlite`; per-write `PersistMode`/`Durability`/WAL sync points; mmap vs pwrite; LSM fanout and bloom hash-sharing) → `rust-embedded-storage` (`references/lsm-tuning.md`, `references/durability-fsync.md`) when available.
+- **Async lifecycle & cancellation correctness** → `rust-async-patterns` (`references/details.md`).
+- **Code, safety, and parity-test hygiene inside Phase I edits** → `rust-best-practices` (`references/chapter_01.md`–`chapter_09.md`), `rust-testing`, `code-comments`, and `test-quality-tdd-agents` (for property-based parity or characterization tests).
+
+A skill page is the door, not the room: read the specific `references/*.md` file that owns the lever before designing or auditing a change.
 
 ## Preserved conventions
 

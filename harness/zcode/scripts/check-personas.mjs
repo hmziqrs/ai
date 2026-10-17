@@ -22,7 +22,42 @@ for (const file of await readdir(resolve(root, "agents"))) {
   assert.ok(["account:zai-individual-coding-plan/GLM-5.3", "account:zai-individual-coding-plan/GLM-5.3-Flash"].includes(fields.model), `${file}: unsupported model`);
   assert.equal(fields.injectAgentsMd, "true", `${file}: repository guidance must be injected`);
   assert.ok(JSON.parse(fields.tools).every((tool) => typeof tool === "string"), `${file}: invalid tool list`);
+  if (fields.name.startsWith("z-")) {
+    const body = text.slice(front[0].length).trim();
+    assert.ok(body.startsWith(`You are ${fields.name}`), `${file}: specialist body must open with role identity`);
+    assert.match(body, /\nSkill routing\n/, `${file}: specialist must include a Skill routing section`);
+    assert.match(body, /^\|.+\|.+\|$/m, `${file}: specialist must include a structured routing table`);
+    assert.match(body, /never edit|read-only/i, `${file}: specialist must state read-only / review edit restrictions`);
+    assert.match(body, /Git/i, `${file}: specialist must forbid Git mutations`);
+    assert.match(body, /nested agents\/workflows|invoke agents|start workflows/i, `${file}: specialist must forbid nested agent/workflow launches`);
+    assert.match(body, /current command/i, `${file}: specialist must require current command output for verification`);
+  }
 }
+
+const specialistsDoc = await readFile(resolve(root, "skills/z-workflow/references/specialists.md"), "utf8");
+for (const name of names) {
+  if (name.startsWith("z-")) {
+    assert.ok(specialistsDoc.includes(`\`${name}\``), `specialists.md is missing ${name}`);
+  }
+}
+
+const gpuiSkill = await readFile(resolve(root, "skills/z-gpui-workflow/SKILL.md"), "utf8");
+assert.match(gpuiSkill, /persona-kit\.dwf\.ts/);
+assert.match(gpuiSkill, /guardWrites/);
+assert.match(gpuiSkill, /z-gpui-engineer/);
+assert.match(gpuiSkill, /z-native-device-verifier/);
+
+const tauriSkill = await readFile(resolve(root, "skills/z-tauri-workflow/SKILL.md"), "utf8");
+assert.match(tauriSkill, /persona-kit\.dwf\.ts/);
+assert.match(tauriSkill, /guardWrites/);
+assert.match(tauriSkill, /z-tauri-integrator/);
+assert.match(tauriSkill, /z-native-device-verifier/);
+
+const rustflowSkill = await readFile(resolve(root, "skills/z-super-rustflow/SKILL.md"), "utf8");
+assert.match(rustflowSkill, /persona-kit\.dwf\.ts/);
+assert.match(rustflowSkill, /guardWrites/);
+assert.match(rustflowSkill, /z-rust-perf-engineer/);
+assert.match(rustflowSkill, /z-unsafe-ffi-auditor/);
 
 const canonicalPath = resolve(root, "skills/z-workflow/persona-kit.dwf.ts");
 const liteflowPath = resolve(root, "skills/z-liteflow/liteflow-template.dwf.ts");

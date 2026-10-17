@@ -5,30 +5,30 @@ agent descriptions. These are routing examples, not a registration list. Resolve
 selected file to an absolute path; project-local definitions take precedence over global
 copies. Do not infer a framework from `hasUI` or file extensions alone.
 
-| Work | Persona |
-|---|---|
-| General Rust | `z-rust-engineer` |
-| Axum HTTP services | `z-axum-engineer` |
-| Svelte components and routes | `z-svelte-engineer` |
-| Astro content, pages and islands | `z-astro-engineer` |
-| GPUI entities, views and desktop interaction | `z-gpui-engineer` |
-| Flutter widgets and application behavior | `z-flutter-engineer` |
-| ElysiaJS services | `z-elysiajs-engineer` |
-| Cloudflare Workers, D1, R2, KV and Durable Objects | `z-cloudflare-engineer` |
-| TanStack data, routing, forms, tables and cross-library behavior | `z-tanstack-engineer` |
-| Rust/frontend IPC and native integration | `z-tauri-integrator` |
-| Profiling and optimization selection | `z-rust-perf-engineer` |
-| Buffer ownership, allocations and zero-copy interfaces | `z-rust-memory-engineer` |
-| Vectorization, SIMD kernels and ISA dispatch | `z-rust-simd-engineer` |
-| Cancellation, synchronization and shutdown correctness | `z-rust-async-engineer` |
-| Unsafe Rust or foreign ownership boundaries | `z-unsafe-ffi-auditor` |
-| API schema and cross-version compatibility | `z-api-contract-engineer` |
-| Durable schema changes and backfills | `z-database-migration-engineer` |
-| Routes, states and user-journey acceptance criteria | `z-product-flow-analyst` |
-| Keyboard, semantics and assistive technology | `z-accessibility-auditor` |
-| Desktop or mobile runtime evidence | `z-native-device-verifier` |
-| Failed build, test or CI diagnosis | `z-ci-diagnostician` |
-| GitHub priorities, dependencies and project planning | `z-github-project-manager` |
+| Work | Persona | Primary domain skills |
+|---|---|---|
+| General Rust libraries and applications | `z-rust-engineer` | `rust-best-practices`, `rust-testing`, `rust-async-patterns` |
+| Axum and Tower HTTP services | `z-axum-engineer` | `axum-web-framework`, `axum-code-review`, `rust-service-comms`, `rust-async-patterns` |
+| Svelte 5 components, runes, and SvelteKit routes | `z-svelte-engineer` | `svelte-code-writer`, `svelte-core-bestpractices`, `shadcn-svelte`, `TanStack Form` |
+| Astro content collections, pages, and islands | `z-astro-engineer` | `astro`, `starwind-ui`, `seo-audit`, `programmatic-seo` |
+| GPUI (`gpui-kit`) entities, views, focus, overlays, and desktop UI | `z-gpui-engineer` | `gpui-kit`, `gpui-kit-design-guides`, `rust-best-practices`, `rust-testing` |
+| Flutter widgets, responsive layouts, routing, and Dart behavior | `z-flutter-engineer` | `flutter-*`, `dart-*` task-matched skills |
+| ElysiaJS routes, schemas, plugins, and Eden clients | `z-elysiajs-engineer` | `elysiajs`, `better-auth`, `drizzle-orm-d1` |
+| Cloudflare Workers, D1, R2, KV, Durable Objects, and Agents SDK | `z-cloudflare-engineer` | `cloudflare`, `workers-best-practices`, `durable-objects`, `wrangler`, `cf-cli`, `workers-profiling`, `agents-sdk` |
+| TanStack Query, Store, DB, Table, Form, Virtual, Router, and Start | `z-tanstack-engineer` | Package-matched TanStack Intent and scoped community skills |
+| Tauri v2 Rust Core commands, IPC, capabilities, plugins, and WebView shell | `z-tauri-integrator` | `tauri-v2`, `tauri`, `understanding-tauri-architecture`, `calling-rust-from-tauri-frontend`, `configuring-tauri-permissions`, `integrating-tauri-js-frontends` |
+| Rust release hygiene, profiling, benchmark variance, and lever triage | `z-rust-perf-engineer` | `rust-superopt` + bottleneck-matched `rust-*` sub-skill |
+| Rust allocation rate, struct/string layout, succinct sets, cache/RSS, and zero-copy buffers | `z-rust-memory-engineer` | `rust-superopt`, `rust-string-perf`, `rust-succinct-structures`, `rust-parallel-cache`, `rust-service-comms`, `rust-fast-architecture`, `rust-embedded-storage` |
+| Rust SIMD crate swaps, autovectorization, portable SIMD, intrinsics, and runtime dispatch | `z-rust-simd-engineer` | `rust-simd-crates`, `rust-simd-kernels`, `rust-superopt` |
+| Rust futures, cancellation safety, `LocalSet`/Tokio contention, and channel/wire backpressure | `z-rust-async-engineer` | `rust-async-patterns`, `rust-fast-architecture`, `rust-parallel-cache`, `rust-service-comms` |
+| Read-only Rust `unsafe`, pointer/layout, `#[target_feature]`, and FFI soundness audit | `z-unsafe-ffi-auditor` | `rust-best-practices`, `code-comments`, `rust-superopt`, `rust-simd-kernels`, `rust-parallel-cache`, `rust-async-patterns` |
+| HTTP, RPC, wire-format, and IPC schema compatibility | `z-api-contract-engineer` | Stack-matched contract skills (`axum-*`, `rust-service-comms`, `calling-rust-from-tauri-frontend`, `elysiajs`, `TanStack *`) |
+| SQL, D1, and embedded storage schema evolution, backfills, and sync durability | `z-database-migration-engineer` | Engine docs + `drizzle-orm-d1`, `cloudflare/references/d1`, `rust-embedded-storage` |
+| Read-only user-journey state/transition matrices and acceptance criteria | `z-product-flow-analyst` | Stack-matched UI/routing skills + `gpui-kit-design-guides` |
+| Read-only keyboard, focus, semantic tree, and contrast accessibility audit | `z-accessibility-auditor` | Stack-matched UI skills + `agent-browser` / `open-computer-use` |
+| Serialized desktop or mobile runtime verification and AX/PNG capture | `z-native-device-verifier` | `open-computer-use`, `gpui-kit`, `tauri-v2`, `tauri`, `flutter-add-integration-test` |
+| Read-only failed build, lint, test, or CI gate classification | `z-ci-diagnostician` | Stack-matched diagnostic skills (`rust-best-practices`, `gpui-kit`, `tauri-v2`, `svelte-code-writer`, `astro`, `react-doctor`, `dart-*`) |
+| Read-only GitHub issue triage, dependency DAGs, milestones, and `gh-ops` plans | `z-github-project-manager` | `shipflow`, `z-workflow`, read-only `gh help` |
 
 Use existing explorer, planner/auditor, security, injection, browser, visual, QA and PR
 review roles when their actual responsibility applies. Shipflow roles retain queue-specific

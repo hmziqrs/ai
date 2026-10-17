@@ -97,6 +97,28 @@ from the session's available-skills index before dispatch, and install missing r
 from approved sources. Do not copy another machine's absolute paths into personas or treat
 an absent required skill as available.
 
+`z-gpui-engineer` and `z-gpui-workflow` reference `gpui-kit` (`references/conventions.md`,
+`references/coding-guides.md`, `references/recipes.md`, and `references/gpui/*.md`) and
+require `gpui-kit-design-guides` (`references/design-guides.md`) for any visible screen,
+layout, spacing, token, overlay, or interaction change, with documented fallback to the
+official `https://gpui-kit.com/docs/*.md` pages when permitted by project policy.
+
+`z-tauri-integrator` and `z-tauri-workflow` reference `tauri-v2`, `tauri`,
+`understanding-tauri-architecture`, `calling-rust-from-tauri-frontend`,
+`configuring-tauri-permissions`, and `integrating-tauri-js-frontends`, separating Rust
+Core (`src-tauri/`), capability/permission boundaries, and static frontend skills. Live
+desktop and mobile verification routes through `z-native-device-verifier` using
+`open-computer-use` (`ocu`) in a serialized single-worker device lane.
+
+The Rust specialists (`z-rust-engineer`, `z-rust-perf-engineer`, `z-rust-memory-engineer`,
+`z-rust-simd-engineer`, `z-rust-async-engineer`, `z-unsafe-ffi-auditor`, and
+`z-axum-engineer`) and `z-super-rustflow` route across this repository's five `languages/rust/*`
+packs (`rust-superopt`, `rust-simd-crates`, `rust-simd-kernels`, `rust-parallel-cache`,
+`rust-fast-architecture`) and the session-installed Rust skills (`rust-string-perf`,
+`rust-succinct-structures`, `rust-service-comms`, `rust-embedded-storage`,
+`rust-best-practices`, `rust-async-patterns`, `rust-testing`, `axum-web-framework`,
+`axum-code-review`).
+
 `z-cloudflare-engineer` references [Cloudflare-maintained skills](https://github.com/cloudflare/skills)
 directly, using installed copies or official source URLs. D1, R2 and KV use the relevant
 product references inside `cloudflare`; Workers, Durable Objects and CLI tasks select their
