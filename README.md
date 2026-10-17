@@ -35,34 +35,34 @@ ai/
 | `explore-flash` | glm-5.3-flash | Read-only search + read-only code audits (reports findings, no verdict authority) |
 | `general-pro` | glm-5.3 | Full-tools general agent for judgment-heavy work (complex implementation, audit verdicts, continue/stop decisions) |
 
-Both flash agents read images natively; GLM-5.3-Flash is the multimodal tier.
+The kit includes workflow authors, reusable domain and verification specialists, and
+Shipflow roles. Agent descriptions select expertise; the coordinator assigns scope and
+explicit analysis, implementation or review authority. See
+[specialist routing](harness/zcode/skills/z-workflow/references/specialists.md).
 
-### Skills (`harness/zcode/skills/`)
+### Workflow skills
 
-Six of the seven z-flow skills are thin coordinators over ONE saved
-workflow: a single `CreateWorkflow saved: zflow-engine` launch with
-`mode: "chain"` runs every area as its own state machine (plan →
-implement → vision → judge, looping per area until clean or honestly
-stopped) — the seventh, z-super-rustflow, composes its own
-main-tier-only runs inline (no vision, no flash anywhere) over the
-rust-* skill family. The engine
-(`harness/zcode/workflows/zflow-engine.dwf.ts`, contract in
-`zflow-SPEC.md` beside it) pins models per subagent in one run
-(`modelProfile`: balanced = pro judgment + flash capture/audit; flash =
-every role on flash), runs the mechanical gates as `world.run` behind a
-literal-command allowlist, and enforces the POLICY exits as loop
-conditions in code. Skills copy to `~/.zcode/skills/` — ZCode-harness
-skills never go to `~/.agents/skills/` (useless in other harnesses, and
-mirroring them doubles every ZCode session's skill index); the engine to
-`~/.zcode/workflows/`, byte-identical to this source copy.
+- `z-workflow`: the author creates a task-specific script from measured signals, with
+  independent worktree lanes, command gates, fresh review and bounded feedback.
+- `z-proflow`: pro-only profile without vision.
+- `z-flashflow`: Flash-only profile with command-backed checks and labelled judgments.
+- `z-liteflow`: a small single-area template with optional domain personas.
+- `z-gpui-workflow` and `z-tauri-workflow`: domain profiles of z-workflow, preserving
+  framework-specific gates, web/native coverage and serialized device capture.
+- `z-super-rustflow`: measurement-first Rust optimization; analysis by default,
+  implementation only when requested.
+- `shipflow`: a per-project issue-to-PR pipeline loading agent files for its roles and
+  planned domain specialists. Follow its [installation procedure](harness/zcode/skills/shipflow/INSTALL.md).
 
-- **z-workflow:** the general entry point — one-launch parallel chain for complex multi-phase tasks; contention decides each area's topology (shared checkout, own worktree + port + browser session, or the serialized device lane).
-- **z-proflow:** the depth-first variant — balanced profile (all-pro judgment, flash only for pixel capture/audit); ocu AX-text structural audits ride the judge's evidence.
-- **z-flashflow:** the all-flash variant (`modelProfile=flash`). Pixel vision included; gates, fresh blind judges, per-finding confirmers, and code-enforced POLICY exits compensate for flash judgment, with hand-off to z-proflow when a complex area stalls.
-- **z-liteflow:** one-launch lightweight chain for small single-domain tasks — one area, flash profile, `commit=false`; the coordinator commits by hand at hand-off.
-- **z-gpui-workflow:** fine-grained GPUI desktop chain — pro implement/judge in-run, flash vision through the ocu device lane (AX text + decoded PNGs) for pixel design audits, and the main-thread computer-use plugin as the interactive fallback lane only.
-- **z-tauri-workflow:** fine-grained Tauri v2 desktop chain — pro implement/judge in-run, flash vision with two lanes (web lane on the tauri dev-server URL for frontend areas, desktop lane via ocu for window/tray/native), and the main-thread computer-use plugin as the interactive fallback lane only.
-- **z-super-rustflow:** Rust super-optimization chain over the rust-* skill family. Main-tier only — no vision node, no flash agents anywhere. Phase-gated: a read-only research phase (explorer/researcher/auditor → Amdahl-ranked findings dossier) is the default; the implement phase (instrumentation round 0, then implement → gates → fresh blind audit) runs only on explicit user opt-in and loops until an audit round surfaces zero novel findings.
+The persona kit records source hashes and selected models, validates role loading and
+checks read-only repository state. Tool metadata is advisory within workflows; change
+checks do not sandbox agents or prevent external effects. Claims of verification require
+command evidence. Local checkout fast-forward follows z-workflow's guarded Step 6;
+remote PR merging has a separate policy. No workflow is launched by installing the kit.
+
+Copy the ZCode agents and whole skill folders using [install.md](install.md). The saved
+engine remains optional for explicit saved-engine runs and has its own
+[contract](harness/zcode/workflows/zflow-SPEC.md).
 
 ## Cross-harness skills
 

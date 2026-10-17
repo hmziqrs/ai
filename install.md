@@ -33,15 +33,13 @@ follow the research-access rule in [AGENTS.md](AGENTS.md).
      (`copy/antislop-copy`, `languages/rust/rust-superopt`, …), is
      cross-harness: copy those to `~/.agents/skills/`, keeping the
      folder name.
-3. z-gpui-workflow and z-tauri-workflow need the engine: copy
-   `harness/zcode/workflows/zflow-engine.dwf.ts` to
-   `~/.zcode/workflows/`. Its contract is `zflow-SPEC.md` beside the
-   source. z-workflow, z-proflow, z-flashflow, and z-liteflow write
-   their own scripts and need no engine; copy whole skill folders, since
-   z-workflow carries `persona-kit.dwf.ts` and z-liteflow carries
-   `liteflow-template.dwf.ts`. z-super-rustflow
-   composes its own inline runs and needs no engine either (it may offer
-   to save a validated `rustflow-engine` later — the user's call).
+3. Copy whole skill folders: `z-workflow` carries the canonical persona kit
+   and routing reference; `z-liteflow` carries its template. GPUI and Tauri
+   profiles use fresh z-workflow scripts. The saved `zflow-engine.dwf.ts`
+   is optional for explicitly requested saved-engine runs; copy it to
+   `~/.zcode/workflows/` only when needed. `z-super-rustflow` composes
+   its own inline runs. Install Shipflow into a project using its
+   [INSTALL.md](harness/zcode/skills/shipflow/INSTALL.md).
 4. Update = re-copy; folders are replaced wholesale. Uninstall = delete
    the copied folders listed above.
 
@@ -74,6 +72,7 @@ ZCode-kit steps above.
 
 - `ls ~/.zcode/agents/` lists `general-flash.md`, `explore-flash.md`,
   `general-pro.md`, `workflow-author.md`, `workflow-author-flash.md`;
+  the `z-*` domain and verification specialists, and the Shipflow roles.
   `find ~/.zcode/agents -type l` prints nothing.
 - `ls ~/.zcode/skills/` lists the seven z-flow skills
   (`z-workflow`, `z-proflow`, `z-flashflow`, `z-liteflow`,
@@ -85,9 +84,25 @@ ZCode-kit steps above.
   `test-quality-audit`), and the five rust skills (`rust-superopt`,
   `rust-simd-crates`, `rust-simd-kernels`, `rust-parallel-cache`,
   `rust-fast-architecture`) — no z-flow skills.
-- `ls ~/.zcode/workflows/` lists `zflow-engine.dwf.ts`.
+- If requested, `~/.zcode/workflows/zflow-engine.dwf.ts` matches its source.
 - Agents load at session start: restart ZCode or open a new session,
-  then Settings → Subagents lists the five agents.
+  then Settings → Subagents lists the copied agents.
+
+## Specialist knowledge
+
+Agent files name primary and task-specific skills. The category packs in this repository
+supply comment/test discipline and Rust performance knowledge. Framework skills, Rust
+practices/testing/async skills and device tooling are separate dependencies. Resolve them
+from the session's available-skills index before dispatch, and install missing requirements
+from approved sources. Do not copy another machine's absolute paths into personas or treat
+an absent required skill as available.
+
+## Source validation
+
+Run `bun harness/zcode/scripts/check-personas.mjs` for metadata, loader behavior and
+embedded-kit consistency; run `bun harness/zcode/scripts/check-shipflow.mjs` for mocked
+queue routing, guard, gate-directory and remote-merge policy scenarios. This does not launch a ZCode
+workflow or prove runtime tool restrictions.
 
 ## Report back
 

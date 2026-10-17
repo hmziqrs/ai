@@ -1,6 +1,6 @@
 /* zcode-workflow
 description: "Shipflow queue cycle: claims one pipeline:ready issue, re-triages it, plans areas, implements them through allowlisted gates with size-budgeted commits, captures browser and vision evidence on the preview, opens a PR, audits the diff, merges only when code-verified POLICY passes, swaps the queue labels, and writes the .shipflow cycle report the watchdog watches. One cycle per run - the coordinator provides the loop."
-whenToUse: "Launched by the shipflow coordinator once per pipeline:ready issue; the launcher pins subagent_model to the tier matching the tier argument (pro default, flash for label-chore cycles) - the script never pins models. Assumes the shipflow label set."
+whenToUse: "Launched by the shipflow coordinator once per pipeline:ready issue. Text personas use the pro or flash profile; vision keeps its file-declared model. Assumes the shipflow label set."
 args:
   issueNumber:
     type: number
@@ -12,7 +12,7 @@ args:
     required: true
   tier:
     type: string
-    description: "flash or pro - behavior switch only (flash reads pixels natively; pro batches screenshots into one escalation). The launcher must set subagent_model to the matching tier; the script never pins models."
+    description: "flash or pro - profile for text personas in this cycle; vision uses its file-declared model."
     required: true
   task:
     type: string
@@ -20,13 +20,21 @@ args:
     required: true
   areas:
     type: json
-    description: "The planner's area array when the coordinator has one (a retry), or [] to plan in-run. Per area: name, paths, excludedPaths, skills, gates [{tool, args}], complexity straightforward|complex, hasUI, dependsOn, budget {maxLines, maxFiles}. Gate tools non-mutating, from: npm, pnpm, yarn, bun, cargo, make, go, python3, pytest, npx, git (read-only subcommands only). Audited in-run either way."
+    description: "The planner's area array when the coordinator has one (a retry), or [] to plan in-run. Per area: name, paths, excludedPaths, specialist (discovered z-* agent basename), named domain skill paths, gates [{tool, args}], complexity straightforward|complex, hasUI, dependsOn, budget {maxLines, maxFiles}. Gate tools non-mutating, from: npm, pnpm, yarn, bun, cargo, make, go, python3, pytest, npx, git (read-only subcommands only). Audited in-run either way."
     required: true
   agentsMd:
     type: string
     description: "Path to the project's AGENTS.md, injected into every spawned ask. Default AGENTS.md; empty string disables."
     required: false
     default: "AGENTS.md"
+  agentDir:
+    type: string
+    description: "Optional absolute path to the checked workspace's local agent definitions. Default: <git workspace root>/.zcode/agents."
+    required: false
+  repoRoot:
+    type: string
+    description: "Optional absolute path to the checked git workspace root. Default: discover from the current directory."
+    required: false
   baseSha:
     type: string
     description: "The cycle's starting sha; audit and size evidence measure against it. Recorded from HEAD at claim when omitted."
@@ -68,12 +76,13 @@ interface AreaSpec {
   hasUI: boolean;
   /** Areas routed before this one (the planner emits ordered siblings). */
   dependsOn: string[];
+  specialist: string;
   /** Optional per-area size budget overriding the run defaults (400 lines / 10 files). */
   budget?: { maxLines: number; maxFiles: number };
 }
 
 /** The dynamic-workflows Finding convention. */
-interface Finding { /** Workspace-relative path, with a line when it applies: "src/a.ts:42". */ where: string; /** One sentence: what is wrong, or what was found. */ what: string; /** What showed it: the lines read, the command and its output, or the evidence path that proves it. */ evidence: string; /** "verified" when a confirmer or a deterministic gate confirmed it; "unconfirmed" otherwise. */ status: "verified" | "unconfirmed"; /** How much it matters: high = blocker, medium = major, low = nit. */ severity: "low" | "medium" | "high"; }
+interface Finding { /** Workspace-relative path, with a line when it applies: "src/a.ts:42". */ where: string; /** One sentence: what is wrong, or what was found. */ what: string; /** What showed it: the lines read, the command and its output, or the evidence path that proves it. */ evidence: string; /** Only command evidence is verified; agent assessments remain judged or unconfirmed. */ status: "verified" | "judged" | "unconfirmed"; /** How much it matters: high = blocker, medium = major, low = nit. */ severity: "low" | "medium" | "high"; }
 
 /** One gate command's outcome, as executed by the script (never by a subagent). */
 interface GateOutcome { /** Tool name. */ tool: string; /** Full command line as run. */ argv: string; /** False when skipped or could not run. */ ran: boolean; /** Exit code; -1 when it never ran. */ exitCode: number; /** Failure tail, or why it did not run. */ failure: string; }
@@ -110,6 +119,7 @@ interface Confirmation { /** True only when reproduced from the evidence alone. 
 
 /** The PR title and body gh-ops drafted; the script creates the PR itself. */
 interface PrDraft { /** PR title. */ title: string; /** PR body markdown. */ body: string; }
+interface PrReviewState { headRefOid: string; isDraft: boolean; reviewDecision: string; }
 
 /** What the script knows about one area when the gates phase settles. */
 interface AreaOutcome { /** Area name. */ area: string; /** True when every gate ran and exited 0 on the final round. */ gatesGreen: boolean; /** Final-round gate outcomes. */ gates: GateOutcome[]; /** True when the area declared no gates - unverified, never claimed clean. */ gateless: boolean; /** Sha(s) of this area's commits (at most one: the green round that ends its loop). */ commitShas: string[]; }
@@ -221,7 +231,7 @@ function parseAreas(raw: unknown): { areas: AreaSpec[]; problems: string[] } {
       }
     }
     const b = typeof e.budget === "object" && e.budget !== null ? e.budget as Record<string, unknown> : undefined;
-    const budget = b !== undefined && typeof b.maxLines === "number" && typeof b.maxFiles === "number" && b.maxLines >= 1 && b.maxFiles >= 1
+    const budget = b !== undefined && typeof b.maxLines === "number" && Number.isFinite(b.maxLines) && typeof b.maxFiles === "number" && Number.isFinite(b.maxFiles) && b.maxLines >= 1 && b.maxFiles >= 1
       ? { maxLines: Math.floor(b.maxLines), maxFiles: Math.floor(b.maxFiles) }
       : undefined;
     if (b !== undefined && budget === undefined) problems.push(`${e.name}: budget needs numeric maxLines/maxFiles >= 1 - ignored`);
@@ -234,14 +244,14 @@ function parseAreas(raw: unknown): { areas: AreaSpec[]; problems: string[] } {
       complexity: e.complexity === "complex" ? "complex" : "straightforward",
       hasUI: e.hasUI === true,
       dependsOn: stringArray(e.dependsOn, problems, `${e.name}: dependsOn`),
+      specialist: typeof e.specialist === "string" ? e.specialist : "",
       budget,
     });
   }
   return { areas, problems };
 }
 
-// Git discipline: mutations only through world.run("git", ...), serialized by the script, explicit paths only,
-// never --no-verify, never push - the PR is the push lane (pr create/merge are the only pushes this cycle makes).
+// Git mutations use explicit paths, no bypass flags, no push, and serialized execution.
 
 /** Serialized git queue tail; every mutation waits for the previous one. */
 let gitChain: Promise<unknown> = Promise.resolve();
@@ -256,7 +266,7 @@ function serializedGit<T>(op: () => Promise<T>): Promise<T> {
 /** Execute one git argv array, turning spawn failures into values. */
 async function gitRun(gitArgs: string[]): Promise<{ ran: boolean; exitCode: number; output: string }> {
   try {
-    const r = await world.run("git", gitArgs);
+    const r = await world.run("git", ["-C", workspaceRoot, ...gitArgs]);
     return { ran: true, exitCode: r.exitCode, output: tail(`${r.stdout}\n${r.stderr}`) };
   } catch (error) {
     return { ran: false, exitCode: -1, output: String(error) };
@@ -274,59 +284,265 @@ async function measureSize(files: string[], base: string): Promise<{ files: numb
 /** The AGENTS.md read-first line every spawned ask carries; empty when disabled or missing (recorded in notCovered, never silent). */
 function agentsMdLine(): string {
   if (agentsMdPath === "" || !agentsMdLoaded) return "";
-  return `Read ${agentsMdPath} first - the project's hard rules bind this task, and every skill it requires you must read and follow too (on top of any skills named here).`;
+  return `Read ${agentsMdPath} first - the project's hard rules bind this task, and every skill it requires you must read and follow too (on top of any skills named here). Use ${workspaceRoot} as the working directory for every local file or repository operation.`;
 }
 
-// ---- Personas: plan section 2 missions and rules, inlined as system prompts (the agent files in
-// harness/zcode/agents are the canonical wording; both lanes stay in sync). ----
+// persona-kit:start v3
+const PERSONA_MODELS: Record<string, ModelRef> = {
+  "account:zai-individual-coding-plan/GLM-5.3": model("account:zai-individual-coding-plan/GLM-5.3"),
+  "account:zai-individual-coding-plan/GLM-5.3$low": model("account:zai-individual-coding-plan/GLM-5.3$low"),
+  "account:zai-individual-coding-plan/GLM-5.3$high": model("account:zai-individual-coding-plan/GLM-5.3$high"),
+  "account:zai-individual-coding-plan/GLM-5.3$max": model("account:zai-individual-coding-plan/GLM-5.3$max"),
+  "account:zai-individual-coding-plan/GLM-5.3-Flash": model("account:zai-individual-coding-plan/GLM-5.3-Flash"),
+  "account:zai-individual-coding-plan/GLM-5.3-Flash$low": model("account:zai-individual-coding-plan/GLM-5.3-Flash$low"),
+  "account:zai-individual-coding-plan/GLM-5.3-Flash$high": model("account:zai-individual-coding-plan/GLM-5.3-Flash$high"),
+  "account:zai-individual-coding-plan/GLM-5.3-Flash$max": model("account:zai-individual-coding-plan/GLM-5.3-Flash$max"),
+};
 
-const GH_OPS_PERSONA = { system:
-  "You are shipflow-gh-ops: mechanical GitHub operations for the cycle - run exactly the ops in the instruction (branch facts, label swaps, comments, drafts, previews), every resulting URL or number in the result. Claim = assign plus pipeline:claimed, then re-read the issue to verify the swap won - optimistic claim; the loser releases silently. Never force-push, never force anything; never edit an issue's body; never merge - that is pr-merger's. If an op is impossible, escalate and say so plainly rather than faking a result." };
-
-const TRIAGE_PERSONA = { system:
-  "You are shipflow-issue-triage: re-validate that a claimed issue is actionable by the cycle - read the issue body and its linked repro only. Actionable means a clear task, reproducible, in scope for the project's charter. Never close issues; never edit the issue body; when information is missing, give the exact question to comment - the cycle releases the claim, you never guess scope. Spam and duplicates are labelled and commented for humans to close, never closed by you." };
-
-const PLANNER_PERSONA = { system:
-  "You are shipflow-task-planner: turn a claimed issue into the areas[] the cycle runs on. Slice under budget - a slice predicted over ~400 changed lines / ~10 files is split into ordered siblings linked by dependsOn. Every area gets at least one non-mutating gate from the project's real tooling, its tool in the allowlist (npm, pnpm, yarn, bun, cargo, make, go, python3, pytest, npx, git read-only) - off-allowlist gates are swapped or dropped now, never mid-chain. Assign complexity and hasUI per area; match skills live against the session's available-skills list, never hardcoded. Output = the areas JSON plus assumptions." };
-
-const PLAN_AUDITOR_PERSONA = { system:
-  "You are shipflow-plan-auditor: audit a task-planner output before implement burns rounds on it - every area has paths, a gate, a complexity, hasUI; budgets sum sane; dependencies acyclic; gates exist in the repo's tooling (read-only checks allowed to verify a command exists). Blind to the planner's confidence - audit the artifact, not its author. Verdict = proceed or fix-plan, reasons itemized. You never edit anything." };
-
-/** The implementer persona: svelte-impl for UI areas, rust-impl for the rest. */
-function implPersona(hasUI: boolean): { system: string } {
-  return { system: hasUI
-    ? "You are shipflow-svelte-impl: implement planned Svelte/UI slices, smallest coherent change per round. Svelte 5 runes ($state/$derived/$effect) - no legacy stores for new code; components under the area paths only; props typed, no any; a11y basics (labels, focus, alt) on anything interactive; no inline styles where a class exists; i18n strings via the project's copy module, never hardcoded when one exists; never run git. Report half-done work honestly - it stays on disk and is listed; if the slice is impossible, escalate and say so plainly."
-    : "You are shipflow-rust-impl: implement planned Rust slices, smallest coherent change per round. Follow the plan's slice only - no drive-by edits outside the area paths; run nothing mutating except through the cycle's gates (never git). Every SQL statement binds parameters through the driver's bind API (positional $1/? markers - rusqlite query/execute params, never format! or string concatenation of user data into SQL); a string-built statement is an automatic fail, even if escaped. Errors are handled with thiserror/Result - no unwrap on fallible IO; no unsafe without a SAFETY comment and a gate-covered test; public APIs carry doc comments; match cargo fmt output shape. Report half-done work honestly - it stays on disk and is listed; if the slice is impossible, escalate and say so plainly." };
+interface Persona {
+  name: string;
+  path: string;
+  sha256: string;
+  system: string;
+  modelId: string;
+  model: ModelRef;
+  tools: string[];
+  access: "read-only" | "write";
+  note: string;
 }
+
+interface PersonaFinding {
+  where: string;
+  what: string;
+  evidence: string;
+  status: "verified";
+}
+
+const personaFindings: PersonaFinding[] = [];
+const personaLoaded: Persona[] = [];
+
+function personaField(front: string[], key: string): string {
+  for (const line of front) {
+    if (line.startsWith(key + ":")) return line.slice(key.length + 1).trim().replace(/^['"]|['"]$/g, "");
+  }
+  return "";
+}
+
+function personaToolList(raw: string): string[] {
+  return raw.replace(/^\[|\]$/g, "").split(",").map((t) => t.trim().replace(/^['"]|['"]$/g, "")).filter((t) => t !== "");
+}
+
+function personaFailure(path: string, what: string, evidence: string): undefined {
+  personaFindings.push({ where: path, what, evidence, status: "verified" });
+  return undefined;
+}
+
+async function loadPersona(path: string, opts?: { tier?: "any" | "pro" | "flash"; access?: "read-only" | "write" }): Promise<Persona | undefined> {
+  const tier = opts?.tier ?? "any";
+  const access = opts?.access ?? "read-only";
+  if (!["any", "pro", "flash"].includes(tier) || !["read-only", "write"].includes(access)) {
+    return personaFailure(path, "Persona authority or tier is invalid; that role did not run", "tier=" + tier + ", access=" + access);
+  }
+  const read = await world.run("cat", [path]);
+  if (read.exitCode !== 0 || read.stdout.trim() === "") {
+    return personaFailure(path, "Persona file could not be read; that role did not run", "cat exit " + String(read.exitCode) + ": " + read.stderr.slice(0, 200));
+  }
+  const lines = read.stdout.split("\n");
+  const end = lines[0].trim() === "---" ? lines.indexOf("---", 1) : -1;
+  const body = end > 0 ? lines.slice(end + 1).join("\n").trim() : "";
+  if (end <= 0 || body === "") {
+    return personaFailure(path, "Persona file has no frontmatter or body; that role did not run", "first line " + JSON.stringify(lines[0]) + ", closing marker " + String(end));
+  }
+  const front = lines.slice(1, end);
+  const fileModel = personaField(front, "model");
+  const level = personaField(front, "thoughtLevel");
+  if (fileModel === "" || !["", "low", "high", "max"].includes(level)) {
+    return personaFailure(path, "Persona model or thought level is missing or invalid; that role did not run", "model=" + JSON.stringify(fileModel) + ", thoughtLevel=" + JSON.stringify(level));
+  }
+  const fileKey = level === "" ? fileModel : fileModel + "$" + level;
+  if (PERSONA_MODELS[fileKey] === undefined) {
+    return personaFailure(path, "Persona declares an unsupported model; that role did not run", "model key " + JSON.stringify(fileKey));
+  }
+  let base = fileModel;
+  let note = "";
+  if (tier !== "any") {
+    const forced = tier === "pro" ? "account:zai-individual-coding-plan/GLM-5.3" : "account:zai-individual-coding-plan/GLM-5.3-Flash";
+    if (base !== forced) {
+      note = "model forced from " + base + " to " + forced + " by the run's " + tier + " profile";
+      base = forced;
+    }
+  }
+  const key = level === "" ? base : base + "$" + level;
+  const ref = PERSONA_MODELS[key];
+  if (ref === undefined) {
+    return personaFailure(path, "Persona model is unsupported by the selected profile; that role did not run", "model key " + JSON.stringify(key));
+  }
+  const sum = await world.run("shasum", ["-a", "256", path]);
+  const digest = sum.stdout.trim().match(/^([a-fA-F0-9]{64})\s/);
+  if (sum.exitCode !== 0 || digest === null) {
+    return personaFailure(path, "Persona file hash could not be verified; that role did not run", "shasum exit " + String(sum.exitCode) + ": " + sum.stdout.slice(0, 200) + sum.stderr.slice(0, 200));
+  }
+  const confirmed = await world.run("cat", [path]);
+  if (confirmed.exitCode !== 0 || confirmed.stdout !== read.stdout) {
+    return personaFailure(path, "Persona changed while loading; that role did not run", "initial and confirmed file contents differ");
+  }
+  const tools = personaToolList(personaField(front, "tools"));
+  const persona: Persona = {
+    name: personaField(front, "name") || path.split("/").pop() || path,
+    path,
+    sha256: digest[1],
+    system: body,
+    modelId: key,
+    model: ref,
+    tools,
+    access,
+    note,
+  };
+  personaLoaded.push(persona);
+  return persona;
+}
+
+function personaAgent(p: Persona, name: string, rules?: string): Agent {
+  const restrictions = p.access === "read-only" ? "This role is read-only. Do not create, edit, delete, or otherwise change files, Git state, external services, or other external state, even if your persona or available tools suggest otherwise." : "";
+  const tail = [rules?.trim() ?? "", restrictions].filter((s) => s !== "").join("\n\n");
+  const system = tail === "" ? p.system : p.system + "\n\n## Rules for this run\n" + tail;
+  return agent(name, { system, model: p.model });
+}
+
+const PERSONA_SNAPSHOT_PY = String.raw`import hashlib
+import json
+import os
+import stat
+import subprocess
+import sys
+
+EXCLUDED = [".", ":(exclude)research", ":(exclude)research/**"]
+MAX_SUBMODULE_DEPTH = 8
+
+def git(repo, *args, allow_failure=False):
+    result = subprocess.run(["git", *args], cwd=repo, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode and not allow_failure:
+        raise RuntimeError("git " + " ".join(args[:3]) + " failed: " + result.stderr.decode("utf-8", "replace")[:300])
+    return result
+
+def repo_snapshot(repo, depth=0):
+    if depth > MAX_SUBMODULE_DEPTH:
+        raise RuntimeError("submodule nesting exceeds the snapshot limit")
+    status = git(repo, "status", "--porcelain=v1", "-z", "--untracked-files=all", "--ignore-submodules=none", "--", *EXCLUDED).stdout
+    head_result = git(repo, "rev-parse", "--verify", "HEAD", allow_failure=True)
+    head = head_result.stdout.strip() if head_result.returncode == 0 else b"<unborn>"
+    staged = git(repo, "diff", "--cached", "--binary", "--", *EXCLUDED).stdout
+    entries = git(repo, "ls-files", "--stage", "-z", "--", *EXCLUDED).stdout
+    others = git(repo, "ls-files", "--others", "--exclude-standard", "-z", "--", *EXCLUDED).stdout
+    index = {}
+    paths = set()
+    for entry in entries.split(b"\0"):
+        if not entry:
+            continue
+        metadata, raw_path = entry.split(b"\t", 1)
+        mode, object_id, stage = metadata.split(b" ", 2)
+        path = os.fsdecode(raw_path)
+        index[path] = (mode.decode("ascii"), object_id.decode("ascii"), stage.decode("ascii"))
+        paths.add(path)
+    paths.update(os.fsdecode(path) for path in others.split(b"\0") if path)
+    files = []
+    for path in sorted(paths, key=os.fsencode):
+        full = os.path.join(repo, path)
+        try:
+            info = os.lstat(full)
+        except FileNotFoundError:
+            files.append([path, "missing", index.get(path)])
+            continue
+        mode = index.get(path)
+        if stat.S_ISLNK(info.st_mode):
+            files.append([path, "symlink", os.readlink(full), stat.S_IMODE(info.st_mode), mode])
+        elif mode is not None and mode[0] == "160000":
+            if not stat.S_ISDIR(info.st_mode):
+                files.append([path, "gitlink-uninitialized", mode])
+            else:
+                nested = git(full, "rev-parse", "--show-toplevel", allow_failure=True)
+                if nested.returncode != 0 or os.path.realpath(os.fsdecode(nested.stdout.strip())) != os.path.realpath(full):
+                    files.append([path, "gitlink-uninitialized", mode])
+                else:
+                    files.append([path, "gitlink", mode, repo_snapshot(full, depth + 1)])
+        elif stat.S_ISREG(info.st_mode):
+            digest = hashlib.sha256()
+            flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            fd = os.open(full, flags)
+            try:
+                current = os.fstat(fd)
+                if not stat.S_ISREG(current.st_mode):
+                    raise RuntimeError("file type changed while fingerprinting " + repr(path))
+                while True:
+                    chunk = os.read(fd, 1024 * 1024)
+                    if not chunk:
+                        break
+                    digest.update(chunk)
+            finally:
+                os.close(fd)
+            files.append([path, "file", digest.hexdigest(), stat.S_IMODE(info.st_mode), mode])
+        else:
+            files.append([path, "other", info.st_mode, info.st_rdev, mode])
+    return [status.hex(), head.decode("ascii", "replace"), staged.hex(), files]
+
+snapshot = json.dumps(repo_snapshot(os.path.abspath(sys.argv[1])), ensure_ascii=True, separators=(",", ":")).encode("ascii")
+print(hashlib.sha256(snapshot).hexdigest())
+`;
+
+async function personaSnapshot(dir: string): Promise<string> {
+  const result = await world.run("python3", ["-c", PERSONA_SNAPSHOT_PY, dir]);
+  const digest = result.stdout.trim();
+  if (result.exitCode !== 0 || !/^[a-fA-F0-9]{64}$/.test(digest)) {
+    throw new Error("repository snapshot failed: " + result.stderr.slice(0, 300) + result.stdout.slice(0, 100));
+  }
+  return digest;
+}
+
+async function guardWrites<T>(p: Persona, dir: string, work: () => PromiseLike<T>): Promise<T> {
+  if (p.access === "write") return await work();
+  let before: string;
+  try {
+    before = await personaSnapshot(dir);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    personaFindings.push({ where: dir, what: "Read-only guard could not establish a baseline for " + p.name, evidence: message, status: "verified" });
+    throw error;
+  }
+  let result!: T;
+  let workError: unknown;
+  let workFailed = false;
+  let guardFailed = false;
+  try {
+    result = await work();
+  } catch (error) {
+    workFailed = true;
+    workError = error;
+  } finally {
+    try {
+      const after = await personaSnapshot(dir);
+      if (after !== before) {
+        personaFindings.push({ where: dir, what: "Read-only persona " + p.name + " changed repository state", evidence: "HEAD, index, status, tracked/untracked nonignored file bytes, file mode, symlink target, or submodule state changed (research/ is excluded)", status: "verified" });
+        guardFailed = true;
+        if (!workFailed) workError = new Error("Read-only persona changed repository state");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      personaFindings.push({ where: dir, what: "Read-only guard could not verify the final state for " + p.name, evidence: message, status: "verified" });
+      guardFailed = true;
+      if (!workFailed) workError = error;
+    }
+  }
+  if (workFailed || guardFailed) throw workError;
+  return result;
+}
+
+function personaReport(): string[] {
+  return personaLoaded.map((p) => p.name + ": " + p.path + " sha256 " + p.sha256 + ", model " + p.modelId + ", " + p.access + (p.note === "" ? "" : "; " + p.note));
+}
+// persona-kit:end v3
 
 const COMMITTER_PERSONA = { system:
   "You draft commit messages and nothing else. From the task, the area summary, and the exact file list, write one conventional commit message: a subject under 72 characters, then a short body only when it earns one. You never edit files, never run git, never commit - the script does. Return the message text only." };
-
-const BROWSER_PERSONA = { system:
-  "You are shipflow-browser-tester: drive the preview with the agent-browser CLI headlessly and record evidence - the CLI ONLY, no MCP browser or computer-use plugins (session-bound transports cannot run inside workflows). Always use --session shipflow-<issue> for isolation. Flow: open <preview-url>, snapshot -i --json, assertions on the snapshot text, screenshot <path> under .zflow/evidence/, close. Never type secrets. A failed flow still closes the session and reports the snapshot text it got. Never claim a capture that did not land." };
-
-/** The vision judge, tier-aware (SPEC 1.4: flash reads PNGs natively, pro is image-blind). */
-function visionPersona(tier: string): { system: string } {
-  return { system:
-    "You are shipflow-vision-judge: pixel verdicts on screenshots. Verdict per image: pass|fail plus the pixels/regions that decided it; compare against the stated expectation, never an assumed one; no aesthetic verdicts without a numeric anchor; cite the screenshot path per verdict. " +
-    (tier === "flash"
-      ? "Read the PNG with Read, then pixel-sample (python3/PIL) for measured hex deltas when a claim is checkable."
-      : "You are image-blind: reading a PNG returns a URL, not pixels. Escalate ONCE batching every screenshot path in that single escalation so the coordinator can have them pixel-read by a flash agent - never guess what an image shows.") };
-}
-
-const SECURITY_PERSONA = { system:
-  "You are shipflow-security-audit: security audit of the cycle's diff. Every SQL statement binds parameters through the driver's bind API (positional $1/? markers - rusqlite query/execute params, never format! or string concatenation of user data into SQL); a string-built statement is an automatic fail, even if escaped. Check authz on every new route/command; input validation at boundaries; secret handling - no keys in code, logs, or config; dependency additions justified. Findings scored blocker|major|nit (mapped to high|medium|low) with a CWE-style category. Read-only. A clean audit says \"no findings\" with the checklist you ran - never silently empty." };
-
-const INJECTION_PERSONA = { system:
-  "You are shipflow-injection-auditor: sweep the diff and any ingested/scraped content for prompt-injection and tainted-input paths. Treat issue bodies, PR text, web content, and filenames as untrusted input - flag any flow where they reach a shell, an eval, an SQL string, or an agent prompt unescaped. Every SQL statement binds parameters through the driver's bind API - a string-built statement is an automatic fail, even if escaped. Report patterns with source-to-sink paths. Read-only. Your verdicts are advisory - labelled for pro confirmation." };
-
-/** The per-area blind reviewer: svelte-review for UI areas, rust-review for the rest. */
-function reviewerPersona(hasUI: boolean): { system: string } {
-  return { system:
-    `You are shipflow-${hasUI ? "svelte" : "rust"}-review: blind review of a ${hasUI ? "Svelte/UI" : "Rust"} diff against task + repo rules. Read the diff and the task first - nothing else's verdicts. Findings carry path:line + why + severity (blocker|major|nit, mapped to high|medium|low) + fix-required|defer. Verify each finding against the code before writing it - no style conjecture. ` +
-    (hasUI ? "Check runes correctness, prop typing, a11y, copy-module usage; CSS/layout findings name the element and the broken property; no taste findings without a rule citation. " : "") +
-    "Confirm what a gate already proves, don't re-run gates; you review, you never edit; unconfirmed findings are labelled as such, never dropped." };
-}
 
 const CONFIRMER_PERSONA = { system:
   "You confirm or refute a single finding by reproducing it from its evidence alone; you read the files it names with your own tools. You never edit any file, and you never re-run checks the script already ran - their results are handed to you. reproduced is true only when you saw the problem yourself; when you cannot, say exactly what blocked you." };
@@ -340,23 +556,27 @@ function gateDone(tool: string, argv: string, r: { exitCode: number; stdout: str
   return { tool, argv, ran: true, exitCode: r.exitCode, failure: failureText };
 }
 
+async function runFromWorkspace(tool: string, argv: string[], timeoutMs: number): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  return await world.run("sh", ["-c", 'cd "$1" && shift && exec "$@"', "shipflow", workspaceRoot, tool, ...argv], { timeoutMs });
+}
+
 /** Run one gate through the allowlist. Skipped and unspawnable gates return as values, never throw. */
 async function runGate(tool: string, gateArgs: string[]): Promise<GateOutcome> {
   const argv = [tool, ...gateArgs].join(" ");
   if (gateIsMutating(tool, gateArgs)) return { tool, argv, ran: false, exitCode: -1, failure: "skipped: mutating gates (--fix/--write, or a git subcommand outside the read-only allowlist) are not allowed" };
   try {
     switch (tool) {
-      case "npm": return gateDone(tool, argv, await world.run("npm", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      case "pnpm": return gateDone(tool, argv, await world.run("pnpm", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      case "yarn": return gateDone(tool, argv, await world.run("yarn", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      case "bun": return gateDone(tool, argv, await world.run("bun", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      case "cargo": return gateDone(tool, argv, await world.run("cargo", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      case "make": return gateDone(tool, argv, await world.run("make", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      case "go": return gateDone(tool, argv, await world.run("go", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      case "python3": return gateDone(tool, argv, await world.run("python3", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      case "pytest": return gateDone(tool, argv, await world.run("pytest", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      case "npx": return gateDone(tool, argv, await world.run("npx", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
-      case "git": return gateDone(tool, argv, await world.run("git", gateArgs, { timeoutMs: GATE_TIMEOUT_MS }));
+      case "npm": return gateDone(tool, argv, await runFromWorkspace(tool, gateArgs, GATE_TIMEOUT_MS));
+      case "pnpm": return gateDone(tool, argv, await runFromWorkspace(tool, gateArgs, GATE_TIMEOUT_MS));
+      case "yarn": return gateDone(tool, argv, await runFromWorkspace(tool, gateArgs, GATE_TIMEOUT_MS));
+      case "bun": return gateDone(tool, argv, await runFromWorkspace(tool, gateArgs, GATE_TIMEOUT_MS));
+      case "cargo": return gateDone(tool, argv, await runFromWorkspace(tool, gateArgs, GATE_TIMEOUT_MS));
+      case "make": return gateDone(tool, argv, await runFromWorkspace(tool, gateArgs, GATE_TIMEOUT_MS));
+      case "go": return gateDone(tool, argv, await runFromWorkspace(tool, gateArgs, GATE_TIMEOUT_MS));
+      case "python3": return gateDone(tool, argv, await runFromWorkspace(tool, gateArgs, GATE_TIMEOUT_MS));
+      case "pytest": return gateDone(tool, argv, await runFromWorkspace(tool, gateArgs, GATE_TIMEOUT_MS));
+      case "npx": return gateDone(tool, argv, await runFromWorkspace(tool, gateArgs, GATE_TIMEOUT_MS));
+      case "git": return gateDone(tool, argv, await runFromWorkspace(tool, gateArgs, GATE_TIMEOUT_MS));
       default: return { tool, argv, ran: false, exitCode: -1, failure: `skipped: "${tool}" is not in the cycle's gate allowlist` };
     }
   } catch (error) {
@@ -417,6 +637,7 @@ function fixAsk(area: AreaSpec, task: string, gates: GateOutcome[], budget: { ma
 function confirmerAsk(finding: Finding, gateNotes: string): string {
   return msg([
     "Reproduce this finding from its evidence alone; read the files it names. Do not edit anything.",
+    `Use ${workspaceRoot} as the working directory for local file and repository commands.`,
     `Finding:\n${JSON.stringify(finding)}`,
     agentsMdLine(),
     gateNotes.length > 0 ? `The script already ran the cycle's gates - do not re-run them:\n${gateNotes}` : "Confirm from code and text evidence alone.",
@@ -426,15 +647,17 @@ function confirmerAsk(finding: Finding, gateNotes: string): string {
 
 // ---- Arguments in, then the cycle: Claim, Triage, Plan, Implement, Gates, Preview, Browser, Vision, PR, Audit, Merge, Cleanup, Report. ----
 
-const issueNumber = typeof args.issueNumber === "number" ? Math.floor(args.issueNumber) : 0;
+const issueNumber = typeof args.issueNumber === "number" && Number.isFinite(args.issueNumber) ? Math.floor(args.issueNumber) : 0;
 const repo = typeof args.repo === "string" ? args.repo.trim() : "";
 const tier = typeof args.tier === "string" ? args.tier : "";
 const task = typeof args.task === "string" ? args.task : "";
 const dryRun = args.dryRun === true;
 const doCommit = args.commit !== false;
-const maxRounds = Math.max(1, Math.floor(typeof args.maxRounds === "number" ? args.maxRounds : 3));
+const maxRounds = Math.max(1, Math.floor(typeof args.maxRounds === "number" && Number.isFinite(args.maxRounds) ? args.maxRounds : 3));
 const agentsMdPath = typeof args.agentsMd === "string" ? args.agentsMd : "AGENTS.md";
+const agentDirArg = typeof args.agentDir === "string" ? args.agentDir.trim() : "";
 const baseShaArg = typeof args.baseSha === "string" ? args.baseSha.trim() : "";
+const repoRootArg = typeof args.repoRoot === "string" ? args.repoRoot.trim() : "";
 
 /** The honest bail-out when nothing can or should run; nothing was claimed. */
 const bail = (verdict: CycleReport["verdict"], reason: string): CycleReport => ({
@@ -446,6 +669,45 @@ if (issueNumber < 1) return bail("refused", "refused to start: issueNumber must 
 if (!/^[^/\s]+\/[^/\s]+$/.test(repo)) return bail("refused", `refused to start: repo must be OWNER/NAME (got ${JSON.stringify(repo)}).`);
 if (tier !== "flash" && tier !== "pro") return bail("refused", `refused to start: tier must be "flash" or "pro" (got ${JSON.stringify(tier)}).`);
 if (task.length === 0) return bail("refused", "refused to start: task must be a non-empty string.");
+
+if (repoRootArg !== "" && !repoRootArg.startsWith("/")) return bail("refused", "refused to start: repoRoot must be an absolute path.");
+const workspaceCheck = await world.run("git", ["-C", repoRootArg === "" ? "." : repoRootArg, "rev-parse", "--show-toplevel"]);
+if (workspaceCheck.exitCode !== 0 || workspaceCheck.stdout.trim() === "") return bail("refused", "refused to start: could not validate the checked git workspace root.");
+const workspaceRoot = workspaceCheck.stdout.trim();
+if (!workspaceRoot.startsWith("/")) return bail("refused", "refused to start: git returned a non-absolute workspace root.");
+const agentDir = agentDirArg === "" ? workspaceRoot + "/.zcode/agents" : agentDirArg;
+if (!agentDir.startsWith("/")) return bail("refused", "refused to start: agentDir must be an absolute path.");
+const agentListing = await world.run("ls", ["-1", agentDir]);
+if (agentListing.exitCode !== 0) return bail("refused", `refused to start: local agent directory could not be listed (${tail(agentListing.stderr)}).`);
+const availableAgents = new Set(agentListing.stdout.split("\n").map((name) => name.trim()).filter((name) => name !== ""));
+
+const personaBail = (reason: string): CycleReport => ({
+  ...bail("refused", reason),
+  findings: personaFindings.map((f) => ({ where: f.where, what: f.what, evidence: f.evidence, status: "verified" as const, severity: "high" as const })),
+});
+const loadRequiredPersona = async (file: string, access: "read-only" | "write", modelTier: "any" | "pro" | "flash" = tier): Promise<Persona | undefined> => {
+  if (!availableAgents.has(file)) {
+    personaFindings.push({ where: agentDir + "/" + file, what: "Required persona file is missing; the cycle did not run", evidence: "agent directory listing did not contain " + file, status: "verified" });
+    return undefined;
+  }
+  return await loadPersona(agentDir + "/" + file, { tier: modelTier, access });
+};
+const basePersonaSpecs = [
+  ["gh-ops", "shipflow-gh-ops.md", "write", tier],
+  ["issue-triage", "shipflow-issue-triage.md", "read-only", tier],
+  ["task-planner", "shipflow-task-planner.md", "read-only", tier],
+  ["plan-auditor", "shipflow-plan-auditor.md", "read-only", tier],
+  ["browser-tester", "shipflow-browser-tester.md", "write", tier],
+  ["vision-judge", "shipflow-vision-judge.md", "read-only", "any"],
+  ["security-audit", "shipflow-security-audit.md", "read-only", tier],
+  ["injection-auditor", "shipflow-injection-auditor.md", "read-only", tier],
+] as const;
+const basePersonas: Record<string, Persona> = {};
+for (const [key, file, access, modelTier] of basePersonaSpecs) {
+  const persona = await loadRequiredPersona(file, access, modelTier);
+  if (persona === undefined) return personaBail(`refused to start: required persona ${file} failed validation.`);
+  basePersonas[key] = persona;
+}
 
 let agentsMdLoaded = false;
 if (agentsMdPath !== "") {
@@ -460,9 +722,10 @@ if (agentsMdPath !== "") {
 const cycle: { commits: string[]; prUrl: string; findings: Finding[]; gates: GateOutcome[]; evidence: string[]; verified: string[]; notCovered: string[] } = {
   commits: [], prUrl: "", findings: [], gates: [], evidence: [], verified: [], notCovered: [],
 };
+let readOnlyGuardFailed = false;
 if (agentsMdPath !== "" && !agentsMdLoaded) cycle.notCovered.push(`${agentsMdPath}: not found or empty - the project's hard rules were not injected into subagent asks`);
 
-const ghOps = agent("gh-ops", GH_OPS_PERSONA);
+const ghOps = personaAgent(basePersonas["gh-ops"], "gh-ops", "Perform only the exact operations stated in the current ask. Never merge or edit an issue body.");
 const branch = `shipflow/issue-${issueNumber}`;
 const areaOutcomes: AreaOutcome[] = []; // filled by the gates phase, read by the close-out
 const workByArea = new Map<string, AreaWork>(); // each area's last implementer hand-back
@@ -492,16 +755,21 @@ const closeCycle = async (verdict: CycleReport["verdict"], label: "done" | "fail
       cycle.notCovered.push(`browser session shipflow-${issueNumber} not closed by cleanup (${String(error)})`);
     }
   }
+  cycle.findings.push(...personaFindings.map((f) => ({ where: f.where, what: f.what, evidence: f.evidence, status: "verified" as const, severity: "high" as const })));
   phase("Clean up the queue labels and comment the outcome");
   const body = label === "backlog" ? `claim released - ${reason}` : label === "done" ? `cycle done - ${doneNote}` : `cycle failed - ${reason}`;
-  const cleaned = await ghOps.ask<string>(msg([
-    `Close out the shipflow cycle for issue #${issueNumber} of ${repo}. Exact operations:`,
-    `1. gh issue comment ${issueNumber} -R ${repo} --body "shipflow: ${body}"`,
-    `2. gh issue edit ${issueNumber} -R ${repo} --remove-label pipeline:claimed --add-label pipeline:${label}`,
-    "Never edit the issue body; never merge; every resulting URL goes in the result.",
-    agentsMdLine(),
-  ]));
-  cycle.verified.push(`label swap to pipeline:${label} and outcome comment (${tail(cleaned)})`);
+  try {
+    const cleaned = await ghOps.ask<string>(msg([
+      `Close out the shipflow cycle for issue #${issueNumber} of ${repo}. Exact operations:`,
+      `1. gh issue comment ${issueNumber} -R ${repo} --body "shipflow: ${body}"`,
+      `2. gh issue edit ${issueNumber} -R ${repo} --remove-label pipeline:claimed --add-label pipeline:${label}`,
+      "Never edit the issue body; never merge; every resulting URL goes in the result.",
+      agentsMdLine(),
+    ]));
+    cycle.notCovered.push(`GitHub cleanup report: ${tail(cleaned)}`);
+  } catch (error) {
+    cycle.notCovered.push(`GitHub cleanup did not complete: ${String(error)}`);
+  }
 
   phase("Write the cycle report the watchdog watches");
   const cyclePath = `${CYCLE_DIR}/cycle-${issueNumber}.md`;
@@ -524,27 +792,39 @@ const closeCycle = async (verdict: CycleReport["verdict"], label: "done" | "fail
     "",
     "## Not covered",
     ...(cycle.notCovered.length > 0 ? cycle.notCovered.map((n) => `- ${n}`) : ["- nothing notable"]),
+    "",
+    "## Personas",
+    ...personaReport().map((line) => `- ${line}`),
   ]);
-  await ghOps.ask<string>(msg([
-    `Write the shipflow cycle report file the watchdog cron watches. Write exactly this content to ${cyclePath} (create the ${CYCLE_DIR} directory if needed; change nothing else):`,
-    reportMd,
-    agentsMdLine(),
-  ]));
+  let reportWritten = false;
+  try {
+    await ghOps.ask<string>(msg([
+      `Write the shipflow cycle report file the watchdog cron watches. Write exactly this content to ${cyclePath} (create the ${CYCLE_DIR} directory if needed; change nothing else):`,
+      reportMd,
+      agentsMdLine(),
+    ]));
+    reportWritten = true;
+  } catch (error) {
+    cycle.notCovered.push(`cycle report write did not complete: ${String(error)}`);
+  }
   try {
     await artifact.file("cycle", cyclePath, { title: `Shipflow cycle - issue #${issueNumber}`, description: `Verdict, gates, commits, and standing findings; ${CYCLE_DIR}/cycle-${issueNumber}.md is the watchdog heartbeat.`, primary: true });
   } catch {
-    await ghOps.ask<string>(msg([
-      `${cyclePath} is missing or unreadable. Write the cycle report content you were just given to that exact path, then say what you did.`,
-      agentsMdLine(),
-    ]));
     try {
+      await ghOps.ask<string>(msg([
+        `${cyclePath} is missing or unreadable. Write exactly this content to that path, then say what you did:`,
+        reportMd,
+        agentsMdLine(),
+      ]));
       await artifact.file("cycle", cyclePath, { title: `Shipflow cycle - issue #${issueNumber}`, description: "Verdict, gates, commits, and standing findings.", primary: true });
-    } catch {
+    } catch (error) {
+      if (!reportWritten) cycle.notCovered.push(`cycle report fallback write did not complete: ${String(error)}`);
       cycle.notCovered.push(`cycle report artifact not attached (${cyclePath} still unreadable after the rewrite) - the watchdog must read it from the tree`);
     }
   }
+  const closeOutFailures = cycle.notCovered.filter((entry) => entry.startsWith("GitHub cleanup did not complete") || entry.startsWith("cycle report write did not complete") || entry.startsWith("cycle report fallback write did not complete") || entry.startsWith("cycle report artifact not attached"));
   return {
-    conclusion: `Issue #${issueNumber}: ${verdict === "merged" ? "merged - every gate green, audits attached, no open blocker+major, budget held." : verdict === "open" ? `PR left open - ${reason}` : verdict === "released" ? `released back to pipeline:backlog - ${reason}` : `cycle failed - ${reason}`} ${cycle.commits.length} commit(s) made; ${cycle.findings.length} finding(s) stand; evidence: ${cycle.evidence.length === 0 ? "none" : cycle.evidence.join(", ")}.`,
+    conclusion: `Issue #${issueNumber}: ${verdict === "merged" ? "merged - every gate green, audits attached, no open high/medium findings, stable reviewed head, approval present, budget held." : verdict === "open" ? `PR left open - ${reason}` : verdict === "released" ? `released back to pipeline:backlog - ${reason}` : `cycle failed - ${reason}`} ${cycle.commits.length} commit(s) made; ${cycle.findings.length} finding(s) stand; evidence: ${cycle.evidence.length === 0 ? "none" : cycle.evidence.join(", ")}.${closeOutFailures.length === 0 ? "" : ` Close-out failures: ${closeOutFailures.join("; ")}`}`,
     issue: issueNumber, verdict, commits: cycle.commits, prUrl: cycle.prUrl, findings: cycle.findings,
     gates: cycle.gates, evidence: cycle.evidence, verified: cycle.verified, notCovered: cycle.notCovered,
   };
@@ -564,7 +844,7 @@ const claim = await ghOps.ask<ClaimResult>(msg([
 ]));
 if (!claim.claimed) return bail("released", "lost the claim race - released silently.");
 const defaultBranch = claim.defaultBranch.trim().length > 0 ? claim.defaultBranch.trim() : "main";
-cycle.verified.push(`claim won on re-read (${claim.note})`);
+cycle.notCovered.push(`claim report: ${claim.note}`);
 // A leftover branch (a failed, open, or dry-run cycle - the branch deletes only on a successful
 // merge) means this is a retry: the designed recovery lane (plan section 1 - one cycle per run,
 // the coordinator relaunches). Verify-then-reuse; create fresh only when absent.
@@ -585,28 +865,30 @@ const headBase = await gitRun(["rev-parse", "HEAD"]);
 const base = baseShaArg !== "" ? baseShaArg : headBase.ran && headBase.exitCode === 0 ? headBase.output.split("\n")[0].trim() : "";
 if (base === "") cycle.notCovered.push("base sha unavailable - audit diffs and size evidence degrade");
 
-// TRIAGE: re-validate the claimed issue; not actionable releases the claim.
-
 phase("Re-validate that the issue is actionable");
-const triage = await agent("issue-triage", TRIAGE_PERSONA).ask<TriageVerdict>(msg([
+const triageAgent = personaAgent(basePersonas["issue-triage"], "issue-triage", "Do not comment, label, close, assign, or otherwise mutate GitHub. Read the issue and linked repro only; report actionability and any exact missing-information question.");
+let triage: TriageVerdict;
+try {
+  triage = await guardWrites(basePersonas["issue-triage"], workspaceRoot, () => triageAgent.ask<TriageVerdict>(msg([
   `Re-validate that issue #${issueNumber} is actionable by this autonomous cycle.`,
   `Issue (title and body, verbatim):\n${task}`,
   "actionable=true only when the task is clear, reproducible, and in scope for the project's charter. When information is missing, give the exact question the cycle should comment - it then releases the claim.",
   agentsMdLine(),
-]));
+  ])));
+} catch (error) {
+  cycle.notCovered.push(`issue triage did not complete under its read-only guard: ${String(error)}`);
+  return closeCycle("failed", "failed", "issue triage read-only guard failed", "");
+}
 if (!triage.actionable) return closeCycle("released", "backlog", `triage: ${triage.reason}`, "");
-cycle.verified.push(`triage re-validated the issue as actionable: ${triage.reason}`);
-
-// PLAN: the task-planner emits areas[] (when not supplied), the plan-auditor audits it; fix-plan re-plans
-// at most twice, then the cycle fails honestly (POLICY in code).
+cycle.notCovered.push(`triage assessment: ${triage.reason}`);
 
 phase("Plan the issue into areas and audit the plan");
-const planner = agent("task-planner", PLANNER_PERSONA);
+const planner = personaAgent(basePersonas["task-planner"], "task-planner", "Plan each area with its source-domain specialist field. Choose a discovered canonical z-* agent based on the actual files and domain, never infer the specialist from hasUI alone.");
 const planInto = (extra: string): string => msg([
   `Turn issue #${issueNumber} into the areas[] this cycle will run on.`,
   `Issue (verbatim):\n${task}`,
-  "Slice under budget (~400 changed lines / ~10 files; over -> ordered siblings linked by dependsOn). Every area gets at least one non-mutating gate from this repo's real tooling, tool in the allowlist (npm, pnpm, yarn, bun, cargo, make, go, python3, pytest, npx, git read-only). Assign complexity and hasUI; match skills live from your available-skills list.",
-  "Return the areas array (name, paths, excludedPaths, skills, gates [{tool, args}], complexity, hasUI, dependsOn, optional budget {maxLines, maxFiles}) plus your assumptions.",
+  `Slice under budget (~400 changed lines / ~10 files; over -> ordered siblings linked by dependsOn). Every area gets at least one non-mutating gate from this repo's real tooling, tool in the allowlist (npm, pnpm, yarn, bun, cargo, make, go, python3, pytest, npx, git read-only). Assign complexity and hasUI. Choose each specialist by actual source domain from this discovered z-* catalog: ${[...availableAgents].filter((name) => /^z-[a-z0-9-]+\.md$/.test(name)).map((name) => name.slice(0, -3)).join(", ")}. Include the absolute paths of the specialist's named domain skills in skills; never derive specialist from hasUI or leave generic skill-discovery instructions.`,
+  "Return the areas array (name, paths, excludedPaths, specialist, skills, gates [{tool, args}], complexity, hasUI, dependsOn, optional budget {maxLines, maxFiles}) plus your assumptions.",
   extra,
   agentsMdLine(),
 ]);
@@ -614,43 +896,71 @@ let parsed = parseAreas(args.areas);
 let planned = parsed.areas;
 let planNote = "coordinator-supplied plan";
 if (planned.length === 0) {
-  const firstPlan = await planner.ask<PlannedAreas>(planInto(""));
+  let firstPlan: PlannedAreas;
+  try {
+    firstPlan = await guardWrites(basePersonas["task-planner"], workspaceRoot, () => planner.ask<PlannedAreas>(planInto("")));
+  } catch (error) {
+    cycle.notCovered.push(`task planner did not complete under its read-only guard: ${String(error)}`);
+    return closeCycle("failed", "failed", "task planner read-only guard failed", "");
+  }
   parsed = parseAreas(firstPlan.areas);
   planned = parsed.areas;
   planNote = `task-planner plan (assumptions: ${firstPlan.assumptions})`;
 }
 for (let attempt = 0; attempt <= 2; attempt++) {
-  const audit = await agent(`plan-auditor-a${attempt}`, PLAN_AUDITOR_PERSONA).ask<PlanAudit>(msg([
+  let audit: PlanAudit;
+  try {
+    audit = await guardWrites(basePersonas["plan-auditor"], workspaceRoot, () => personaAgent(basePersonas["plan-auditor"], `plan-auditor-a${attempt}`, "Audit only. Do not modify files or GitHub.").ask<PlanAudit>(msg([
     `Audit this areas[] plan before implement burns rounds on it - the artifact, not its author's confidence.`,
     `Issue (verbatim):\n${task}`,
     `Plan (${planNote}):\n${JSON.stringify(planned)}`,
-    "Check: every area has paths, at least one allowlisted non-mutating gate, a complexity, hasUI; budgets sum sane; dependsOn acyclic; the gate commands exist in this repo's real tooling (read-only checks allowed to verify a command exists).",
+    `Check: every area has paths, at least one allowlisted non-mutating gate, a complexity, hasUI, and a specialist matching actual source domain from this discovered catalog: ${[...availableAgents].filter((name) => /^z-[a-z0-9-]+\.md$/.test(name)).map((name) => name.slice(0, -3)).join(", ")}. Budgets sum sane; dependsOn acyclic; gate commands exist in this repo's tooling.`,
     'verdict = "proceed" or "fix-plan", reasons itemized. You never edit anything.',
     agentsMdLine(),
-  ]));
+    ])));
+  } catch (error) {
+    cycle.notCovered.push(`plan auditor did not complete under its read-only guard: ${String(error)}`);
+    return closeCycle("failed", "failed", "plan auditor read-only guard failed", "");
+  }
   if (audit.verdict === "proceed") {
-    cycle.verified.push(`plan audit proceeded on attempt ${attempt + 1} (${planNote})`);
+    cycle.notCovered.push(`plan audit assessment: proceeded on attempt ${attempt + 1} (${planNote})`);
     break;
   }
   if (attempt === 2) return closeCycle("failed", "failed", `plan audit still fix-plan after two re-plans: ${audit.reasons.join("; ")}`, "");
-  const replanned = await planner.ask<PlannedAreas>(planInto(`The plan auditor returned fix-plan. Fix every item and return the whole areas array again:\n${audit.reasons.join("\n")}`));
+  let replanned: PlannedAreas;
+  try {
+    replanned = await guardWrites(basePersonas["task-planner"], workspaceRoot, () => planner.ask<PlannedAreas>(planInto(`The plan auditor returned fix-plan. Fix every item and return the whole areas array again:\n${audit.reasons.join("\n")}`)));
+  } catch (error) {
+    cycle.notCovered.push(`task planner did not complete under its read-only guard: ${String(error)}`);
+    return closeCycle("failed", "failed", "task planner read-only guard failed", "");
+  }
   parsed = parseAreas(replanned.areas);
   planned = parsed.areas;
   planNote = "re-planned";
 }
 cycle.notCovered.push(...parsed.problems);
 if (planned.length === 0) return closeCycle("failed", "failed", "no usable areas after planning", "");
-
-// IMPLEMENT then GATES, per area in routing order (ordered siblings: everything routed before an area has
-// finished when it starts). Fix rounds REUSE the same named implementer (SPEC 1.10). One size-budgeted
-// commit per green round through the shared Committer; the round cap bounds the loop.
+const areaPersonas: Record<string, { implementer: Persona; reviewer: Persona }> = {};
+for (const area of planned) {
+  if (!/^z-[a-z0-9-]+$/.test(area.specialist) || !availableAgents.has(area.specialist + ".md")) {
+    personaFindings.push({ where: area.name, what: "Area specialist is missing or outside the discovered z-* agent catalog; the cycle stopped before implementation", evidence: "specialist=" + JSON.stringify(area.specialist), status: "verified" });
+    return closeCycle("failed", "failed", `invalid specialist for area ${area.name}`, "");
+  }
+  const file = area.specialist + ".md";
+  const implementerPersona = await loadRequiredPersona(file, "write");
+  const reviewerPersona = await loadRequiredPersona(file, "read-only");
+  if (implementerPersona === undefined || reviewerPersona === undefined) {
+    return closeCycle("failed", "failed", `specialist persona ${file} failed validation`, "");
+  }
+  areaPersonas[area.name] = { implementer: implementerPersona, reviewer: reviewerPersona };
+}
 
 phase("Implement each planned area, then run its gates until green or capped");
 log(`issue #${issueNumber}: running ${planned.length} planned area(s)`);
 const committer = doCommit ? agent("Committer", COMMITTER_PERSONA) : undefined;
 for (const area of planned) {
   report({ key: area.name, name: area.name, status: "working", note: "implementation under way" }, "status");
-  const implementer = agent(`implementer-${area.name}`, implPersona(area.hasUI));
+  const implementer = personaAgent(areaPersonas[area.name].implementer, `implementer-${area.name}`, `Implement only area ${area.name}. Work only inside ${workspaceRoot}. Follow the stated area paths and excluded paths; never run git or the gates. If impossible, escalate; do not fake results.`);
   const budget = area.budget ?? { maxLines: DEFAULT_MAX_LINES, maxFiles: DEFAULT_MAX_FILES };
   const first = await implementer.ask<AreaWork>(implementAsk(area, task, issueNumber, budget));
   let pending = first.changedFiles.filter((p) => !area.excludedPaths.includes(p));
@@ -720,23 +1030,20 @@ for (const area of planned) {
   report({ key: area.name, name: area.name, status: gates.length === 0 ? "unverified" : green ? "passed" : "failed", note: gates.length === 0 ? "unverified (no gates declared)" : green ? "all gates green" : "gates red after its rounds" }, "status");
 }
 
-// PREVIEW, BROWSER, VISION: only UI areas get a preview; the browser tester drives agent-browser with an
-// isolated session; evidence counts only when the script's own glob sees it; the vision judge is tier-aware.
-
 if (planned.every((a) => !a.hasUI)) {
   cycle.notCovered.push("no UI areas - preview, browser, and vision evidence not captured");
 } else {
   phase("Start the preview for the UI areas");
   const preview = await ghOps.ask<PreviewInfo>(msg([
     `Start this project's preview for issue #${issueNumber} so the cycle can drive it headlessly.`,
-    "Discover the dev or build command from the repo's own files (package.json scripts, Makefile, Cargo.toml) - never invent one. Run it through an allowlisted tool only: npm, pnpm, yarn, bun, cargo, make, go, or npx. Start it in the background so it stays up, wait until it serves, verify with a request before reporting.",
+    `Use ${workspaceRoot} as the working directory. Discover the dev or build command from the repo's own files (package.json scripts, Makefile, Cargo.toml) - never invent one. Run it through an allowlisted tool only: npm, pnpm, yarn, bun, cargo, make, go, or npx. Start it in the background so it stays up, wait until it serves, verify with a request before reporting.`,
     'Return url (the serving URL; "" when no preview could be started) and notes (the command used, anything that failed). Never guess a URL.',
     agentsMdLine(),
   ]));
   if (preview.url === "") {
     cycle.notCovered.push(`no preview URL (${preview.notes}) - browser and vision evidence not captured`);
   } else {
-    cycle.verified.push(`preview serving (${preview.notes})`);
+    cycle.notCovered.push(`preview report: ${preview.notes}`);
     phase("Drive the preview and capture browser evidence");
     browserSessionStarted = true; // cleanup closes the shipflow-<issue> session even when this flow fails
     // This cycle's evidence namespace mirrors the engine's -r<n> convention (zflow-SPEC section 3:
@@ -748,7 +1055,8 @@ if (planned.every((a) => !a.hasUI)) {
       const m = /-r(\d+)-/.exec(prior);
       if (m !== null) attempt = Math.max(attempt, parseInt(m[1], 10) + 1);
     }
-    await agent("browser-tester", BROWSER_PERSONA).ask<string>(msg([
+    try {
+      await personaAgent(basePersonas["browser-tester"], "browser-tester", "Drive only the issue preview and capture the requested evidence. Keep the browser session open only as needed; report exact files created.").ask<string>(msg([
       `Drive the preview of issue #${issueNumber} headlessly and record evidence. agent-browser CLI ONLY - no MCP browser or computer-use plugins. Always use the session flag for isolation. Flow, in order:`,
       `  agent-browser --session shipflow-${issueNumber} open ${preview.url}`,
       `  agent-browser --session shipflow-${issueNumber} snapshot -i --json   - assert the states the issue names against the snapshot text`,
@@ -756,28 +1064,36 @@ if (planned.every((a) => !a.hasUI)) {
       `  agent-browser --session shipflow-${issueNumber} close`,
       `Create ${EVIDENCE_DIR} first. Never type secrets. A failed flow still closes the session and reports the snapshot text it got. Return the exact screenshot paths and what the snapshots asserted.`,
       agentsMdLine(),
-    ]));
+      ]));
+    } catch (error) {
+      cycle.notCovered.push(`browser tester did not complete: ${String(error)}`);
+      return closeCycle("failed", "failed", "browser tester failed", "");
+    }
     // The filesystem is the truth: evidence counts only when the script's own glob sees it.
     const shots = (await files.glob(`${EVIDENCE_DIR}/issue-${issueNumber}-r${attempt}-*.png`)).sort();
     cycle.evidence = shots;
     if (shots.length === 0) {
       cycle.notCovered.push("no browser evidence on disk - the browser tester's report stands unverified");
     } else {
-      cycle.verified.push(`browser evidence on disk: ${shots.join(", ")}`);
+      cycle.verified.push(`browser evidence found on disk: ${shots.join(", ")}`);
       phase("Judge the screenshots against the stated expectations");
-      const vision = await agent("vision-judge", visionPersona(tier)).ask<VisionJudgement>(msg([
+      let vision: VisionJudgement;
+      try {
+        vision = await guardWrites(basePersonas["vision-judge"], workspaceRoot, () => personaAgent(basePersonas["vision-judge"], "vision-judge", "Judge the provided screenshots against the issue's explicit expectations. Do not inspect source, DOM, or command-check results before making the visual judgement.").ask<VisionJudgement>(msg([
         `Give pixel verdicts on the screenshots captured for issue #${issueNumber}. Expected states come from the issue - compare against the stated expectation, never an assumed one.`,
         `Issue (verbatim):\n${task}`,
         `Screenshots: ${shots.join(", ")}`,
-        tier === "flash"
-          ? "Read each PNG with Read, then pixel-sample (python3 with PIL) for measured hex deltas when a claim is checkable. No aesthetic verdict without a numeric anchor."
-          : "You are image-blind: reading a PNG returns a URL, not pixels. Escalate ONCE batching every screenshot path above in that single escalation so the coordinator can have them pixel-read by a flash agent - never guess what an image shows.",
+        "Inspect the screenshot pixels directly. Keep this visual judgement blind to source, DOM, and command-check results; report separate evidence only when a separate pixel check is explicitly requested.",
         "One verdict per image: pass or fail, plus the pixels or regions that decided it; cite the screenshot path per verdict.",
         agentsMdLine(),
-      ]));
+        ])));
+      } catch (error) {
+        cycle.notCovered.push(`vision judge did not complete under its read-only guard: ${String(error)}`);
+        return closeCycle("failed", "failed", "vision judge read-only guard failed", "");
+      }
       for (const v of vision.perImage) {
         if (v.verdict === "fail") {
-          const f: Finding = { where: v.path, what: `Screenshot fails its stated expectation: ${v.why}`, evidence: `vision judge (${tier}): ${v.why}`, status: "unconfirmed", severity: "medium" };
+          const f: Finding = { where: v.path, what: `Screenshot fails its stated expectation: ${v.why}`, evidence: `vision judge: ${v.why}`, status: "judged", severity: "medium" };
           cycle.findings.push(f);
           report(f);
         }
@@ -790,6 +1106,8 @@ if (planned.every((a) => !a.hasUI)) {
 // git in the engine. dryRun skips create and merge (POLICY in code, not model taste).
 
 let prNum = "";
+let reviewedPrHead = "";
+let localHeadMatchedReview = false;
 if (dryRun) {
   cycle.notCovered.push("dry-run: PR create and merge skipped by design");
 } else if (cycle.commits.length === 0) {
@@ -811,78 +1129,142 @@ if (dryRun) {
     const m = /pull\/(\d+)/.exec(cycle.prUrl);
     prNum = m === null ? "" : m[1];
     cycle.verified.push(`gh pr create -> ${cycle.prUrl}`);
+    if (prNum !== "") {
+      const openedState = await world.run("gh", ["pr", "view", prNum, "--repo", repo, "--json", "headRefOid,isDraft,reviewDecision"]);
+      if (openedState.exitCode === 0) {
+        try {
+          const parsedState = JSON.parse(openedState.stdout) as PrReviewState;
+          reviewedPrHead = typeof parsedState.headRefOid === "string" ? parsedState.headRefOid : "";
+        } catch {
+          reviewedPrHead = "";
+        }
+      }
+      if (reviewedPrHead === "") cycle.notCovered.push("PR head could not be captured before review; merge will be blocked");
+      else cycle.verified.push(`review baseline PR head ${reviewedPrHead}`);
+    }
   } else {
     cycle.notCovered.push(`PR create failed (exit ${created.exitCode}): ${tail(created.stderr.length > 0 ? created.stderr : created.stdout)}`);
   }
 }
 
-// AUDIT: security + injection over the whole diff plus a fresh blind reviewer per area; reviewer and
-// security findings are confirmed by separate confirmers; injection verdicts stay advisory and labelled.
+if (prNum !== "") {
+  const localReviewHead = await gitRun(["rev-parse", "HEAD"]);
+  localHeadMatchedReview = reviewedPrHead !== "" && localReviewHead.ran && localReviewHead.exitCode === 0 && localReviewHead.output.trim() === reviewedPrHead;
+  if (!localHeadMatchedReview) cycle.notCovered.push(`local HEAD did not match the reviewed PR head before audits (local ${localReviewHead.output.trim() || "unavailable"}, PR ${reviewedPrHead})`);
+  if (!localHeadMatchedReview) return closeCycle("open", "failed", "local HEAD did not match the captured PR head before audits", "");
+}
 
 phase("Audit the diff with security, injection, and blind area reviewers");
-const diffScope = `The cycle's diff is branch ${branch} vs ${base === "" ? "the round-start shas" : base} - run "git diff" yourself, read-only, to read it.`;
+const diffScope = `The cycle's diff is branch ${branch} vs ${base === "" ? "the round-start shas" : base} - run "git diff" yourself, read-only, from ${workspaceRoot}, to read it.`;
+const confirmerGuard = { ...basePersonas["plan-auditor"], name: "finding-confirmer" };
 const confirmFindings = async (owner: string, findings: Finding[]): Promise<Finding[]> =>
   Promise.all(findings.map(async (f, i): Promise<Finding> => {
-    const check = await agent(`confirmer-${owner}-${i}`, CONFIRMER_PERSONA).ask<Confirmation>(confirmerAsk(f, cycle.gates.map((g) => `- ${g.argv} -> ${g.ran ? `exit ${g.exitCode}` : "did not run"}`).join("\n")));
-    const confirmed: Finding = { ...f, status: check.reproduced ? "verified" : "unconfirmed" };
-    report(confirmed);
-    return confirmed;
+    try {
+      const check = await guardWrites(confirmerGuard, workspaceRoot, () => agent(`confirmer-${owner}-${i}`, CONFIRMER_PERSONA).ask<Confirmation>(confirmerAsk(f, cycle.gates.map((g) => `- ${g.argv} -> ${g.ran ? `exit ${g.exitCode}` : "did not run"}`).join("\n"))));
+      const assessed: Finding = { ...f, status: check.reproduced ? "judged" : "unconfirmed" };
+      report(assessed);
+      return assessed;
+    } catch (error) {
+      readOnlyGuardFailed = true;
+      cycle.notCovered.push(`confirmer ${owner}-${i} did not complete under its read-only guard: ${String(error)}`);
+      const blocked: Finding = { ...f, status: "unconfirmed" };
+      report(blocked);
+      return blocked;
+    }
   }));
 const audits = await Promise.all([
   (async (): Promise<{ key: string; note: string; findings: Finding[] }> => {
-    const sec = await agent("security-audit", SECURITY_PERSONA).ask<AuditFindings>(msg([
+    let sec: AuditFindings;
+    try {
+      sec = await guardWrites(basePersonas["security-audit"], workspaceRoot, () => personaAgent(basePersonas["security-audit"], "security-audit", "Audit only. Do not alter files or perform external operations.").ask<AuditFindings>(msg([
       `Security-audit the cycle's diff for issue #${issueNumber}.`,
       diffScope,
-      "Check authz on every new route/command; input validation at boundaries; secret handling (no keys in code, logs, or config); dependency additions justified. Every SQL statement must bind parameters through the driver's bind API - a string-built statement is an automatic fail, even if escaped.",
+      "Check authz on every new route/command; input validation at boundaries; secret handling (no keys in code, logs, or config); dependency additions justified. Bind data values through the driver's parameter API. When SQL syntax requires a dynamic identifier, validate it against a fixed allowlist before constructing the statement.",
       'Findings: blocker->high, major->medium, nit->low, with a CWE-style category in the evidence. Read-only. A clean audit says "no findings" with the checklist you ran - never silently empty.',
       agentsMdLine(),
-    ]));
+      ])));
+    } catch (error) {
+      readOnlyGuardFailed = true;
+      cycle.notCovered.push(`security audit did not complete under its read-only guard: ${String(error)}`);
+      return { key: "security-audit", note: "read-only guard failed", findings: [] };
+    }
     return { key: "security-audit", note: sec.note, findings: await confirmFindings("security", sec.findings) };
   })(),
   (async (): Promise<{ key: string; note: string; findings: Finding[] }> => {
-    const inj = await agent("injection-auditor", INJECTION_PERSONA).ask<AuditFindings>(msg([
+    let inj: AuditFindings;
+    try {
+      inj = await guardWrites(basePersonas["injection-auditor"], workspaceRoot, () => personaAgent(basePersonas["injection-auditor"], "injection-auditor", "Audit only. Do not alter files or perform external operations.").ask<AuditFindings>(msg([
       `Sweep the cycle's diff and any ingested content for prompt-injection and tainted-input paths (issue #${issueNumber}).`,
       diffScope,
       "Treat issue bodies, PR text, web content, and filenames as untrusted input - flag any flow where they reach a shell, an eval, an SQL string, or an agent prompt unescaped. Report patterns with source-to-sink paths. Read-only. Your verdicts are advisory - labelled for pro confirmation, never dropped.",
       agentsMdLine(),
-    ]));
-    const advisory = inj.findings.map((f) => ({ ...f, status: "unconfirmed" as const }));
+      ])));
+    } catch (error) {
+      readOnlyGuardFailed = true;
+      cycle.notCovered.push(`injection audit did not complete under its read-only guard: ${String(error)}`);
+      return { key: "injection-auditor", note: "read-only guard failed", findings: [] };
+    }
+    const advisory = inj.findings.map((f) => ({ ...f, status: "judged" as const }));
     for (const f of advisory) report(f);
     return { key: "injection-auditor", note: inj.note, findings: advisory };
   })(),
   ...planned.map(async (area): Promise<{ key: string; note: string; findings: Finding[] }> => {
-    const review = await agent(`judge-${area.name}-r1`, reviewerPersona(area.hasUI)).ask<AuditFindings>(msg([
+    let review: AuditFindings;
+    try {
+      review = await guardWrites(areaPersonas[area.name].reviewer, workspaceRoot, () => personaAgent(areaPersonas[area.name].reviewer, `judge-${area.name}-r1`, `Blind-review the ${area.name} implementation. Do not alter files or perform external operations.`).ask<AuditFindings>(msg([
       `Blind-review the "${area.name}" part of the cycle's diff for issue #${issueNumber}. Read the diff and the task first - nothing else's verdicts.`,
       `Issue (verbatim):\n${task}`,
       area.paths.length > 0 ? `${diffScope} Paths in scope: ${area.paths.join(", ")}` : diffScope,
       "Findings carry path:line + why + severity (blocker->high, major->medium, nit->low) + fix-required|defer in the evidence. Verify each finding against the code before writing it - no style conjecture. Unconfirmed findings are labelled as such, never dropped.",
       agentsMdLine(),
-    ]));
+      ])));
+    } catch (error) {
+      readOnlyGuardFailed = true;
+      cycle.notCovered.push(`review for ${area.name} did not complete under its read-only guard: ${String(error)}`);
+      return { key: `review-${area.name}`, note: "read-only guard failed", findings: [] };
+    }
     return { key: `review-${area.name}`, note: review.note, findings: await confirmFindings(`area-${area.name}`, review.findings) };
   }),
 ]);
 for (const a of audits) {
   cycle.findings.push(...a.findings);
-  cycle.verified.push(`${a.key}: ${a.findings.length} finding(s) - ${a.note}`);
+  cycle.notCovered.push(`${a.key} assessment: ${a.findings.length} finding(s) - ${a.note}`);
 }
 cycle.notCovered.push("injection-auditor verdicts are advisory - labelled for pro confirmation, never dropped");
-
-// MERGE: POLICY in code, not model taste - every gate green (gateless areas block), audits attached, zero
-// verified blocker+major. Blocked or dry-run verdicts leave the PR open with the findings attached.
+if (readOnlyGuardFailed) return closeCycle("failed", "failed", "one or more read-only audit guards failed", "");
 
 if (prNum !== "") {
   phase("Merge the pull request only when every check is green");
-  const openBlockers = cycle.findings.filter((f) => f.status === "verified" && (f.severity === "high" || f.severity === "medium"));
+  const openBlockers = cycle.findings.filter((f) => f.severity === "high" || f.severity === "medium");
   const auditsAttached = audits.some((a) => a.key === "security-audit") && audits.some((a) => a.key === "injection-auditor");
   const gatesAllGreen = areaOutcomes.every((o) => !o.gateless && o.gatesGreen);
-  const mergeReady = gatesAllGreen && auditsAttached && openBlockers.length === 0;
+  const finalReview = await world.run("gh", ["pr", "view", prNum, "--repo", repo, "--json", "headRefOid,isDraft,reviewDecision"]);
+  let finalState: PrReviewState | undefined;
+  if (finalReview.exitCode === 0) {
+    try {
+      finalState = JSON.parse(finalReview.stdout) as PrReviewState;
+    } catch {
+      finalState = undefined;
+    }
+  }
+  const localMergeHead = await gitRun(["rev-parse", "HEAD"]);
+  const localHeadStable = localMergeHead.ran && localMergeHead.exitCode === 0 && localMergeHead.output.trim() === reviewedPrHead;
+  if (!localHeadStable) cycle.notCovered.push(`local HEAD did not match the reviewed PR head before merge (local ${localMergeHead.output.trim() || "unavailable"}, PR ${reviewedPrHead})`);
+  const reviewedHeadStable = reviewedPrHead !== "" && localHeadMatchedReview && localHeadStable && finalState?.headRefOid === reviewedPrHead;
+  const approved = finalState?.reviewDecision === "APPROVED";
+  const notDraft = finalState?.isDraft === false;
+  const mergeReady = gatesAllGreen && auditsAttached && openBlockers.length === 0 && reviewedHeadStable && approved && notDraft;
   if (!dryRun && mergeReady) {
-    const merged = await world.run("gh", ["pr", "merge", prNum, "--repo", repo, "--squash", "--delete-branch"]);
+    const merged = await world.run("gh", ["pr", "merge", prNum, "--repo", repo, "--squash", "--delete-branch", "--match-head-commit", reviewedPrHead]);
     if (merged.exitCode === 0) {
       const verify = await world.run("gh", ["pr", "view", prNum, "--repo", repo, "--json", "mergeCommit", "-q", ".mergeCommit.oid"]);
       const mergeSha = verify.exitCode === 0 ? verify.stdout.trim() : "";
-      cycle.verified.push(`gh pr merge --squash --delete-branch -> exit 0${mergeSha !== "" ? `; merge commit ${mergeSha}` : " (merge commit sha not readable)"}`);
-      return closeCycle("merged", "done", "", mergeSha !== "" ? `merged as ${mergeSha}` : "merged; merge commit sha not readable");
+      if (verify.exitCode !== 0 || mergeSha === "" || mergeSha === "null") {
+        cycle.notCovered.push("merge command was accepted but a completed merge commit could not be confirmed");
+        return closeCycle("open", "failed", "merge requested; completion is not confirmed", "");
+      }
+      cycle.verified.push(`gh pr merge --squash --delete-branch -> exit 0; merge commit ${mergeSha}`);
+      return closeCycle("merged", "done", "", `merged as ${mergeSha}`);
     }
     cycle.notCovered.push(`merge attempted but failed (exit ${merged.exitCode}): ${tail(merged.stderr.length > 0 ? merged.stderr : merged.stdout)}`);
     return closeCycle("open", "failed", `merge command failed on a green cycle: ${tail(merged.stderr)}`, "");
@@ -891,13 +1273,16 @@ if (prNum !== "") {
   if (dryRun) blocked.push("dry-run: merge skipped by design");
   if (!gatesAllGreen) blocked.push("a gate is red, an area is gateless (unverified), or an area was over its size budget");
   if (!auditsAttached) blocked.push("an audit did not attach");
-  if (openBlockers.length > 0) blocked.push(`${openBlockers.length} verified blocker+major finding(s) stand`);
+  if (openBlockers.length > 0) blocked.push(`${openBlockers.length} open high/medium finding(s) stand, including unconfirmed findings`);
+  if (!reviewedHeadStable) blocked.push("PR head changed after review or the reviewed head could not be confirmed");
+  if (!approved) blocked.push("GitHub review approval is missing");
+  if (!notDraft) blocked.push("PR is a draft or draft state could not be confirmed");
   const state = await world.run("gh", ["pr", "view", prNum, "--repo", repo, "--json", "state", "-q", ".state"]);
   cycle.verified.push(`PR left open (state ${state.exitCode === 0 ? state.stdout.trim() : "unknown"}): ${blocked.join("; ")}`);
   return closeCycle("open", dryRun && mergeReady ? "done" : "failed", blocked.join("; "), dryRun && mergeReady ? "dry-run: all checks green, merge skipped by design" : "");
 }
 if (dryRun) {
-  const allGreen = areaOutcomes.every((o) => !o.gateless && o.gatesGreen) && !cycle.findings.some((f) => f.status === "verified" && (f.severity === "high" || f.severity === "medium"));
+  const allGreen = areaOutcomes.every((o) => !o.gateless && o.gatesGreen) && !cycle.findings.some((f) => f.severity === "high" || f.severity === "medium");
   return closeCycle("open", allGreen ? "done" : "failed", "dry-run: PR create and merge skipped by design", allGreen ? "dry-run: all checks green, PR steps skipped by design" : "");
 }
 return closeCycle("failed", "failed", "no pull request to merge - see notCovered for why", "");

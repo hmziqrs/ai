@@ -1,118 +1,18 @@
 ---
 name: z-gpui-workflow
 description: >-
-  Thin one-launch chain skill for real GPUI (gpui-kit) Rust desktop work: a
-  single zflow-engine chain launch runs every GPUI area as its own state
-  machine — pro implement and judge in-run, flash vision capturing through
-  the ocu device lane (AX text + decoded PNGs) for pixel design audits,
-  small commits, DAG merges, and a code-enforced POLICY loop. Use for
-  multi-area GPUI tasks needing iterate-until-clean with visual
-  verification. Trigger phrases: gpui workflow, gpui orchestration, gpui
-  sub-agents, gpui iterate-until-clean, fine-grained GPUI loop.
+  Domain profile for z-workflow on GPUI desktop tasks. Use when the user
+  explicitly requests a GPUI workflow or GPUI subagent orchestration.
 ---
 
 # z-gpui-workflow
 
-**The main agent is a chain coordinator, not an implementer.** It slices the
-task into GPUI areas, makes ONE launch, and relays the report; the whole
-chain runs inside that single workflow. Never relaunch to fix (AmendWorkflow
-revises, ResumeWorkflowRun continues a stopped run; never nest). Trivial
-one-file edits don't need this skill. Sibling flows run under their own
-rules.
+Use z-workflow's composer-coordinator and workflow-author. The author writes a fresh script from the current task and measured dials. Do not depend on a saved engine or add a separate GPUI coordinator. Research and draft tasks keep their own shape; use code lanes only when the task calls for code changes.
 
-## Models — balanced profile, in-engine
+For code work, split areas by behavior and dependency, not by directory. Put concurrent writers in separate run-owned worktrees. Serialize all desktop capture through one device lane. Preserve the standard approval dialog and use z-workflow Step 6 for the guarded fast-forward into the user's checkout.
 
-Pro where quality is only checkable by judgment — architecture,
-entity/state ownership, audit verdicts. Flash where a model runs and its
-output is objectively checkable — capture and image reading; gates and git
-state run model-free in script (world.run). One launch pins it all:
-planner/reviewer/implementer/Committer/judge/confirmer on pro; capture and
-vision audit on flash. AX structural checks are tier-blind text — the pro
-judge reads the .txt evidence directly; pixel judgment happens only in the
-flash vision lane or a batched escalation.
+Resolve the discovered `z-gpui-engineer` agent file to an absolute path and load it through the canonical persona kit embedded unchanged from `persona-kit.dwf.ts`. Give the implementer write access. Each round uses a fresh judge from the same persona with read-only access; the judge sees the task, diff, gates, and evidence, never the implementer's reasoning. The implementer reads the project guidance and available domain skills, including `gpui-kit-design-guides` for screen structure, spacing, hierarchy, and interaction work. Resolve current skill paths from the session rather than assuming this repository is installed in the target project.
 
-## Launch (once)
+Discover the actual Cargo manifest and existing test commands, then gate only the affected crate and relevant features. Do not substitute a root workspace command for a scoped manifest when the project has a narrower target. Visible desktop work sets `V=desktop`: use `z-native-device-verifier` with Flash tier and write access limited to evidence artifacts for bounded capture in the serialized device lane, recording an accessibility tree and PNG under `.zflow/evidence/` when available. A separate fresh Flash vision auditor reads only the stated requirements, viewport, and capture paths. The pro judge receives the evidence and command results. Missing runtime or capture evidence stays unverified; screenshots do not replace build and test gates.
 
-prep (coordinator): slice into areas — fine-grained by decree: one entity
-  family, one component, or one screen region per area; split any slice
-  over ~4 files, over the size budget (~400 changed lines / ~10 files;
-  per-area `budget` tunes it), or mixing kinds. Contention: every
-  design/styling/render area with visible output is `desktop` (ocu capture
-  through the single-worker device lane); the rest `terminal`. Gates:
-  non-mutating, existing repo tooling, right manifest dir — `cargo fmt
-  --check`, `clippy -- -D warnings`, `--manifest-path` where the workspace
-  needs it (the engine absolutizes a gate's own manifest path). Baseline
-  gates once; record and OMIT pre-existing reds. Record baseSha, repoRoot,
-  agentsMd; gitignore .zflow/; clean stale zflow/* branches/worktrees and
-  untracked files under desktop areas' paths.
-
-launch (once): CreateWorkflow saved zflow-engine — mode="chain", task,
-  areas, agentsMd, baseSha, repoRoot, maxLines/maxFiles (per-area budget
-  optional), commit. No subagent_model. No maxRounds unless the user caps.
-  In-run per area: plan → implement
-  (desktop areas in their own worktrees) → flash vision (ocu AX snapshot +
-  decoded PNG under .zflow/evidence/, one capture at a time through the
-  device lane; the auditor reports measured differences — px offsets, hex
-  deltas, font-size deltas, missing/extra elements — against the task; name
-  the relevant gpui-kit design-guide criteria in the task text so they reach
-  the auditor — the engine routes area.skills to the planner and implementer
-  asks, not to the vision auditor) → pro judge + confirmer per finding → fix rounds
-  while findings shrink → merge into the integration worktree along dependsOn →
-  area worktrees removed, branches kept.
-
-stop → relay the run's typed return + report: per-area terminal states,
-  commits, merges, gate status, findings fixed vs deferred, degraded or
-  skipped vision stated plainly (an area routed `terminal` that should have
-  been `desktop` gets no capture — say so in the report).
-
-## POLICY — in-run, code-enforced, never model-judged
-
-Clean = zero open findings + gates green (worktree areas also merge into the
-integration worktree).
-Rework = findings strictly shrinking → fresh implementer each round; vision
-re-shoots the same states so rounds stay comparable. Stop = two
-non-shrinking rounds or the user's cap → honest report. A round over its
-size budget is a HIGH verified finding — split the area, never commit big.
-Never claim clean while a gate is red; never claim a screen verified that
-was not shot and audited this run.
-
-## Approval and merge
-
-- Launch through the approval dialog with "Allow only this time". Never pick "Always allow
-  in this session" for a run that commits or merges.
-- Pass `runTag` (the first 8 characters of `baseSha` by default; a new tag when
-  `zflow/<tag>/*` branches from an earlier run already exist).
-- The engine never writes the user's checkout. Terminal areas work in the run's
-  integration worktree; other areas work in their own worktrees and merge into it. The
-  result lands on `zflow/<runTag>/integration`; area worktrees are removed after a clean
-  merge (never `--force`) and every branch is kept.
-- After the run, merge the result into the user's checkout as in z-workflow Step 6: by
-  itself with `git merge --ff-only` when the run ended clean, the checkout has no local
-  changes and still sits at the base commit, and the gate passes again afterwards; ask
-  with AskUserQuestion only when one of those checks fails, the user asked to review first,
-  or the task was risk high. Never push; keep the branch.
-
-## Conventions
-
-- Size-budgeted small commits: ≤400 changed lines / ≤10 files, one commit
-  per green round, `fix:` on fix rounds, explicit paths, never
-  `--no-verify`/`git add -A`/push; match repo log style. The Committer owns
-  git.
-- AGENTS.md binds every subagent (agentsMd + baseSha args); its required
-  skills ride on top of the routed skills.
-- Skills are dynamic: matched by capability against the session's
-  available-skills list; a gap is noted, not a blocker.
-- Skill menu by area kind: state/entities, render/views, actions/focus,
-  app-wiring → gpui-kit + rust-best-practices; design/styling →
-  gpui-kit-design-guides (normative — follow its referenced guides) + the
-  same pair; tests → gpui-kit (test reference primary) + rust-testing. A
-  skill page is the door, not the room.
-
-## Fallback lanes
-
-- **Mid-run eyes in a pro role** (a judge re-examining pixel detail): the
-  escalation bridge, batched — ONE escalation per area carrying ALL its
-  screenshots; resolve with a flash Agent-tool subagent; cap 3 per ask.
-- **Interactive desktop lane**: the computer-use plugin, main thread only —
-  never inside runs. If ocu or the app launch fails, the run marks vision
-  degraded for that area and says so — never invent substitutes.
+Before launch, show the measured dials, model roles, and command set, then use the one-time approval choice. Report paths, gate results, AX and PNG evidence, uncovered native behavior, findings, and the run branch. Never push or delete run branches.

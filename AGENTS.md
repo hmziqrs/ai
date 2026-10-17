@@ -66,8 +66,9 @@ llms.txt                     entry point for consuming agents
   z-proflow (pro only, no vision) and z-flashflow (Flash only) are
   profiles of it, and z-liteflow is its fast small-task form (a filled,
   pre-tested template, no author). z-gpui-workflow and z-tauri-workflow
-  are still thin wrappers over `zflow-engine`; keep them consistent with
-  `harness/zcode/workflows/zflow-SPEC.md` (the engine contract).
+  are domain profiles of z-workflow with scoped framework gates and device evidence.
+  The saved engine retains its separate contract in
+  `harness/zcode/workflows/zflow-SPEC.md`.
   z-super-rustflow composes its own main-tier-only runs inline (no
   vision, no flash) and needs no engine.
 - Workflows cannot call agents by name. To drive a workflow subagent
@@ -75,7 +76,7 @@ llms.txt                     entry point for consuming agents
   `harness/zcode/skills/z-workflow/persona-kit.dwf.ts` unchanged into
   the script and use its functions; never hand-write a persona loader.
   A change to the kit goes into that file first (new version marker),
-  then into every script that carries it (z-liteflow's template too).
+  then into every script that carries it (z-liteflow's template and Shipflow queue too).
 - Codex templates keep `__ZAI_MODEL_CATALOG__` until install renders an
   absolute user path. `ZAI_API_KEY` imports into the Codex-only
   `~/.codex/secrets/zai-api-key` file with mode `0600`; command-backed

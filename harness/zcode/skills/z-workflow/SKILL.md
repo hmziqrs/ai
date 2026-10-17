@@ -187,7 +187,10 @@ interface WorkflowBrief {
     contention: "terminal" | "web" | "desktop" | "mobile";
     /** Area names whose output this area needs before it can implement. */
     dependsOn: string[];
+    skills: string[];
   }[];
+  acceptance: { area: string; requirement: string; check: string; evidence: string[] }[];
+  personas: { area: string; role: string; path: string; access: "read-only" | "write"; reason: string }[];
   /** Mechanical checks the repo already has, as literal {tool, args[]}, non-mutating. */
   gates: { tool: string; args: string[] }[];
   /** What could make the run fail or lie. */
@@ -197,6 +200,11 @@ interface WorkflowBrief {
 
 Verify what must be exact (repoRoot, baseCommit, agentsMd, each gate's exit code, the counts)
 with one command each. Explorer claims are data to check, not facts.
+
+Resolve relevant specialists before authoring using [Specialist routing](references/specialists.md)
+and the session's discovered agent descriptions. Record absolute paths and explicit authority
+in `personas`; the user need not name a file. Validate required skill availability and list
+missing expertise. Select only roles justified by the task, independently of review depth.
 
 ## Step 2 — shape (workflow-author, AUTHOR mode)
 
@@ -209,7 +217,10 @@ resolve the signals before going on.
 
 Shape rules for every plan:
 
-- **One area, one lane, one worktree.** A one-area task runs in a single run-owned worktree on
+- **Work kind determines stages.** Research uses discovery, source checking and synthesis;
+  audits use inspection and confirmation; drafts use writing and review. Include code gates,
+  capture, commits and merges only when the requested deliverable needs them.
+- **One area, one lane, one worktree.** A one-area code change runs in a single run-owned worktree on
   `wf/<slug>`: implement, gate, trace, fresh judge, looped by the stop rule. No integration
   worktree, no merges, no per-round checkpoint commits, and no join other than the final
   report. The script makes one commit on `wf/<slug>` at the end so Step 6 has a branch to
@@ -344,7 +355,8 @@ Shape rules for every plan:
   AskUserQuestion. If the script is wrong, send the defect to the author, get a fresh REVIEW,
   then AmendWorkflow with the revised file path. Never relaunch. ResumeWorkflowRun continues
   a stopped run unchanged.
-- When a hole is reached, write its body from the findings so far and use FillWorkflowHole.
+- When a hole is reached, obtain its continuation from the workflow-author using the
+  findings so far, then pass the supplied body unchanged to FillWorkflowHole.
 
 ## Step 6 — merge into the user's checkout (after the run)
 
@@ -426,34 +438,28 @@ A workflow cannot call an agent by name: `agent()` takes only a system prompt an
 It can load an agent file at run time and use its body as the prompt. Every workflow does
 this through one shared, tested block: `persona-kit.dwf.ts` in this skill's folder.
 
-**How to use it**
+1. Paste the canonical block, from `// persona-kit:start v3` to `// persona-kit:end v3`,
+   unchanged into the script. Workflow scripts cannot import it.
+2. Load each selected file with `loadPersona(path, { tier, access })`. Use `tier: "pro"`
+   in z-proflow, `"flash"` in z-flashflow, and `"any"` elsewhere. Set `access: "write"`
+   only for scoped implementation or evidence capture; reviewers, planners and auditors use
+   `"read-only"` even when the file lists Bash. Missing or invalid personas block that role.
+3. Create `personaAgent(p, uniqueName, RUN_RULES)`. Pass worktree and scope rules explicitly;
+   never grant Git mutations or external writes through a domain assignment.
+4. Wrap every read-only ask in `guardWrites(p, worktree, () => ...)`, with no simultaneous
+   writer in that worktree. Guard errors block progress; retain findings even if an ask throws.
+5. Include `personaFindings` in run findings and `personaReport()` in the report. List each
+   path, sha256, access and selected model with the command set before launch. Include the
+   loader's `cat`/`shasum` and guard's `python3` commands in that set.
 
-1. Paste the whole block, from `// persona-kit:start v2` to `// persona-kit:end v2`,
-   unchanged into the script. Workflow scripts cannot import, so this copy is the only
-   sharing mechanism.
-2. Load each specialist: `const p = await loadPersona("/abs/path/agent.md", { tier })`.
-   `tier` is `"pro"` in z-proflow, `"flash"` in z-flashflow, and `"any"` (keep the file's
-   model) elsewhere. A forced model is noted in the report.
-3. Create the subagent with `personaAgent(p, "<unique-name>", RUN_RULES)`. The persona body
-   comes first and the run's rules (worktree path, never run git, escalate when impossible)
-   come last, so the run's rules win.
-4. Wrap the asks of any persona whose `tools:` cannot write in
-   `guardWrites(p, worktree, () => ...)`, while no other writer uses that worktree.
-5. Add `personaFindings` to the run's findings and `personaReport()` lines to the report,
-   and list each persona's path and sha256 with the command set before launch.
-
-**What the kit guarantees** (tested in runs `dwfrun-ee616ce6`, `dwfrun-8a44229f`, and
-`dwfrun-6db2e8b4`):
-
-- A missing file, a file with no frontmatter or body, or a model the kit does not declare is
-  refused with a verified finding; that role never runs with an empty prompt.
-- The body drives the subagent, and run rules passed to `personaAgent` are followed too.
-- The model comes from the file's `model:` and `thoughtLevel:` among the eight declared
-  GLM-5.3 and GLM-5.3-Flash variants. The `$level` suffix compiles, but its effect on
-  reasoning effort is not observable, so treat it as unverified.
-- `tools:` is not enforced inside workflows (every subagent gets every tool). `guardWrites`
-  caught a read-only persona that edited a file.
-- `AGENTS.md` is injected into workflow subagents automatically.
+The kit validates the declared model before profile overrides. Model selection uses the
+file's `model` and `thoughtLevel` among declared GLM variants. The reasoning effect of the
+`$level` suffix remains unverified. `tools` metadata is advisory inside workflows; explicit
+access controls the prompt and change detection. Fingerprints detect source, index and HEAD
+changes outside ignored paths and `research/`; they do not prevent writes or prove absence
+of external effects. Python 3 and Git are required for the guard. Report uncovered
+surfaces; never call this a sandbox. Agent files must follow the project rules and required
+skills in addition to the run's instructions.
 
 **Drift check.** Before launching any script that carries the block, prove the copy is
 unchanged; the command must print nothing:
@@ -463,7 +469,7 @@ diff <(sed -n '/^\/\/ persona-kit:start/,/^\/\/ persona-kit:end/p' ~/.zcode/skil
 ```
 
 A changed kit is fixed in `persona-kit.dwf.ts` first (with a new version marker), then
-re-pasted everywhere that carries it, starting with the z-liteflow template.
+re-pasted everywhere that carries it, including the z-liteflow template and Shipflow queue.
 
 ## Model matrix
 

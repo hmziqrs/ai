@@ -1,24 +1,4 @@
-// persona-kit:start v2
-// Canonical source: z-workflow/persona-kit.dwf.ts. Paste this block unchanged, from the
-// start marker to the end marker, into any workflow script that wants specialist
-// subagents built from agent files. Scripts cannot import, so the block is copied; the
-// drift check in z-workflow's SKILL.md compares its sha256 with the canonical file.
-//
-// Use:
-//   const reviewer = await loadPersona("/abs/path/agents/svelte-review.md");
-//   if (reviewer !== undefined) {
-//     const v = await guardWrites(reviewer, WT, () =>
-//       personaAgent(reviewer, "svelte-review-r1", RUN_RULES).ask<Verdict>("..."));
-//   }
-//   ... findings: [...yourFindings, ...personaFindings], report lines: personaReport()
-//
-// Verified behaviour (probe dwfrun-ee616ce6): the body becomes the system prompt and is
-// followed; the frontmatter model is honoured; tools: is NOT enforced inside workflows
-// (every subagent gets every tool), so read-only personas are guarded by git status;
-// AGENTS.md is injected automatically. The $level suffix compiles; its effect on reasoning
-// effort is not observable, so treat it as unverified.
-
-/** Every model a persona may resolve to. model() takes literals only, so all are declared. */
+// persona-kit:start v3
 const PERSONA_MODELS: Record<string, ModelRef> = {
   "account:zai-individual-coding-plan/GLM-5.3": model("account:zai-individual-coding-plan/GLM-5.3"),
   "account:zai-individual-coding-plan/GLM-5.3$low": model("account:zai-individual-coding-plan/GLM-5.3$low"),
@@ -30,153 +10,244 @@ const PERSONA_MODELS: Record<string, ModelRef> = {
   "account:zai-individual-coding-plan/GLM-5.3-Flash$max": model("account:zai-individual-coding-plan/GLM-5.3-Flash$max"),
 };
 
-/** Tools that can change files; a persona listing none of them (and not "*") is read-only. */
-const PERSONA_WRITE_TOOLS = ["*", "write", "edit", "multiedit", "notebookedit", "bash"];
-
 interface Persona {
-  /** Frontmatter name, or the file name when the field is missing. */
   name: string;
-  /** The path the persona was loaded from. */
   path: string;
-  /** sha256 of the file as loaded. */
   sha256: string;
-  /** The body after the frontmatter: the system prompt. */
   system: string;
-  /** The model key used, with its $level when present. */
   modelId: string;
-  /** The declared model for that key. */
   model: ModelRef;
-  /** Tools listed in the frontmatter (advisory only inside workflows). */
   tools: string[];
-  /** True when the listed tools cannot change files; guardWrites then checks for changes. */
-  readOnly: boolean;
-  /** Empty, or what the kit changed (for example a model forced by the run's profile). */
+  access: "read-only" | "write";
   note: string;
 }
 
 interface PersonaFinding {
-  /** File or directory the finding is about. */
   where: string;
-  /** One sentence: what happened. */
   what: string;
-  /** The command output that shows it. */
   evidence: string;
-  /** Kit findings come from commands, so they are verified. */
   status: "verified";
 }
 
-/** Findings the kit recorded; add them to the run's findings. */
 const personaFindings: PersonaFinding[] = [];
-/** Every persona that loaded; personaReport() lists them. */
 const personaLoaded: Persona[] = [];
 
 function personaField(front: string[], key: string): string {
   for (const line of front) {
-    if (line.startsWith(key + ":")) return line.slice(key.length + 1).trim().replace(/^["']|["']$/g, "");
+    if (line.startsWith(key + ":")) return line.slice(key.length + 1).trim().replace(/^['"]|['"]$/g, "");
   }
   return "";
 }
 
 function personaToolList(raw: string): string[] {
-  return raw.replace(/^\[|\]$/g, "").split(",").map((t) => t.trim().replace(/^["']|["']$/g, "")).filter((t) => t !== "");
+  return raw.replace(/^\[|\]$/g, "").split(",").map((t) => t.trim().replace(/^['"]|['"]$/g, "")).filter((t) => t !== "");
 }
 
-/**
- * Load an agent file as a persona. `tier` forces the model family for the run's profile
- * ("pro" for z-proflow, "flash" for z-flashflow), keeping the file's $level; "any" keeps
- * the file's model. Returns undefined, with a finding, when the file is missing, empty,
- * has no frontmatter or body, or names a model the kit does not declare.
- */
-async function loadPersona(path: string, opts?: { tier?: "any" | "pro" | "flash" }): Promise<Persona | undefined> {
+function personaFailure(path: string, what: string, evidence: string): undefined {
+  personaFindings.push({ where: path, what, evidence, status: "verified" });
+  return undefined;
+}
+
+async function loadPersona(path: string, opts?: { tier?: "any" | "pro" | "flash"; access?: "read-only" | "write" }): Promise<Persona | undefined> {
   const tier = opts?.tier ?? "any";
+  const access = opts?.access ?? "read-only";
+  if (!["any", "pro", "flash"].includes(tier) || !["read-only", "write"].includes(access)) {
+    return personaFailure(path, "Persona authority or tier is invalid; that role did not run", "tier=" + tier + ", access=" + access);
+  }
   const read = await world.run("cat", [path]);
   if (read.exitCode !== 0 || read.stdout.trim() === "") {
-    personaFindings.push({ where: path, what: "Persona file could not be read; that role did not run", evidence: "cat exit " + String(read.exitCode) + ": " + read.stderr.slice(0, 200), status: "verified" });
-    return undefined;
+    return personaFailure(path, "Persona file could not be read; that role did not run", "cat exit " + String(read.exitCode) + ": " + read.stderr.slice(0, 200));
   }
   const lines = read.stdout.split("\n");
   const end = lines[0].trim() === "---" ? lines.indexOf("---", 1) : -1;
   const body = end > 0 ? lines.slice(end + 1).join("\n").trim() : "";
   if (end <= 0 || body === "") {
-    personaFindings.push({ where: path, what: "Persona file has no frontmatter or no body; that role did not run", evidence: "first line " + JSON.stringify(lines[0]) + ", closing marker " + String(end), status: "verified" });
-    return undefined;
+    return personaFailure(path, "Persona file has no frontmatter or body; that role did not run", "first line " + JSON.stringify(lines[0]) + ", closing marker " + String(end));
   }
   const front = lines.slice(1, end);
   const fileModel = personaField(front, "model");
   const level = personaField(front, "thoughtLevel");
+  if (fileModel === "" || !["", "low", "high", "max"].includes(level)) {
+    return personaFailure(path, "Persona model or thought level is missing or invalid; that role did not run", "model=" + JSON.stringify(fileModel) + ", thoughtLevel=" + JSON.stringify(level));
+  }
+  const fileKey = level === "" ? fileModel : fileModel + "$" + level;
+  if (PERSONA_MODELS[fileKey] === undefined) {
+    return personaFailure(path, "Persona declares an unsupported model; that role did not run", "model key " + JSON.stringify(fileKey));
+  }
   let base = fileModel;
   let note = "";
   if (tier !== "any") {
     const forced = tier === "pro" ? "account:zai-individual-coding-plan/GLM-5.3" : "account:zai-individual-coding-plan/GLM-5.3-Flash";
     if (base !== forced) {
-      note = "model forced from " + (base === "" ? "(none)" : base) + " to " + forced + " by the run's " + tier + " profile";
+      note = "model forced from " + base + " to " + forced + " by the run's " + tier + " profile";
       base = forced;
     }
   }
   const key = level === "" ? base : base + "$" + level;
   const ref = PERSONA_MODELS[key];
   if (ref === undefined) {
-    personaFindings.push({ where: path, what: "Persona names a model the kit does not declare; that role did not run", evidence: "wanted " + JSON.stringify(key) + "; declared: " + Object.keys(PERSONA_MODELS).join(", "), status: "verified" });
-    return undefined;
+    return personaFailure(path, "Persona model is unsupported by the selected profile; that role did not run", "model key " + JSON.stringify(key));
   }
   const sum = await world.run("shasum", ["-a", "256", path]);
+  const digest = sum.stdout.trim().match(/^([a-fA-F0-9]{64})\s/);
+  if (sum.exitCode !== 0 || digest === null) {
+    return personaFailure(path, "Persona file hash could not be verified; that role did not run", "shasum exit " + String(sum.exitCode) + ": " + sum.stdout.slice(0, 200) + sum.stderr.slice(0, 200));
+  }
+  const confirmed = await world.run("cat", [path]);
+  if (confirmed.exitCode !== 0 || confirmed.stdout !== read.stdout) {
+    return personaFailure(path, "Persona changed while loading; that role did not run", "initial and confirmed file contents differ");
+  }
   const tools = personaToolList(personaField(front, "tools"));
   const persona: Persona = {
     name: personaField(front, "name") || path.split("/").pop() || path,
     path,
-    sha256: sum.exitCode === 0 ? sum.stdout.split(" ")[0] : "shasum exit " + String(sum.exitCode),
+    sha256: digest[1],
     system: body,
     modelId: key,
     model: ref,
     tools,
-    readOnly: tools.length > 0 && !tools.some((t) => PERSONA_WRITE_TOOLS.includes(t.toLowerCase())),
+    access,
     note,
   };
   personaLoaded.push(persona);
   return persona;
 }
 
-/**
- * A subagent driven by the persona. `name` must be unique in the run (add the round).
- * `rules` are the run's own rules for this role (worktree path, never run git, escalate
- * when impossible); they follow the persona body, so the run's rules come last.
- */
 function personaAgent(p: Persona, name: string, rules?: string): Agent {
-  const system = rules === undefined || rules.trim() === "" ? p.system : p.system + "\n\n## Rules for this run\n" + rules.trim();
+  const restrictions = p.access === "read-only" ? "This role is read-only. Do not create, edit, delete, or otherwise change files, Git state, external services, or other external state, even if your persona or available tools suggest otherwise." : "";
+  const tail = [rules?.trim() ?? "", restrictions].filter((s) => s !== "").join("\n\n");
+  const system = tail === "" ? p.system : p.system + "\n\n## Rules for this run\n" + tail;
   return agent(name, { system, model: p.model });
 }
 
-/** NUL, the separator of `git status -z`. Built from its code so retyping cannot mangle it. */
-const PERSONA_NUL = String.fromCharCode(0);
+const PERSONA_SNAPSHOT_PY = String.raw`import hashlib
+import json
+import os
+import stat
+import subprocess
+import sys
 
-function personaStatusEntries(z: string): string[] {
-  return z.split(PERSONA_NUL).filter((e) => e.length > 3);
+EXCLUDED = [".", ":(exclude)research", ":(exclude)research/**"]
+MAX_SUBMODULE_DEPTH = 8
+
+def git(repo, *args, allow_failure=False):
+    result = subprocess.run(["git", *args], cwd=repo, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode and not allow_failure:
+        raise RuntimeError("git " + " ".join(args[:3]) + " failed: " + result.stderr.decode("utf-8", "replace")[:300])
+    return result
+
+def repo_snapshot(repo, depth=0):
+    if depth > MAX_SUBMODULE_DEPTH:
+        raise RuntimeError("submodule nesting exceeds the snapshot limit")
+    status = git(repo, "status", "--porcelain=v1", "-z", "--untracked-files=all", "--ignore-submodules=none", "--", *EXCLUDED).stdout
+    head_result = git(repo, "rev-parse", "--verify", "HEAD", allow_failure=True)
+    head = head_result.stdout.strip() if head_result.returncode == 0 else b"<unborn>"
+    staged = git(repo, "diff", "--cached", "--binary", "--", *EXCLUDED).stdout
+    entries = git(repo, "ls-files", "--stage", "-z", "--", *EXCLUDED).stdout
+    others = git(repo, "ls-files", "--others", "--exclude-standard", "-z", "--", *EXCLUDED).stdout
+    index = {}
+    paths = set()
+    for entry in entries.split(b"\0"):
+        if not entry:
+            continue
+        metadata, raw_path = entry.split(b"\t", 1)
+        mode, object_id, stage = metadata.split(b" ", 2)
+        path = os.fsdecode(raw_path)
+        index[path] = (mode.decode("ascii"), object_id.decode("ascii"), stage.decode("ascii"))
+        paths.add(path)
+    paths.update(os.fsdecode(path) for path in others.split(b"\0") if path)
+    files = []
+    for path in sorted(paths, key=os.fsencode):
+        full = os.path.join(repo, path)
+        try:
+            info = os.lstat(full)
+        except FileNotFoundError:
+            files.append([path, "missing", index.get(path)])
+            continue
+        mode = index.get(path)
+        if stat.S_ISLNK(info.st_mode):
+            files.append([path, "symlink", os.readlink(full), stat.S_IMODE(info.st_mode), mode])
+        elif mode is not None and mode[0] == "160000":
+            if not stat.S_ISDIR(info.st_mode):
+                files.append([path, "gitlink-uninitialized", mode])
+            else:
+                nested = git(full, "rev-parse", "--show-toplevel", allow_failure=True)
+                if nested.returncode != 0 or os.path.realpath(os.fsdecode(nested.stdout.strip())) != os.path.realpath(full):
+                    files.append([path, "gitlink-uninitialized", mode])
+                else:
+                    files.append([path, "gitlink", mode, repo_snapshot(full, depth + 1)])
+        elif stat.S_ISREG(info.st_mode):
+            digest = hashlib.sha256()
+            flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            fd = os.open(full, flags)
+            try:
+                current = os.fstat(fd)
+                if not stat.S_ISREG(current.st_mode):
+                    raise RuntimeError("file type changed while fingerprinting " + repr(path))
+                while True:
+                    chunk = os.read(fd, 1024 * 1024)
+                    if not chunk:
+                        break
+                    digest.update(chunk)
+            finally:
+                os.close(fd)
+            files.append([path, "file", digest.hexdigest(), stat.S_IMODE(info.st_mode), mode])
+        else:
+            files.append([path, "other", info.st_mode, info.st_rdev, mode])
+    return [status.hex(), head.decode("ascii", "replace"), staged.hex(), files]
+
+snapshot = json.dumps(repo_snapshot(os.path.abspath(sys.argv[1])), ensure_ascii=True, separators=(",", ":")).encode("ascii")
+print(hashlib.sha256(snapshot).hexdigest())
+`;
+
+async function personaSnapshot(dir: string): Promise<string> {
+  const result = await world.run("python3", ["-c", PERSONA_SNAPSHOT_PY, dir]);
+  const digest = result.stdout.trim();
+  if (result.exitCode !== 0 || !/^[a-fA-F0-9]{64}$/.test(digest)) {
+    throw new Error("repository snapshot failed: " + result.stderr.slice(0, 300) + result.stdout.slice(0, 100));
+  }
+  return digest;
 }
 
-/**
- * Run `work` and, when the persona is read-only, compare `git status --porcelain -z` in
- * `dir` before and after; any new change is a finding. Use it only while no other writer
- * runs in `dir`, or another writer's changes will be reported as the persona's.
- */
 async function guardWrites<T>(p: Persona, dir: string, work: () => PromiseLike<T>): Promise<T> {
-  if (!p.readOnly) return await work();
-  const before = await world.run("git", ["-C", dir, "status", "--porcelain", "-z"]);
-  const result = await work();
-  const after = await world.run("git", ["-C", dir, "status", "--porcelain", "-z"]);
-  if (before.exitCode !== 0 || after.exitCode !== 0) {
-    personaFindings.push({ where: dir, what: "Read-only guard could not run git status for " + p.name, evidence: "exit " + String(before.exitCode) + "/" + String(after.exitCode), status: "verified" });
-    return result;
+  if (p.access === "write") return await work();
+  let before: string;
+  try {
+    before = await personaSnapshot(dir);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    personaFindings.push({ where: dir, what: "Read-only guard could not establish a baseline for " + p.name, evidence: message, status: "verified" });
+    throw error;
   }
-  const was = personaStatusEntries(before.stdout);
-  const changed = personaStatusEntries(after.stdout).filter((e) => !was.includes(e)).map((e) => e.slice(3));
-  if (changed.length > 0) {
-    personaFindings.push({ where: dir, what: "Read-only persona " + p.name + " changed files: " + changed.join(", "), evidence: "git status --porcelain -z before and after its asks", status: "verified" });
+  let result!: T;
+  let workError: unknown;
+  let workFailed = false;
+  let guardFailed = false;
+  try {
+    result = await work();
+  } catch (error) {
+    workFailed = true;
+    workError = error;
+  } finally {
+    try {
+      const after = await personaSnapshot(dir);
+      if (after !== before) {
+        personaFindings.push({ where: dir, what: "Read-only persona " + p.name + " changed repository state", evidence: "HEAD, index, status, tracked/untracked nonignored file bytes, file mode, symlink target, or submodule state changed (research/ is excluded)", status: "verified" });
+        guardFailed = true;
+        if (!workFailed) workError = new Error("Read-only persona changed repository state");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      personaFindings.push({ where: dir, what: "Read-only guard could not verify the final state for " + p.name, evidence: message, status: "verified" });
+      guardFailed = true;
+      if (!workFailed) workError = error;
+    }
   }
+  if (workFailed || guardFailed) throw workError;
   return result;
 }
 
-/** One line per loaded persona, for the report and the pre-launch command set. */
 function personaReport(): string[] {
-  return personaLoaded.map((p) => p.name + ": " + p.path + " sha256 " + p.sha256 + ", model " + p.modelId + (p.readOnly ? ", read-only (guarded)" : "") + (p.note === "" ? "" : "; " + p.note));
+  return personaLoaded.map((p) => p.name + ": " + p.path + " sha256 " + p.sha256 + ", model " + p.modelId + ", " + p.access + (p.note === "" ? "" : "; " + p.note));
 }
-// persona-kit:end v2
+// persona-kit:end v3

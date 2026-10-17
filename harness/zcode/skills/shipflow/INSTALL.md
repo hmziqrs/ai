@@ -6,8 +6,10 @@ paths ANYWHERE — no home-directory or user-level destinations of any
 kind; every destination below is inside the target project.
 
 1. **Copy the package** (from this repo, `hmziqrs/ai`, at its root):
-   - `harness/zcode/agents/shipflow-*.md` (20 files) →
+   - `harness/zcode/agents/shipflow-*.md` and `harness/zcode/agents/z-*.md` →
      `<project>/.zcode/agents/`
+   - Whole `harness/zcode/skills/shipflow/` and `harness/zcode/skills/z-workflow/`
+     folders → `<project>/.zcode/skills/`
    - `harness/zcode/workflows/shipflow-queue.dwf.ts` →
      `<project>/.zcode/workflows/`
    - `harness/zcode/skills/shipflow/references/knowledge/*.md` (8 role
@@ -27,22 +29,24 @@ kind; every destination below is inside the target project.
    */15 * * * * cd <project> && gh issue list -R <repo> -l pipeline:ready -L 1 | grep -q . && ! find .shipflow -name 'cycle-*.md' -mmin -30 | grep -q . && gh issue create -R <repo> -l pipeline:watchdog -t "shipflow stalled" -b "ready issues exist but no cycle artifact in 30m"
    ```
 
-4. **Phase-0 verification** — all four pass before the first run; a failure
+4. **Phase-0 verification**: every applicable check passes before the first run; a failure
    stops the install and is reported, never skipped:
    - Workspace agent discovery: fresh session in `<project>` lists the
      shipflow agents from `<project>/.zcode/agents/` (ZCode loads agents at
      session start — restart or a new session is required). Verify
-     `ls <project>/.zcode/agents/ | grep -c 'shipflow-'` prints 20 and the
-     session's agent list shows them.
-   - agent-browser headless with --session:
-     `agent-browser --session shipflow-phase0 open about:blank &&
-     agent-browser --session shipflow-phase0 screenshot /tmp/shipflow-p0.png
-     && agent-browser --session shipflow-phase0 close` — a nonempty PNG
-     results.
-   - flash-pixel vs pro-image-blind: a flash agent Reads the PNG and
-     reports what it shows; a pro agent Reads the same PNG and returns a
-     URL, not pixels — record both outcomes as the tier-lane proof
-     (SPEC 1.4).
+     compare the copied filenames to the source agent globs, require regular files,
+     and verify the discovered descriptions include the chosen domain specialists.
+   - Domain knowledge: resolve each selected persona's named primary skills from the
+     session. Framework skills such as `svelte-code-writer`, `gpui-kit`, `tauri-v2`
+     and Flutter skills are separate dependencies; this package does not bundle them.
+     Missing required skills block that assignment. Install only the project's required
+     dependencies through its approved skill sources.
+   - Browser/device capability: when the issue needs capture, run a bounded capture probe
+     and verify the PNG plus semantic evidence. Check actual image-reading capability;
+     do not assume a text model is image-blind. Device capture requires its own delegated
+     tool/runtime access and one serialized device lane.
+   - Kit identity: the queue's persona-kit block must match the canonical file in
+     `<project>/.zcode/skills/z-workflow/persona-kit.dwf.ts` exactly.
    - Gate allowlist coverage: every gate the project will declare has tool
      in {npm, pnpm, yarn, bun, cargo, make, go, python3, pytest, npx, git}
      and is non-mutating; anything else is swapped or dropped at install,

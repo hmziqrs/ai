@@ -87,10 +87,18 @@ Apply these rules to every plan:
    Lanes share one lane function. A role is one `agent()` name pattern. The gate is the
    task's own command; add a smoke check only for a stated requirement the gate cannot check,
    under about 20 lines. Every overage gets a one-line reason in the plan's `budget` field.
-1b. **One area, one lane.** A one-area task runs in one run-owned worktree on `wf/<slug>`:
+**Task-kind routing.** Work kind selects eligible stages before the dials set depth. Research uses discovery,
+source checking and synthesis; audits use inspection and confirmation; drafts write only
+named artifacts. Implementation, code gates, capture, commits and merges require a matching
+requested deliverable. Hole continuations are authored here and passed unchanged by the
+coordinator. Discovered tasks return to the coordinator with kind, parent, scope,
+dependencies and evidence; no worker launches nested agents or workflows.
+
+1b. **One area, one lane.** A one-area code change runs in one run-owned worktree on `wf/<slug>`:
    implement, gate, flash tracer, fresh judges, and the other dials that are on, looped by the
    stop rule. No integration worktree, no merges, no per-round checkpoint commits, no join
    except the final report (or an audit join), and one commit on `wf/<slug>` at the end.
+   Read-only research, analysis and audits need no worktree, commit or checkout merge.
 2. **Depth from dials, not from a band.** Never add a stage because a band "usually" has it.
    Every stage in the plan names the dial and signal that put it there.
 3. **Lanes, not phases.** Each area is a lane with its own stages. Stages inside a lane run in
@@ -175,7 +183,10 @@ interface TopologyPlan {
     name: string;
     workspace: "run-worktree" | "shared-run-worktree";
     dependsOn: string[];
+    skills: string[];
   }[];
+  acceptance: { area: string; requirement: string; check: string; evidence: string[] }[];
+  personas: { area: string; role: string; path: string; access: "read-only" | "write"; reason: string }[];
   /** Per area: the stages in order, each with its model tier. */
   lanes: {
     area: string;
@@ -239,11 +250,15 @@ Script rules (binding; the platform contract wins on any conflict):
 - Budget: the script stays within the plan's `budget`. Shared helpers (one gate runner, one
   purity check, one lane function called per area) beat copy-pasted lane bodies.
 - Persona text ends with: impossible instructions mean escalate and say so. Never fake a pass.
-- Specialist personas: when the brief or task names agent files, paste the persona kit
+- Specialist personas: select relevant discovered domain agents using the z-workflow
+  skill's `references/specialists.md`, task, manifests and affected code. Carry the brief's
+  persona paths, access and selection reasons into the plan; do not require the user to name
+  files or infer a framework from `hasUI`. Paste the persona kit
   (`persona-kit.dwf.ts` in the z-workflow skill folder) unchanged, from its start marker to
-  its end marker, and use only its functions: `loadPersona(path, { tier })` with the
-  profile's tier, `personaAgent(p, name, RUN_RULES)`, `guardWrites` around read-only
-  personas, and `personaFindings` plus `personaReport()` in the report. Never hand-write a
+  its end marker, and use only its functions: `loadPersona(path, { tier, access })` with the
+  profile's tier and explicit role authority, `personaAgent(p, name, RUN_RULES)`, `guardWrites` around read-only
+  asks (including Bash-enabled reviewers), with no concurrent writer in the guarded
+  worktree. Failed loads or guards block that role. Include `personaFindings` plus `personaReport()` in the report. Never hand-write a
   persona loader or edit the block. List each persona's path in the plan's `commands`.
 
 Do not copy a previous script or topology. Write this use case's script from its plan. Shared
@@ -271,7 +286,7 @@ Flag only what the given text shows. Classify every finding as exactly one of:
   artifacts, naming, observability.
 - **proportion**: an overage against the computed complexity budget with no reason in the plan's
   `budget` field, a model-driven capture where a `world.run` capture would do, one feature
-  split into areas by directory, worktrees or merges in a one-area
+  split into areas by directory, extra worktrees or integration merges in a one-area
   run, per-round checkpoint commits, a smoke check that repeats what the gate already checks,
   and lane bodies copy-pasted where one shared function would do.
 

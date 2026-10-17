@@ -69,10 +69,12 @@ Asks per round: 3 (implementer, tracer, judge). Roles: 3. Worktrees: 1.
    `wf/<slug>` branch), `FILES` (every file the task may change), `GATE` (`{tool, args}`,
    the repo's own command), `CAP`, and optionally `IMPLEMENTER_PERSONA` and
    `JUDGE_PERSONA` (see Specialist personas). Never re-emit the rest of the file: retyping
-   390 lines mangles characters. Then run z-workflow's persona-kit drift check on the copy;
+   the template can mangle characters. Then run z-workflow's persona-kit drift check on the copy;
    it must print nothing.
 3. **Show the command set** before launch: `git` (worktree add, status, grep, diff, add,
    commit in the run worktree only) and the gate command, with the worktree path and branch.
+   Selected personas also require `cat`, `shasum`, and `python3` for loading and read-only
+   source-state fingerprints; show their paths, hashes, models and authority.
 4. **Launch** with CreateWorkflow using `path` (the filled copy) and
    `name: "zflow-lite-<slug>"`. Approve with "Allow only this time", never "Always allow".
 5. **Merge.** Follow z-workflow Step 6: fast-forward `wf/<slug>` into the checkout by
@@ -88,9 +90,9 @@ The template can drive its implementer and judge with agent files (for example a
 specialist) through the shared persona kit (z-workflow, "Specialist agents in workflows").
 Set `IMPLEMENTER_PERSONA` or `JUDGE_PERSONA` to an agent file's absolute path when the user
 names one or the task clearly calls for one; leave them `""` otherwise. Both run on the pro
-model whatever the file says. A persona that fails to load falls back to the built-in role
-and the report says so. A judge persona whose `tools:` cannot write is checked with
-`git status` around its ask. List each persona's path and sha256 with the command set.
+model whatever the file says. A selected persona that fails to load blocks the run.
+Implementation uses explicit write authority; every judge uses explicit read-only authority
+and a change guard, including Bash-enabled or implementation-capable domain files. List each persona's path and sha256 with the command set.
 
 ## Rules carried from z-workflow
 

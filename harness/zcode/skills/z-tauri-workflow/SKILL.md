@@ -1,117 +1,18 @@
 ---
 name: z-tauri-workflow
 description: >-
-  Thin one-launch chain skill for real Tauri v2 desktop work: a single
-  zflow-engine chain launch runs every Tauri area as its own state machine —
-  pro implement and judge in-run, flash vision on the tauri dev-server URL
-  (web areas) or the ocu device lane (window/tray/native areas), small
-  commits, DAG merges, and a code-enforced POLICY loop. Trigger phrases:
-  tauri workflow, tauri orchestration, tauri sub-agents, tauri
-  iterate-until-clean.
+  Domain profile for z-workflow on Tauri desktop tasks. Use when the user
+  explicitly requests a Tauri workflow or Tauri subagent orchestration.
 ---
 
 # z-tauri-workflow
 
-**The main agent is a chain coordinator, not an implementer.** It slices the
-task into Tauri areas, makes ONE launch, and relays the report; the whole
-chain — plan, implement, vision, judge, fix rounds, merges — runs inside
-that single workflow. Never relaunch to fix (AmendWorkflow revises,
-ResumeWorkflowRun continues a stopped run; never nest). Trivial one-file
-edits don't need this skill. Sibling flows run under their own rules.
+Use z-workflow's composer-coordinator and workflow-author. The author writes a fresh script from the task and measured dials. Do not rely on a saved engine or create a second framework coordinator. Keep research and draft requests in their requested shape; create code lanes only for implementation work.
 
-## Models — balanced profile, in-engine
+Split code areas by behavior and ownership. Route Rust command, state, permission, and native integration changes to `z-tauri-integrator` or the relevant Rust specialist. Route frontend changes to the project's framework specialist. Load canonical personas through the unchanged persona kit from `persona-kit.dwf.ts`; implementers have write access and each round's reviewer is fresh and read-only. Avoid one mixed frontend/native area when either side can be implemented and gated independently.
 
-Pro where quality is only checkable by judgment — Rust architecture,
-command/state ownership, audit verdicts. Flash where a model runs and its
-output is objectively checkable — capture and image reading; gates and git
-state run model-free in script (world.run). One launch pins it all:
-planner/reviewer/implementer/Committer/judge/confirmer on pro; capture and
-vision audit on flash. AX structural checks are tier-blind text — the pro
-judge reads the .txt evidence directly.
+Discover the actual Rust manifest, features, package manager, and frontend scripts before defining gates. Scope Cargo formatting, lint, and tests to the affected manifest and relevant features. Use the existing frontend typecheck or test scripts. Do not invent an npm command, invoke `npx` as a gate, or gate on a nonexistent Tauri CLI lint. Preserve the IPC contract across Rust commands and frontend invoke types. Keep capabilities narrow and follow the project's plugin and permission setup.
 
-## Launch (once)
+Classify visible coverage explicitly. A web lane can verify browser rendering and frontend behavior; it does not cover the Tauri webview, native chrome, tray, IPC, permissions, lifecycle, or platform integration. Put desktop capture in a separate run-owned worktree when needed and serialize all device activity through one lane. Use `z-native-device-verifier` with Flash tier and write access limited to evidence artifacts for bounded capture and semantic evidence. Save accessibility evidence and PNGs under `.zflow/evidence/` when available, then ask a separate fresh blind Flash vision auditor to compare captures with task requirements. Keep the pro judge independent and read-only.
 
-prep (coordinator): slice into areas — fine-grained by decree, one kind per
-  area: Rust core in `src-tauri/` (commands, state, events, plugins,
-  tray/windows) → `contention: "desktop"` for window/tray/native areas,
-  `terminal` for pure logic; frontend (components/routes/IPC bindings) →
-  `contention: "web"` and the dev-server URL (`build.devUrl`, Vite default
-  http://localhost:5173) named in the task text so the flash capture audits
-  it; capabilities/config → `terminal`. Split any slice over ~4 files, over
-  the size budget (~400 changed lines / ~10 files; per-area `budget` tunes
-  it), or mixing kinds. Gates: non-mutating, engine-allowlisted — Rust:
-  `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings`, both
-  with `--manifest-path src-tauri/Cargo.toml` (the engine absolutizes a
-  gate's own manifest path); frontend: typecheck via the repo's
-  package-manager scripts (`npm run type-check` style; `npx`-style gates
-  refuse — wrap in a package.json script or Makefile; never in a JS-only
-  frontend); no Tauri-CLI lint exists — never gate on one. Baseline gates
-  once; record and OMIT pre-existing reds. Record baseSha, repoRoot,
-  agentsMd; gitignore .zflow/; clean stale zflow/* branches/worktrees and
-  untracked files under worktree areas' paths.
-
-launch (once): CreateWorkflow saved zflow-engine — mode="chain", task
-  (with the dev-server URL named), areas, agentsMd, baseSha, repoRoot,
-  maxLines/maxFiles (per-area budget optional), commit. No subagent_model.
-  No maxRounds unless the user caps.
-  In-run per area: plan → implement (web areas in their own worktree;
-  desktop areas in worktrees with capture serialized through the device
-  lane) → flash vision → pro judge + confirmer per finding → fix rounds
-  while findings shrink → merge into the integration worktree along dependsOn →
-  area worktrees removed, branches kept.
-
-stop → relay the run's typed return + report: per-area terminal states,
-  commits, merges, gate status, findings fixed vs deferred, degraded vision
-  stated plainly.
-
-**Lane caveat (unchanged):** a web-lane audit sees frontend markup/CSS/JS
-but NOT the Tauri webview, native chrome, tray, or IPC (`invoke` cannot run
-in a plain browser) — the report marks those not-covered; the desktop lane
-covers them.
-
-## Approval and merge
-
-- Launch through the approval dialog with "Allow only this time". Never pick "Always allow
-  in this session" for a run that commits or merges.
-- Pass `runTag` (the first 8 characters of `baseSha` by default; a new tag when
-  `zflow/<tag>/*` branches from an earlier run already exist).
-- The engine never writes the user's checkout. Terminal areas work in the run's
-  integration worktree; other areas work in their own worktrees and merge into it. The
-  result lands on `zflow/<runTag>/integration`; area worktrees are removed after a clean
-  merge (never `--force`) and every branch is kept.
-- After the run, merge the result into the user's checkout as in z-workflow Step 6: by
-  itself with `git merge --ff-only` when the run ended clean, the checkout has no local
-  changes and still sits at the base commit, and the gate passes again afterwards; ask
-  with AskUserQuestion only when one of those checks fails, the user asked to review first,
-  or the task was risk high. Never push; keep the branch.
-
-## Conventions
-
-- Never claim clean while a gate is red. Never claim a screen verified that
-  was not shot and audited this run. Unverified stays unverified.
-- Size-budgeted small commits: ≤400 changed lines / ≤10 files, one commit
-  per green round, `fix:` on fix rounds, explicit paths, never
-  `--no-verify`/`git add -A`/push; match repo log style. The Committer owns
-  git.
-- AGENTS.md binds every subagent (agentsMd + baseSha args); its required
-  skills ride on top of the routed skills.
-- Skills are dynamic: matched by capability against the session's
-  available-skills list; a gap is noted, not a blocker.
-- Skill menu by area kind: Rust commands/state/events → tauri-v2 +
-  understanding-tauri-architecture + rust-best-practices (+
-  rust-async-patterns when async); tray/windows/native → tauri-v2 +
-  understanding-tauri-architecture; frontend →
-  integrating-tauri-js-frontends + calling-rust-from-tauri-frontend + the
-  framework skill by capability; capabilities/config →
-  configuring-tauri-permissions + tauri-v2; tests → tauri-v2 +
-  rust-testing or the framework skill. A skill page is the door, not the room.
-
-## Fallback lanes
-
-- **Mid-run eyes in a pro role** (a judge re-examining pixel detail): the
-  escalation bridge, batched — ONE escalation per area carrying ALL its
-  screenshots; resolve with a flash Agent-tool subagent; cap 3 per ask.
-- **Interactive desktop lane**: the computer-use plugin, main thread only —
-  never inside runs. If ocu, the dev server, or the app launch fails, the
-  run marks vision degraded for that area and says so — never invent
-  substitutes.
+Show the measured dials, model roles, and command set before launch, use the one-time approval choice, and follow z-workflow Step 6 for guarded fast-forward into the user's checkout. Report each surface's gates and evidence separately, including uncovered native behavior. Never push or delete run branches.

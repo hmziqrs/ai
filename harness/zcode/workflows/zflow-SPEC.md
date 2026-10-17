@@ -173,43 +173,22 @@ Hard rules (all enforced in script code, never model judgment):
   surfaced); typed WorkflowReport return `{conclusion, findings, verified,
   notCovered}`.
 
-## 4. Per-skill map — thin coordinator sheets
+## 4. Workflow consumers
 
-Two skills are thin coordinators over the ONE engine — no orchestration code,
-just slicing recipe, `modelProfile`, gates, and per-area skill routing; both
-launch `CreateWorkflow saved: zflow-engine` with `mode: "chain"`, through the
-approval dialog with "Allow only this time", and after the run ask the user
-before merging `zflow/<runTag>/integration` into their checkout:
+This saved engine is available when explicitly selected. `z-workflow` authors fresh
+scripts; z-proflow and z-flashflow select its model policy, and z-liteflow fills its own
+small-task template. GPUI and Tauri are domain profiles of z-workflow with framework gates,
+worktree isolation and serialized device evidence. Rustflow composes its own main-tier runs.
+Those flows follow their own stage, commit and checkout-merge rules; the engine's rules do
+not override them. Cross-flow handoffs occur between runs, never through nested workflows.
 
-- **z-gpui-workflow**: GPUI slicing recipe (entity family / component /
-  screen region per area); design areas are desktop contention (ocu lane).
-- **z-tauri-workflow**: Tauri v2 slicing recipe — `src-tauri/` core as
-  terminal/desktop contention, frontend as web contention with the devUrl
-  named in the task; the lane caveat: a web-lane audit cannot see the
-  webview, native chrome, tray, or IPC (`invoke` cannot run in a plain
-  browser) — the report marks those not-covered.
-- **z-workflow** is NOT engine-driven: its workflow-author writes a fresh
-  script per task from measured signals (see its SKILL.md). Three skills are
-  profiles of it and use no engine either: **z-proflow** (pro only, no
-  vision), **z-flashflow** (Flash only, with `workflow-author-flash`), and
-  **z-liteflow** (one area, a filled pre-tested template, no author).
-- **z-super-rustflow** is NOT engine-driven: it composes its own inline
-  main-tier-only runs (no vision, no flash) over the rust-* family; node
-  modes are not part of this engine.
+## 4a. Specialist agents
 
-Cross-flow hand-offs = finish the run, relaunch as the sibling flow (no
-nesting). Every launch carries `agentsMd` and `baseSha`; the AGENTS.md
-injection rule and the numbered commit budget (~400 lines / ~10 files, one
-commit per green round) hold everywhere.
-
-## 4a. Specialist agents in workflows
-
-Workflows cannot reference agent definitions by name; `agent()` takes only a system prompt
-and a model. Every dynamic workflow (z-workflow, its profiles, and z-liteflow's template)
-drives specialists through one shared block, `harness/zcode/skills/z-workflow/persona-kit.dwf.ts`,
-pasted unchanged and checked for drift before launch (see z-workflow's SKILL.md). The
-engine does not carry the kit; z-gpui-workflow and z-tauri-workflow gain it when they move
-off the engine.
+Fresh workflows, liteflow and Shipflow load agent files through the canonical persona kit
+in `harness/zcode/skills/z-workflow/persona-kit.dwf.ts`. Every embedded copy must match it.
+Explicit role access is independent of advisory tool metadata. The saved engine uses its
+own inline actors and does not select the specialist files; select a persona-enabled flow
+when domain specialization is required.
 
 ## 5. Files, install, and no-drift discipline
 

@@ -7,7 +7,7 @@ description: >-
   rust-best-practices, rust-testing): a read-only research phase (explorer,
   researcher, auditor) that is the DEFAULT and makes zero edits, plus an
   opt-in implement phase with a converge-until-auditors-go-silent audit-fix
-  loop. Pure main-tier — no vision node, no flash agents, anywhere. Trigger
+  loop. Pro personas only, with no vision or flash agents. Trigger
   phrases: super rustflow, z-super-rustflow, rustflow campaign, superopt
   workflow, super-optimization workflow, optimization orchestration,
   superopt sub-agents, optimize-until-clean, audit this crate for
@@ -21,7 +21,7 @@ description: >-
 # z-super-rustflow
 
 **The main agent is a chain coordinator, not an implementer or researcher.**
-It slices the optimization surface into areas, launches main-tier workflow
+It slices the optimization surface into areas, launches pro-tier workflow
 runs as chain nodes, and writes the final report; between runs it holds ONLY
 compact control data — typed returns, the findings registry (fingerprinted,
 deduped), evidence paths, baseline numbers, round count, commit shas.
@@ -54,22 +54,34 @@ benchmark + parity oracle + recorded baseline
 before the first optimization edit. The scalar implementation stays in
 the tree forever as the correctness oracle.
 
-## Tier philosophy — main-tier only, no vision
+## Persona routing — pro-tier only, no vision
 
 No flash anywhere, no image reading anywhere, no escalation bridge.
 Optimization evidence is text — asm dumps, criterion JSON, perf/xctrace
 reports — tier-blind by nature. Gates and benchmark comparisons are run by
 the script (world.run exit codes), never by an agent, so no cheap-tier
-gate-runner exists to want. If something seems to need eyes, it doesn't:
+gate-runner exists to want. Use each persona's declared model and thought
+level; do not add a second model profile. If something seems to need eyes,
 text evidence covers it, or it is marked not-covered and said so.
 
 | Chain node | model | Why |
 |---|---|---|
-| explorer / researcher (Phase R) | main-tier (session model, never pinned to flash) | triage and lever ranking are judgment |
-| confirmers (Phase R) | main-tier | finding verification needs depth |
-| implementer (Phase I) | main-tier | judgment-heavy codegen |
-| auditor (both phases) | main-tier, fresh each round | blind audit verdicts need depth |
+| routing, profiling, benchmark plan | `z-rust-perf-engineer`, read-only | baseline, noise, workload, lever selection |
+| memory, SIMD, or async research | matching `z-rust-memory-engineer`, `z-rust-simd-engineer`, or `z-rust-async-engineer`, read-only | domain-specific evidence |
+| Rust implementation | matching domain persona, write only in Phase I | scoped code changes |
+| audit | fresh read-only domain persona each round; `shipflow-security-audit` when safety invariants change | blind review and invariant checks |
 | gates + bench compare | nobody — script-run | mechanical, exit codes |
+
+Every composed script pastes the complete current block from
+`harness/zcode/skills/z-workflow/persona-kit.dwf.ts` unchanged. Resolve each
+agent file to an absolute path, then use `loadPersona` with `tier: "pro"`
+and explicit `access`, followed by `personaAgent`;
+never paste persona text by hand. Phase R, judges, and auditors use
+`access: "read-only"`; only Phase I implementers use `access: "write"`.
+Use `guardWrites` for read-only asks, include persona findings and reports,
+and list persona paths and hashes before launch. When unsafe, FFI, aliasing,
+or memory-safety invariants change, add a fresh read-only audit of those
+invariants; never reuse the implementer as auditor.
 
 **Fresh-context rule — universal:** every node above is a fresh agent per task;
 confirmers are fresh per finding. The single exception is `implementer-<area>`,
@@ -96,15 +108,19 @@ thereafter; saving is the user's call, never silent.
    the workspace needs it), complexity, dependsOn. Record `baseSha`
    (`git rev-parse HEAD`) — the audit runs' size evidence is measured
    against it.
-2. **Phase R run**: parallel explorers map code, deps, build profiles,
-   existing benches (read-only); researchers triage per rust-superopt
+2. **Phase R run**: parallel read-only personas map code, dependencies,
+   build profiles, and existing benches; `z-rust-perf-engineer` leads
+   triage per rust-superopt
    Step 2 evidence rules; fresh auditors per area hunt findings — perf
    opportunities AND correctness hazards in the making (missing parity,
    float tolerance, unshippable target-cpu); independent confirmers
    verify every finding. Release hygiene (rust-superopt Step 0) is
    checked FIRST — a debug-benchmarked or size-optimized hot path ends
    the campaign at that finding.
-3. **Phase I implement run**: `implementer-<area>` works confirmed
+3. **Phase I implement run**: choose `z-rust-memory-engineer`,
+   `z-rust-simd-engineer`, `z-rust-async-engineer`, or `z-rust-engineer`
+   by the confirmed lever; `z-rust-perf-engineer` owns benchmark and target
+   decisions. `implementer-<area>` works confirmed
    findings in ladder order (crate swap → fix autovec → parallelize →
    cache/affinity → hand SIMD → architecture), re-benchmark after each
    lever, stop the moment the Phase R target is met — a satisfied target
@@ -114,8 +130,7 @@ thereafter; saving is the user's call, never silent.
    size check after every round: a round whose delta exceeds the area's
    budget is a red round with reason `size` — shrink it or report the
    split needed; two consecutive size-reds stop the area. A Committer role
-   in the composed node (mirroring zflow-engine's own Committer, which the
-   engine spawns only inside its own runs) drafts and the script commits
+   drafts the message and the script commits
    each green round separately, `perf:`
    style matching `git log --oneline -10` — never one commit folding
    several rounds' work.
@@ -138,9 +153,7 @@ thereafter; saving is the user's call, never silent.
      `implementer-<area>` agents (long-lived context) → gates → bench
      compare → `perf:` commit → fresh audit.
    - **stop honestly**: this flow's own composed-loop `maxRounds` cap
-     (default 6 — an honesty valve against ping-pong, not a target; the
-     zflow-engine's same-named arg is a different control and defaults to
-     unbounded) or two consecutive rounds with zero
+     (default 6) or two consecutive rounds with zero
      registry progress (same findings open, nothing novel) → report what
      passed, what's open, why.
    - Pre-existing red gates and pre-existing benchmark numbers are
@@ -153,8 +166,8 @@ thereafter; saving is the user's call, never silent.
   rust-superopt (its references/measurement.md and
   references/codegen-tooling.md)
 - compute / autovec repair / hand-written SIMD → rust-simd-kernels
-- crate swaps (ladder lever 1) → rust-simd-crates — not installed; fall
-  back to rust-superopt's lever-1 list; a gap is noted, not a blocker
+- crate swaps (ladder lever 1) → rust-simd-crates; resolve the installed
+  path and report missing required coverage before that assignment
 - memory / rayon / false sharing / NUMA / cache layout →
   rust-parallel-cache
 - lock + IO architecture / sharding / single-writer / group commit →
