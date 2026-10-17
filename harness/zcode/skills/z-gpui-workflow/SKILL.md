@@ -12,7 +12,7 @@ description: >-
 
 # z-gpui-workflow
 
-`z-gpui-workflow` is the GPUI (`gpui-kit`) desktop domain profile of `z-workflow`. The main agent acts as `z-workflow`'s **composer-coordinator** with a clean context (Pillar 9): it dispatches the `workflow-planner` for complex tasks — the planner gathers every GPUI domain fact and dispatches `workflow-author` itself — or the `workflow-author` directly for small tasks. Do not depend on the optional saved `zflow-engine` or introduce a second GPUI coordinator.
+`z-gpui-workflow` is the GPUI (`gpui-kit`) desktop domain profile of `z-workflow`. The main agent acts as `z-workflow`'s **composer-coordinator** with a clean context (Pillar 9): it dispatches the `workflow-planner` for complex tasks — the planner gathers every GPUI domain fact and dispatches `workflow-author` itself — or the `workflow-author` directly for small tasks. Every run gets a freshly written script; do not depend on a saved engine or introduce a second GPUI coordinator.
 
 ## When to Use
 

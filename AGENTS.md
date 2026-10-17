@@ -27,7 +27,6 @@ archived skills, agents, or workflows from it. Historical skill definitions use
 harness/<name>/              harness-SPECIFIC kits (only what depends on a harness)
   zcode/agents/<name>.md       ZCode sub-agent definitions (YAML frontmatter + system-prompt body)
   zcode/skills/<name>/SKILL.md ZCode-specific skills (the seven z-flow chains)
-  zcode/workflows/             dynamic-workflow sources (zflow-engine.dwf.ts + zflow-SPEC.md)
   codex/                       Codex kit (agents, profiles, plugin, model-catalogs, scripts)
 <category>/[<group>/]<skill>/SKILL.md  cross-harness skill categories (copy/, languages/rust/, ...): plain SKILL.md skills, optionally grouped
 research/                    source reports and historical material; access restricted above, never installed
@@ -56,7 +55,7 @@ llms.txt                     entry point for consuming agents
     (`antislop-copy`, `code-comments`, `test-quality-guardrails`,
     `test-quality-tdd-agents`, `test-quality-audit`) install into
     `~/.agents/skills/`.
-  - **Per-Project Niche**: `z-*` specialists, `shipflow-*` roles, niche
+  - **Per-Project Niche**: `z-*` specialists, niche
     workflows (`z-gpui-workflow`, `z-tauri-workflow`, `z-super-rustflow`,
     `shipflow`, plus a project-pinned copy of `z-workflow`), and stack-specific
     domain skills (`languages/rust/rust-*` and external framework skills)
@@ -85,17 +84,22 @@ llms.txt                     entry point for consuming agents
   z-proflow (pro only, no vision) and z-flashflow (Flash only) are
   profiles of it, and z-liteflow is its fast small-task form (a filled,
   pre-tested template, no author). z-gpui-workflow and z-tauri-workflow
-  are domain profiles of z-workflow with scoped framework gates and device evidence.
-  The saved engine retains its separate contract in
-  `harness/zcode/workflows/zflow-SPEC.md`.
+  are domain profiles of z-workflow with scoped framework gates and device evidence;
+  shipflow is its framework-agnostic GitHub issue-queue profile (one issue per
+  cycle, each cycle a fresh z-workflow run).
   z-super-rustflow composes its own main-tier-only runs inline (no
-  vision, no flash) and needs no engine.
+  vision, no flash).
+- No saved engines: every z-flow run executes a script written (or, for
+  z-liteflow, filled from its template) for that task. Do not add saved
+  workflow engines or offer to SaveWorkflow a generated script as a standing
+  engine; the only reusable workflow code is the persona kit and z-liteflow's
+  pre-tested template.
 - Workflows cannot call agents by name. To drive a workflow subagent
   with an agent file (a specialist), paste the persona kit
   `harness/zcode/skills/z-workflow/persona-kit.dwf.ts` unchanged into
   the script and use its functions; never hand-write a persona loader.
   A change to the kit goes into that file first (new version marker),
-  then into every script that carries it (z-liteflow's template and Shipflow queue too).
+  then into every script that carries it (z-liteflow's template too).
 - Embedded filesystem/process helpers use TypeScript executed by Bun through
   `world.run`. Pass data as arguments and disable project config and environment-file
   autoloading for read-only checks. Declare Bun as a runtime dependency.
@@ -111,7 +115,7 @@ Follow `install.md` (Global Core vs Per-Project Niche via `z-project-init`) or
 `harness/codex/install.md` (Codex kit). Perform the copies yourself
 with file tools; install skills and agents as real files, never
 symlinks — ZCode silently skips symlinked agent definitions. Never install
-`z-*` niche specialists, `shipflow-*` roles, or niche workflows (`z-gpui-workflow`,
+`z-*` niche specialists or niche workflows (`z-gpui-workflow`,
 `z-tauri-workflow`, `z-super-rustflow`, `shipflow`) globally; install them per
 project and record `<project>/.zcode/hmziqrs-ai-snapshot.json`. End by
 noting that ZCode loads agents at session start: restart or a new

@@ -86,8 +86,6 @@ const extract = (text) => {
 };
 
 assert.equal(extract(liteflow), extract(canonical), "Liteflow persona-kit copy differs from canonical");
-const queue = await readFile(resolve(root, "workflows/shipflow-queue.dwf.ts"), "utf8");
-assert.equal(extract(queue), extract(canonical), "Shipflow persona-kit copy differs from canonical");
 assert.ok(liteflow.includes('loadPersona(IMPLEMENTER_PERSONA, { tier: "pro", access: "write" })'));
 assert.ok(liteflow.includes('loadPersona(JUDGE_PERSONA, { tier: "pro", access: "read-only" })'));
 

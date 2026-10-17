@@ -7,28 +7,43 @@ versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
 ## [Unreleased]
 
 ### Changed
-- **zflow-engine v2.2 is the engine of record — one launch, everything
-  in-run.** The retired multi-run engine (tier-pure implement/vision/judge
-  chain nodes, one model per run) is replaced by the one-launch parallel
-  chain: a single `CreateWorkflow saved: zflow-engine` launch with
-  `mode: "chain"` runs every area as its own state machine (plan →
-  implement → vision → judge, per-area rounds) over channels with a
-  counted close. Per-subagent model pins (ZCode v3.15.1+) put pro judgment
-  and flash capture/vision-audit in the SAME run — `modelProfile`
-  balanced/flash replaces run-wide tiering; `hasUI`/`lane` area fields are
-  gone, replaced by `contention` (terminal | web | desktop | mobile),
-  which also picks the topology: shared checkout, per-area worktree +
-  deterministic port + isolated browser session, or the single-worker
-  device lane for desktop/mobile captures. Worktree branches merge back
-  along the dependsOn DAG and clean up after themselves. All six
-  engine-driven skills, `zflow-SPEC.md`, README, and llms.txt now describe
-  this one-launch architecture, and the engine source in
-  `harness/zcode/workflows/` is byte-identical to the installed
-  `~/.zcode/workflows/zflow-engine.dwf.ts`. Development snapshots live
-  in `research/harness/zcode/history/zflow-port/` and the parent repo's
-  `.zcode/workflow-probes/` archive. Never install from those.
+- **No saved engines: every z-flow run executes a script written for its
+  task.** z-workflow writes a fresh script per task through the
+  workflow-author; for larger work the new `workflow-planner` /
+  `workflow-planner-flash` agents gather every fact into the WorkflowBrief
+  and dispatch the author, so the coordinator never gathers facts
+  (Pillar 9). The only reusable workflow code is the persona kit
+  (`harness/zcode/skills/z-workflow/persona-kit.dwf.ts`) and z-liteflow's
+  pre-tested template. No skill offers to save an engine or to
+  SaveWorkflow a generated script.
+- **Shipflow is now a framework-agnostic z-workflow profile.** One cycle
+  takes one GitHub issue through a fresh z-workflow run on the COMPLEX
+  path, with the normal approval dialog, a run-owned `wf/shipflow-<N>`
+  worktree, planner-discovered gates, merge policy in script code, and
+  one documented exception to z-workflow's no-push rule: a single
+  non-force push of the run's own branch. Roles formerly carried by
+  dedicated agents map onto the core agents and `z-*` specialists.
+- **z-project-init** installs Shipflow as the `shipflow/` skill plus the
+  four new `z-*` agents and the project's selected specialists, and
+  removes legacy per-project engine, queue, and role files (with their
+  snapshot entries) on update.
+- **Repo restructured by kind.** `zcode/` → `harness/zcode/` and
+  `codex/` → `harness/codex/` — harness-specific kits live under
+  `harness/`, cross-harness skills in top-level categories. The
+  `.zcode-plugin/plugin.json` manifest paths and all documentation
+  (README, llms.txt, AGENTS.md, install docs) follow.
 
 ### Added
+- `workflow-planner` and `workflow-planner-flash` core agents (Global
+  Core is now seven agents).
+- Four per-project niche agents for Shipflow-style GitHub work, usable by
+  any z-workflow run: `z-gh-operator` (exact listed `gh` label, assignee,
+  comment, and PR-create operations, each verified by re-read),
+  `z-pr-merge-steward` (typed merge-readiness facts; merges only one
+  authorized reviewed head with `--match-head-commit`), `z-queue-sentinel`
+  (read-only queue health), and `z-security-auditor` (read-only diff
+  security audit).
+- Migration plan: `research/harness/zcode/zflow-migration-plan.md`.
 - **`coding/` category: three `test-quality-*` skills.** Test-discipline
   suite for AI-heavy development, every claim, quote, and link traced to
   a 133-source research sweep (`research/coding/test-quality/ai-generated-tests-research.md`):
@@ -92,17 +107,16 @@ versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
   meta descriptions) to the shortest version that still answers the
   visitor's questions, without adding or bending any fact.
 
-### Changed
-- **Repo restructured by kind.** `zcode/` → `harness/zcode/` and
-  `codex/` → `harness/codex/` — harness-specific kits live under
-  `harness/`, cross-harness skills in top-level categories. The
-  `.zcode-plugin/plugin.json` manifest paths and all documentation
-  (README, llms.txt, AGENTS.md, install docs) follow.
-- The zflow-engine is now an explicit install step (copy
-  `harness/zcode/workflows/zflow-engine.dwf.ts` to
-  `~/.zcode/workflows/`) instead of being left out of the kit install.
-
 ### Removed
+- The saved engine and its contract: `harness/zcode/workflows/`
+  (`zflow-engine.dwf.ts`, `zflow-SPEC.md`, `shipflow-queue.dwf.ts`) and the
+  optional install step that copied the engine to `~/.zcode/workflows/`.
+- The 20 dedicated Shipflow role agents (`harness/zcode/agents/shipflow-*.md`),
+  `harness/zcode/skills/shipflow/references/knowledge/`, and
+  `harness/zcode/scripts/check-shipflow.mjs`.
+- Research documents for the superseded design: the V3 unification plan,
+  `research/harness/zcode/shipflow/`, and `research/harness/zcode/history/`
+  (including the zflow-port development snapshots).
 - **The installers.** `bin/ai.js`, `bin/codex-ai.js`, and the
   `npx github:hmziqrs/ai` entry are gone. Installation is
   agent-driven: an AI agent (or human) follows `install.md` /

@@ -75,7 +75,7 @@ text evidence covers it, or it is marked not-covered and said so.
 | Embedded storage engine, per-write sync rungs, mmap vs pwrite, LSM fanout/bloom tuning | `z-rust-perf-engineer` or `z-database-migration-engineer`, `read-only` in Phase R / `write` in Phase I | `heed`/LMDB vs `fjall` vs `redb` vs `rusqlite`, `PersistMode`/`Durability`/WAL sync barriers, LSM read/write amplification |
 | General safe Rust refactoring, trait/generic dispatch (`cargo llvm-lines`), error paths | `z-rust-engineer`, `read-only` in Phase R / `write` in Phase I | Thin generic wrapper + non-generic inner fn, error/API preservation |
 | Per-round performance & parity audit | Fresh read-only domain persona (`auditor-<area>-r<round>`) matching the area's lever | Blind review against the 4-part `rust-superopt` "done" rubric and novel-finding hunt |
-| Unsafe, FFI, pointer provenance, `#[target_feature]`, `repr(packed)`, or custom allocator audit | Fresh `z-unsafe-ffi-auditor`, `read-only` (`shipflow-security-audit` only when broader service/auth trust boundaries also change) | Concrete invariant trace across every new or touched `unsafe`, intrinsic, unaligned, or FFI boundary |
+| Unsafe, FFI, pointer provenance, `#[target_feature]`, `repr(packed)`, or custom allocator audit | Fresh `z-unsafe-ffi-auditor`, `read-only` (`z-security-auditor` only when broader service/auth trust boundaries also change) | Concrete invariant trace across every new or touched `unsafe`, intrinsic, unaligned, or FFI boundary |
 | Gates, `git status --porcelain -z`, `numstat`, and bench compare | None — script-run (`world.run`) | Mechanical exit codes and baseline comparisons |
 
 Every composed script pastes the complete current block from
@@ -104,9 +104,8 @@ for every role, and reuse is the named exception, not the habit.
 Node runs are composed inline from this blueprint via CreateWorkflow
 (compilation validates them); fix rounds re-enter via AmendWorkflow
 (reuses finished work), stopped runs continue via ResumeWorkflowRun. Never
-nest — no run spawns another. Once a campaign validates the composed
-scripts, offer ONCE to save the engine as `rustflow-engine` for reuse
-thereafter; saving is the user's call, never silent.
+nest — no run spawns another. Every campaign composes fresh scripts; a
+composed script is never saved as a standing engine for reuse.
 
 1. **Route (coordinator)**: slice the optimization surface — one hot-path
    family or one profiling bucket per area; split any slice over ~4 files,

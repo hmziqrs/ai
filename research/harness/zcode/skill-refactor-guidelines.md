@@ -65,6 +65,8 @@ does it narrate, justify, or celebrate? The second category is bloat — cut it.
 
 ## Coherence
 
-A skill that describes machinery must match the machinery: update the engine/saved workflow
-first or together, and typecheck it (SaveWorkflow) after every edit. A skill describing
+A skill that describes machinery must match the machinery: there is no saved engine, so the
+machinery is the pasted blocks (the canonical persona kit, z-liteflow's template) and the
+skill text itself. Update the block first or together, and run
+`bun harness/zcode/scripts/check-personas.mjs` after every edit. A skill describing
 behavior the machinery does not have is a lie, no matter how clean its prose.

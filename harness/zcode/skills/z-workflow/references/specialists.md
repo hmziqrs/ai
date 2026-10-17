@@ -37,11 +37,17 @@ inferring a framework from `hasUI` or file extensions alone.
 | Read-only keyboard, focus, semantic tree, and contrast accessibility audit | `z-accessibility-auditor` | Stack-matched UI skills + `agent-browser` / `open-computer-use` |
 | Serialized desktop or mobile runtime verification and AX/PNG capture | `z-native-device-verifier` | `open-computer-use`, `gpui-kit`, `tauri-v2`, `tauri`, `flutter-add-integration-test` |
 | Read-only failed build, lint, test, or CI gate classification | `z-ci-diagnostician` | Stack-matched diagnostic skills (`rust-best-practices`, `gpui-kit`, `tauri-v2`, `svelte-code-writer`, `astro`, `react-doctor`, `dart-*`) |
-| Read-only GitHub issue triage, dependency DAGs, milestones, and `gh-ops` plans | `z-github-project-manager` | `shipflow`, `z-workflow`, read-only `gh help` |
+| Read-only GitHub issue triage, dependency DAGs, milestones, and `z-gh-operator` op plans | `z-github-project-manager` | `shipflow`, `z-workflow`, read-only `gh help` |
+| Exact listed GitHub label, assignee, comment, and PR-create operations with re-read verification | `z-gh-operator` | read-only `gh <command> --help` |
+| PR merge-readiness facts and one script-authorized `--match-head-commit` merge | `z-pr-merge-steward` | `gh pr merge --help` |
+| Read-only issue-queue health: `pipeline:*` label counts, claim ages, pause flag, cycle reports | `z-queue-sentinel` | `shipflow`, read-only `gh help` |
+| Read-only diff security audit: authz, boundary validation, secrets, dependencies, SQL binding, untrusted text reaching shell/eval/SQL/prompts | `z-security-auditor` | Stack-matched security skills (`axum-code-review`, `tauri-v2`, `configuring-tauri-permissions`, `better-auth`, `elysiajs`) |
 
-Use existing explorer, planner/auditor, security, injection, browser, visual, QA and PR
-review roles when their actual responsibility applies. Shipflow roles retain queue-specific
-authority. A missing specialist is reported before launch; select a suitable available
+Use the core explorer, planner and author agents, `z-security-auditor`, and fresh
+`general-pro` / `general-flash` judges for review, visual and copy roles when their actual
+responsibility applies. GitHub mutations in any run go through `z-gh-operator` with an exact
+op list, and PR merges through `z-pr-merge-steward` under merge policy coded in the run's
+script; neither agent decides policy. A missing specialist is reported before launch; select a suitable available
 general agent explicitly or stop if its expertise is required. Never silently substitute a
 different framework. Match the persona's named primary and conditional skills to the available-skills index,
 resolve their current paths and read the relevant guidance before work. Local framework
@@ -67,7 +73,8 @@ dispatch and carry cached absolute paths in `skills`; do not bypass project sour
   verdicts. Guard every read-only ask while no writer uses that worktree.
 - Implementation authority covers only the assigned source paths. Capture authority covers
   only delegated evidence and test-state interactions. Neither grants Git, GitHub, release
-  or deployment authority. Queue operations and remote merging retain their own policy.
+  or deployment authority. Queue operations and remote merging go only through
+  `z-gh-operator` and `z-pr-merge-steward` under the script's own policy.
 - Return the requested typed result, supported findings, checked commands and limitations.
   Return discovered tasks with parent, kind, scope, dependencies and evidence; the planner
   or coordinator deduplicates and routes them within the run's budget. Lane workers never

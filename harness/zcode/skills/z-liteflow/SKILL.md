@@ -118,5 +118,5 @@ and a change guard, including Bash-enabled or implementation-capable domain file
   rules, approval, Step 6 merge, labels.
 - `liteflow-template.dwf.ts` in this folder: the script, type-checked against the
   `dynamic-workflows` facade (§16.2) with `tsc --strict`.
-- Run evidence: the static engine's flash-profile runs, the z-workflow spec-s run (280
+- Run evidence: the z-workflow spec-s run (280
   lines for a one-lane task), and the persona probe `dwfrun-ee616ce6`.

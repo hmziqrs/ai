@@ -17,6 +17,9 @@ small-or-complex from the task text, dispatches the workflow-planner or the
 workflow-author, shows the user what the script will run, launches one run, and relays
 the report. Every run gets a script written for that use case.
 Nothing is reused from a template unless the user names a saved workflow.
+This repo ships no saved engines: never offer to SaveWorkflow a generated script as a
+standing engine, and never route a run through one the user did not name. The only reusable
+workflow code is the persona kit and z-liteflow's pre-tested template.
 
 ## Pillars
 
@@ -339,6 +342,10 @@ Shape rules for every plan:
 - **Forbidden git**: `checkout --` or `restore` on any path, `reset --hard`, `clean`,
   `worktree remove --force`, `branch -D`, `push`, `rebase`, `stash`, `add -A`, `--no-verify`,
   and any mutation of the user's checkout or current branch.
+- **One publication exception (Shipflow only).** A Shipflow cycle script may run exactly one
+  non-force `git push origin refs/heads/wf/shipflow-<N>:refs/heads/wf/shipflow-<N>` of its own
+  run-owned branch (no `-f`, no `--force*`, no other refspec), listed as its own group in the
+  Step 5 command-set approval. See the `shipflow` skill; every other profile never pushes.
 - **Every git call checks its exit code.** A nonzero exit is recorded in findings and stops
   that lane's git chain. A merge with a nonzero exit runs `git merge --abort` in that
   worktree and records the conflict; it never retries with a strategy flag.
@@ -406,8 +413,7 @@ the destination branch untouched; do not ask to override it.
 
 Before launch, record the checkout's `HEAD` and full branch ref with
 `git -C <repo> symbolic-ref --quiet HEAD`. Detached HEAD disables automatic delivery.
-The final result is the run-owned branch (`wf/<slug>` or `wf/<slug>/integration`), or the
-explicit saved engine's integration branch. Finish every lane before delivery, require the
+The final result is the run-owned branch (`wf/<slug>` or `wf/<slug>/integration`). Finish every lane before delivery, require the
 result worktree clean with all intended changes committed, and rerun every task gate on
 that combined committed result. Per-lane gate results alone do not establish integration safety.
 
@@ -430,8 +436,8 @@ also require approval before merging, after the result and evidence are ready. A
 not permit force, resets, bypassed gates or an unreviewed conflict resolution.
 
 If post-merge gates fail, report that delivery occurred, old/new HEAD and failing commands.
-Do not merge again or automatically undo it. Never push, delete run branches, or copy files
-into the checkout by hand. Report the destination branch, result branch, old/new HEAD,
+Do not merge again or automatically undo it. Never push (outside the Shipflow exception in
+the git rules), delete run branches, or copy files into the checkout by hand. Report the destination branch, result branch, old/new HEAD,
 diff stat, gate results and whether delivery happened, was declined or was blocked.
 
 ## Vision phase (when the Vision dial is on)
@@ -523,7 +529,7 @@ diff <(sed -n '/^\/\/ persona-kit:start/,/^\/\/ persona-kit:end/p' "$KIT") <(sed
 ```
 
 A changed kit is fixed in `persona-kit.dwf.ts` first (with a new version marker), then
-re-pasted everywhere that carries it, including the z-liteflow template and Shipflow queue.
+re-pasted everywhere that carries it, including the z-liteflow template.
 
 ## Model matrix
 
@@ -544,8 +550,10 @@ flash judges passed properties with no independent check. Flash is fit for check
 the plain-r citation checker ran on flash and finished. A code run meets pillar 3 with a
 requirement tracer; a research run with a citation checker.
 
-Use the provider ids already in this repo's engine until the open question on ids is settled
-(see Grounded in).
+Use the provider ids in the core agent files' `model:` frontmatter
+(`harness/zcode/agents/*.md`) until the open question on ids is settled (see Grounded in).
+For a security auditor role on code diffs, load `z-security-auditor` through the persona kit
+when the project has it installed (see Specialist routing).
 
 ## Review rules for judges (inside the run)
 
@@ -584,14 +592,13 @@ pattern number the plan used.
   lifecycle, §14 escalation, §15 holes, §16.1 CreateWorkflow, §16.2 facade, §16.3 compile
   rules, §16.4 AmendWorkflow, §16.6 EvalWorkflowSnippet.
 - Catalogue: the same skill's `patterns.md` (16 shapes), and `examples.md` (7 worked scripts).
-- Parallel design reference: `harness/zcode/workflows/zflow-engine.dwf.ts` (per-area lanes on
-  channels and futures, serialized git, single-worker device lane) and `zflow-SPEC.md`. The
-  engine's pattern is reused as knowledge, not as a fixed template.
+- Parallel lane pattern: per-area lanes on channels and futures, serialized git, and a
+  single-worker device lane, reused as knowledge rather than as a fixed template.
 - Subagent definitions: `harness/zcode/agents/workflow-author.md` and
   `harness/zcode/agents/workflow-planner.md` (with its flash variant).
 - Repo rules: `ai/AGENTS.md` (skill folder naming and harness kit layout).
 - Run evidence behind these rules: plain-s, plain-m, plain-r, and the pending plain-l script
   (destructive git, hard-coded repo, mislabelled tier), and campaign `dwfrun-d14998c7`.
-- Open question: model ids. The engine pins `account:zai-individual-coding-plan/GLM-5.3`,
+- Open question: model ids. The core agent files pin `account:zai-individual-coding-plan/GLM-5.3`,
   while `AGENTS.md` names `glm-5.3` against the `zai` providers. Verify with ListModels before
   first use.

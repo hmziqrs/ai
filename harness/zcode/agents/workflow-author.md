@@ -163,6 +163,11 @@ dependencies and evidence; no worker launches nested agents or workflows.
   coordinator delivers it after the run under z-workflow Step 6, checking the captured
   destination branch as well as HEAD, cleanliness and gates. Read-only and no-commit runs
   have no checkout merge.
+- Publication exception: only when the brief carries the `shipflow` extension (a Shipflow
+  cycle; see the shipflow skill), the script may run exactly one non-force
+  `git push origin refs/heads/wf/shipflow-<N>:refs/heads/wf/shipflow-<N>` of its own
+  run-owned branch (no `-f`, no `--force*`, no other refspec), listed as its own group in the
+  Step 5 command-set approval. Every other brief keeps `push` forbidden.
 - Every git call's exit code is checked. A nonzero exit is recorded and stops that lane's git
   chain. A failed merge runs `git merge --abort` in that worktree and records the conflict.
 - Purity checks report the out-of-scope paths as findings. They never revert them.

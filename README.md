@@ -12,7 +12,7 @@ research-related work, as required by [AGENTS.md](AGENTS.md).
 ```
 ai/
 ├── harness/              harness-SPECIFIC kits (only what depends on a harness)
-│   ├── zcode/            ZCode kit: agents/, skills/ (7 z-flow chains), workflows/
+│   ├── zcode/            ZCode kit: agents/, skills/ (7 z-flow chains), scripts/
 │   └── codex/            Codex kit: agents, profiles, plugin, model catalogs
 ├── copy/                 cross-harness skill category: writing & copywriting
 │   └── antislop-copy/
@@ -39,8 +39,8 @@ ai/
 | `workflow-planner` | glm-5.3 | Planning agent (`PLAN`/`PLAN+AUTHOR`) that gathers all facts into the WorkflowBrief for complex tasks, then dispatches the workflow-author itself |
 | `workflow-planner-flash` | glm-5.3-flash | Flash planning agent for `z-flashflow` |
 
-Only these seven core agents install globally into `~/.zcode/agents/`. The 22 reusable `z-*`
-domain/verification specialists and 20 `shipflow-*` queue roles install **per project**
+Only these seven core agents install globally into `~/.zcode/agents/`. The 27 reusable `z-*`
+domain, verification, and GitHub-operations specialists install **per project**
 into `<project>/.zcode/agents/` via `z-project-init` and are tracked in
 `<project>/.zcode/hmziqrs-ai-snapshot.json`. Agent descriptions select expertise; the
 coordinator assigns scope and explicit analysis, implementation, or review authority. See
@@ -64,8 +64,12 @@ coordinator assigns scope and explicit analysis, implementation, or review autho
     framework-specific gates, web/native coverage, and serialized device capture.
   - `z-super-rustflow`: measurement-first Rust optimization; analysis by default,
     implementation only when requested.
-  - `shipflow`: a per-project issue-to-PR pipeline loading agent files for its roles and
-    planned domain specialists. Follow its [installation procedure](harness/zcode/skills/shipflow/INSTALL.md).
+  - `shipflow`: framework-agnostic z-workflow profile for a GitHub issue queue. Each cycle
+    takes one issue through a fresh z-workflow run on the complex path, with the normal
+    approval dialog, a run-owned worktree, planner-discovered gates, and one documented
+    non-force push of the run-owned branch. It uses `z-gh-operator`, `z-pr-merge-steward`,
+    `z-queue-sentinel`, and `z-security-auditor` plus the project's selected specialists.
+    Follow its [installation procedure](harness/zcode/skills/shipflow/INSTALL.md).
 
 The persona kit records source hashes and selected models, validates role loading and
 checks read-only repository state. Tool metadata is advisory within workflows; change
@@ -73,9 +77,8 @@ checks do not sandbox agents or prevent external effects. Claims of verification
 command evidence. Local checkout fast-forward follows z-workflow's guarded Step 6;
 remote PR merging has a separate policy. No workflow is launched by installing the kit.
 
-Copy the ZCode agents and whole skill folders using [install.md](install.md). The saved
-engine remains optional for explicit saved-engine runs and has its own
-[contract](harness/zcode/workflows/zflow-SPEC.md).
+Copy the ZCode agents and whole skill folders using [install.md](install.md). There are
+no saved workflow engines: every run executes a script written or filled for that task.
 
 ## Cross-harness skills
 
