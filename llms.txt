@@ -45,10 +45,13 @@ Follow the hard rule in [AGENTS.md](AGENTS.md).
 - [harness/zcode/skills/shipflow/SKILL.md](harness/zcode/skills/shipflow/SKILL.md): framework-agnostic z-workflow profile for a GitHub issue queue — one issue per cycle, each cycle a fresh z-workflow run on the COMPLEX path (workflow-planner gathers the facts) with the normal approval dialog, a run-owned `wf/shipflow-<N>` worktree, planner-discovered gates, and one documented non-force push of the run-owned branch; merge policy lives in script code. Per-project niche, installed via z-project-init.
 
 The ZCode kit also supplies reusable `z-*` domain and verification personas,
-including four stack-agnostic agents that Shipflow uses: `z-gh-operator` (exact listed
-`gh` label/assignee/comment/PR-create operations), `z-pr-merge-steward` (merge-readiness
-facts and one authorized `--match-head-commit` merge), `z-queue-sentinel` (read-only queue
-health), and `z-security-auditor` (read-only diff security audit). Use [specialist routing](harness/zcode/skills/z-workflow/references/specialists.md)
+including three stack-agnostic agents that Shipflow uses: `z-product-owner`
+(read-only PRD, backlog, triage and status judgement that returns op plans),
+`z-qa-evaluator` (skeptical browser QA against acceptance criteria with a
+calibrated rubric), and `z-security-auditor` (read-only diff security audit).
+GitHub mechanics are code, not agents: the GitHub kit
+`harness/zcode/skills/shipflow/github-kit.dwf.ts` is pasted unchanged into cycle
+scripts. Use [specialist routing](harness/zcode/skills/z-workflow/references/specialists.md)
 with discovered agent descriptions; the coordinator supplies explicit role authority,
 acceptance evidence and available skill paths.
 

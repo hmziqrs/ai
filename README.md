@@ -39,8 +39,8 @@ ai/
 | `workflow-planner` | glm-5.3 | Planning agent (`PLAN`/`PLAN+AUTHOR`) that gathers all facts into the WorkflowBrief for complex tasks, then dispatches the workflow-author itself |
 | `workflow-planner-flash` | glm-5.3-flash | Flash planning agent for `z-flashflow` |
 
-Only these seven core agents install globally into `~/.zcode/agents/`. The 27 reusable `z-*`
-domain, verification, and GitHub-operations specialists install **per project**
+Only these seven core agents install globally into `~/.zcode/agents/`. The 25 reusable `z-*`
+domain, verification, and product specialists install **per project**
 into `<project>/.zcode/agents/` via `z-project-init` and are tracked in
 `<project>/.zcode/hmziqrs-ai-snapshot.json`. Agent descriptions select expertise; the
 coordinator assigns scope and explicit analysis, implementation, or review authority. See
@@ -67,8 +67,10 @@ coordinator assigns scope and explicit analysis, implementation, or review autho
   - `shipflow`: framework-agnostic z-workflow profile for a GitHub issue queue. Each cycle
     takes one issue through a fresh z-workflow run on the complex path, with the normal
     approval dialog, a run-owned worktree, planner-discovered gates, and one documented
-    non-force push of the run-owned branch. It uses `z-gh-operator`, `z-pr-merge-steward`,
-    `z-queue-sentinel`, and `z-security-auditor` plus the project's selected specialists.
+    non-force push of the run-owned branch. GitHub mechanics (claims, labels, sub-issues, PRs, the merge predicate and merge)
+    are tested script code, the GitHub kit pasted into each cycle script;
+    `z-product-owner`, `z-security-auditor`, and `z-qa-evaluator` plus the project's
+    selected specialists cover judgement and review.
     Follow its [installation procedure](harness/zcode/skills/shipflow/INSTALL.md).
 
 The persona kit records source hashes and selected models, validates role loading and

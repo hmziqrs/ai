@@ -34,15 +34,16 @@ Use it only when the user explicitly asks to work the labelled queue (`shipflow`
 queue", "run the pipeline:ready issues"). Never start a cycle unasked, never in the
 background, and never with "Always allow in this session". For one issue the user describes
 in chat, use `z-workflow` instead. Shipflow needs the project install (labels, pin issue,
-`.zcode/shipflow.json`, the four queue agents) to have passed its verification checks.
+`.zcode/shipflow.json`, the three autopilot agents) to have passed its verification checks.
 
 ## Coordinator loop (one iteration per cycle)
 
 The coordinator never reads issue titles, bodies, comments or file contents. Each step below
 returns compact data only.
 
-1. **Stop checks.** Dispatch `z-queue-sentinel` (Agent tool) with the repo, pin issue and
-   repo root. Stop the loop when it reports `pipeline:paused` on the pin issue, zero
+1. **Stop checks.** Run the GitHub kit snapshot function (`github-kit.dwf.ts`) with the repo,
+   pin issue and repo root, with compact output: label counts, claim ages and the pause flag,
+   ids and counts only. Stop the loop when it reports `pipeline:paused` on the pin issue, zero
    `pipeline:ready` issues, or an open `pipeline:watchdog` issue the user has not cleared.
    Relay its stale-claim rows; never act on them unasked.
 2. **Pick by number only.** Run
@@ -59,9 +60,11 @@ returns compact data only.
    write a script meeting [references/cycle-contract.md](references/cycle-contract.md).
 5. **Not actionable.** When the brief's `triage.verdict` is not `actionable`, launch no
    workflow. Write the brief's `triage.question` to `<repoRoot>/.shipflow/triage-<N>.md`
-   (git-ignored), then dispatch `z-gh-operator` with exactly these ops on that issue:
-   comment with that body file, `label-remove pipeline:ready`, `label-add pipeline:backlog`.
-   Relay its op rows and go to the next iteration. This is not a failed cycle.
+   (git-ignored), then run these two commands from the GitHub kit's argv on that issue,
+   comment first: `gh issue comment <N> -R <repo> --body-file <repoRoot>/.shipflow/triage-<N>.md`,
+   then `gh issue edit <N> -R <repo> --remove-label pipeline:ready --add-label pipeline:backlog`.
+   Re-read with `gh issue view <N> -R <repo> --json labels`, relay the op rows and go to the
+   next iteration. This is not a failed cycle.
 6. **Pre-flight.** Run z-workflow Step 4 in full with the REVIEW dial forced on: snippet and
    parser rehearsal, persona-kit drift check, command-set extraction, budget check, and a
    fresh `workflow-author` REVIEW. Also check the cycle contract's required phases in order
@@ -72,8 +75,8 @@ returns compact data only.
    git mutations (one `git fetch origin <defaultBranch>` only when the brief says
    `defaultHead` is missing locally, worktree add, `add -N`, commit, merge into
    integration), GitHub mutations
-   (each `gh issue edit`, `gh issue comment`, `gh pr create`, and the merge argv the steward
-   may run), publication (the single push refspec), capture and preview commands, plus
+   (each `gh issue edit`, `gh issue comment`, `gh pr create`, and the merge argv the GitHub kit's
+   merge functions may run), publication (the single push refspec), capture and preview commands, plus
    signals, dials, band, model per role, persona paths with sha256, and `dryRun`/`commit`.
    Choose "Allow only this time".
 8. **Launch** one `CreateWorkflow` named `zflow-shipflow-<N>`. Do not poll.
@@ -105,7 +108,7 @@ delivery is the remote PR, and the user's checkout is never written.
 | Old queue role | Now |
 |---|---|
 | scout | `explore-flash` (dispatched by the planner) |
-| issue-triage | planner `triage` verdict; `z-github-project-manager` read-only when board or dependency judgement is needed; `z-gh-operator` for the label and comment |
+| issue-triage | planner `triage` verdict; `z-product-owner` read-only when board or dependency judgement is needed; the GitHub kit for the label and comment |
 | task-planner | `workflow-planner` |
 | plan-auditor | `workflow-author` REVIEW, plus the plan-attack dial when `R` = high |
 | per-stack implementer and reviewer | the area's `z-*` specialist from `harness/zcode/skills/z-workflow/references/specialists.md`; review is a fresh read-only instance of the same file |
@@ -116,9 +119,9 @@ delivery is the remote PR, and the user's checkout is never written.
 | vision-judge | `general-flash` blind vision auditor, then command checks |
 | security-audit, injection-auditor | `z-security-auditor` |
 | pr-reviewer | fresh `general-pro` cross-area judge with the PR-body drift check |
-| gh-ops | `z-gh-operator` |
-| pr-merger | `z-pr-merge-steward` |
-| queue-monitor | `z-queue-sentinel` |
+| gh-ops | the GitHub kit (`github-kit.dwf.ts`) ops functions |
+| pr-merger | the GitHub kit merge predicate and merge train |
+| queue-monitor | the GitHub kit snapshot |
 
 ## Authority and git
 
@@ -135,11 +138,12 @@ delivery is the remote PR, and the user's checkout is never written.
   once, through the git chain, after review. No `-f`, no `--force*`, no other refspec. A
   rejected push ends the cycle `open` or `failed` with the stderr tail; it is never retried
   with other flags.
-- **GitHub mutations** go through `z-gh-operator` with an exact op list; the script re-reads
+- **GitHub mutations** go through the GitHub kit's ops functions with an exact op list; the script re-reads
   with `gh issue view`/`gh pr view` and only that re-read counts as verified. PR bodies and
   comments pass through `--body-file`, never inline text.
 - **Merge** is decided by script code (the predicate in the cycle contract) and executed by
-  `z-pr-merge-steward` in `merge` mode with `--match-head-commit <reviewedSha>`. A PR the
+  the GitHub kit's merge functions, which run
+  `gh pr merge <pr> --<method> --match-head-commit <reviewedSha>`. A PR the
   same account authored stays open "awaiting review"; nothing self-approves.
 - **dryRun** claims and comments, skips publication, PR and merge, never sets
   `pipeline:done`, restores `pipeline:ready`, and reports outcome `dry-run`. **commit=false**
@@ -171,8 +175,7 @@ notifies; it never relaunches anything.
 - `harness/zcode/skills/z-workflow/persona-kit.dwf.ts` and
   `harness/zcode/skills/z-workflow/references/specialists.md`.
 - `harness/zcode/agents/workflow-planner.md`, `harness/zcode/agents/workflow-author.md`.
-- `harness/zcode/agents/z-gh-operator.md`, `harness/zcode/agents/z-pr-merge-steward.md`,
-  `harness/zcode/agents/z-queue-sentinel.md`, `harness/zcode/agents/z-security-auditor.md`,
+- `harness/zcode/skills/shipflow/github-kit.dwf.ts`, `harness/zcode/agents/z-security-auditor.md`,
   `harness/zcode/agents/z-native-device-verifier.md`.
 - `harness/zcode/skills/z-proflow/SKILL.md` and `harness/zcode/skills/z-tauri-workflow/SKILL.md`:
   how a profile overrides z-workflow.

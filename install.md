@@ -18,14 +18,14 @@ follow the research-access rule in [AGENTS.md](AGENTS.md).
 
 ## Installation policy: Global Core vs Per-Project Niche (Hard Rule)
 
-Do **not** dump all 34 agents, all workflow profiles, or all domain skills into global `~/.zcode/` or `~/.agents/skills/` directories. Installing niche sub-agents, niche workflows, and stack-specific skills globally pollutes every session's index across unrelated repositories and forces every project on the machine to update simultaneously whenever `hmziqrs/ai` changes.
+Do **not** dump all 32 agents, all workflow profiles, or all domain skills into global `~/.zcode/` or `~/.agents/skills/` directories. Installing niche sub-agents, niche workflows, and stack-specific skills globally pollutes every session's index across unrelated repositories and forces every project on the machine to update simultaneously whenever `hmziqrs/ai` changes.
 
 Installation is strictly split into two tiers:
 
 | Tier | Destination | What belongs here |
 |---|---|---|
 | **1. Global Core (machine-wide)** | `~/.zcode/agents/`, `~/.zcode/skills/`, `~/.agents/skills/` | **Only the 7 core orchestration/general agents** (`general-pro.md`, `general-flash.md`, `explore-flash.md`, `workflow-author.md`, `workflow-author-flash.md`, `workflow-planner.md`, `workflow-planner-flash.md`), **the 5 general workflow/initializer skills** (`z-workflow`, `z-proflow`, `z-flashflow`, `z-liteflow`, `z-project-init`), and **the 5 universal cross-project baseline skills** (`antislop-copy`, `code-comments`, `test-quality-guardrails`, `test-quality-tdd-agents`, `test-quality-audit`). |
-| **2. Per-Project Niche (project-scoped via `z-project-init`)** | `<project>/.zcode/agents/`, `<project>/.zcode/skills/`, `<project>/.agents/skills/`, `<project>/.zcode/hmziqrs-ai-snapshot.json` | **Only the niche `z-*.md` specialists** (including `z-gh-operator`, `z-pr-merge-steward`, `z-queue-sentinel`, and `z-security-auditor` when Shipflow is enabled), **niche workflow profiles** (`z-gpui-workflow`, `z-tauri-workflow`, `z-super-rustflow`, `shipflow`, plus a project-pinned copy of `z-workflow`), and **stack-specific domain skills** (`languages/rust/rust-*` and external framework skills) that `<project>` actually uses, pinned by commit SHA and file hashes in `<project>/.zcode/hmziqrs-ai-snapshot.json`. |
+| **2. Per-Project Niche (project-scoped via `z-project-init`)** | `<project>/.zcode/agents/`, `<project>/.zcode/skills/`, `<project>/.agents/skills/`, `<project>/.zcode/hmziqrs-ai-snapshot.json` | **Only the niche `z-*.md` specialists** (including `z-product-owner`, `z-security-auditor`, and `z-qa-evaluator` when Shipflow autopilot is enabled), **niche workflow profiles** (`z-gpui-workflow`, `z-tauri-workflow`, `z-super-rustflow`, `shipflow`, plus a project-pinned copy of `z-workflow`), and **stack-specific domain skills** (`languages/rust/rust-*` and external framework skills) that `<project>` actually uses, pinned by commit SHA and file hashes in `<project>/.zcode/hmziqrs-ai-snapshot.json`. |
 
 Never install `general-pro`, `general-flash`, `explore-flash`, `workflow-author`, `workflow-author-flash`, `workflow-planner`, or `workflow-planner-flash` per-project. Never install `z-*.md`, `z-gpui-workflow`, `z-tauri-workflow`, `z-super-rustflow`, or `shipflow` globally.
 
@@ -60,14 +60,14 @@ Never install `general-pro`, `general-flash`, `explore-flash`, `workflow-author`
 When initializing or updating a specific project `<project>`, load and follow [`harness/zcode/skills/z-project-init/SKILL.md`](harness/zcode/skills/z-project-init/SKILL.md):
 
 1. **Inspect `<project>`'s manifests** (`Cargo.toml`, `src-tauri/tauri.conf.json`, `package.json`, `wrangler.*`, `cloudflare.config.ts`, `svelte.config.*`, `astro.config.*`, `pubspec.yaml`) and select only the matching niche artifacts from the `z-project-init` Stack-to-Artifact Matrix.
-2. **Copy selected niche sub-agents** (`harness/zcode/agents/z-*.md`; when Shipflow is enabled, add `z-gh-operator.md`, `z-pr-merge-steward.md`, `z-queue-sentinel.md`, and `z-security-auditor.md`) as regular files into `<project>/.zcode/agents/`.
+2. **Copy selected niche sub-agents** (`harness/zcode/agents/z-*.md`; when Shipflow is enabled, add `z-product-owner.md`, `z-security-auditor.md`, and `z-qa-evaluator.md` for a web UI) as regular files into `<project>/.zcode/agents/`.
 3. **Copy selected niche workflow folders** (`z-gpui-workflow/`, `z-tauri-workflow/`, `z-super-rustflow/`, or `shipflow/`, plus `z-workflow/` so `<project>` pins its own `persona-kit.dwf.ts` and `references/specialists.md` at the snapshot commit) into `<project>/.zcode/skills/`. If Shipflow is enabled, also follow [harness/zcode/skills/shipflow/INSTALL.md](harness/zcode/skills/shipflow/INSTALL.md).
 4. **Copy selected niche domain skills** (for example `languages/rust/rust-superopt`, `rust-simd-crates`, `rust-simd-kernels`, `rust-parallel-cache`, `rust-fast-architecture`, and required external stack skills) into `<project>/.agents/skills/`.
 5. **Write `<project>/.zcode/hmziqrs-ai-snapshot.json`** recording:
    - `sourceRepo: "hmziqrs/ai"` and `sourceCommit` (`git -C <aiRepo> rev-parse HEAD`)
    - `personaKitVersion` (`v4`) and `personaKitSha256`
    - `detectedStacks` and `installed.{agents,workflowSkills,domainSkills,externalSkillDependencies}` with per-file `sha256` hashes.
-6. **Updating one project:** run `z-project-init` in `<project>`. It compares the files on disk against `<project>/.zcode/hmziqrs-ai-snapshot.json` first (blocking on any locally modified file until confirmed), replaces only `<project>`'s niche files from the target `hmziqrs/ai` commit, removes legacy files this repo no longer ships (`<project>/.zcode/agents/shipflow-*.md`, `<project>/.zcode/workflows/shipflow-queue.dwf.ts`, `<project>/.zcode/workflows/zflow-engine.dwf.ts`) together with their snapshot entries, and writes the new snapshot without affecting any other project on the machine.
+6. **Updating one project:** run `z-project-init` in `<project>`. It compares the files on disk against `<project>/.zcode/hmziqrs-ai-snapshot.json` first (blocking on any locally modified file until confirmed), replaces only `<project>`'s niche files from the target `hmziqrs/ai` commit, removes legacy files this repo no longer ships (`<project>/.zcode/agents/shipflow-*.md`, `<project>/.zcode/agents/z-gh-operator.md`, `<project>/.zcode/agents/z-pr-merge-steward.md`, `<project>/.zcode/agents/z-queue-sentinel.md`, `<project>/.zcode/agents/z-github-project-manager.md`, `<project>/.zcode/workflows/shipflow-queue.dwf.ts`, `<project>/.zcode/workflows/zflow-engine.dwf.ts`) together with their snapshot entries, and writes the new snapshot without affecting any other project on the machine.
 
 ## Codex kit
 

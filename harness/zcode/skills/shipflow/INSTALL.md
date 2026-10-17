@@ -12,7 +12,7 @@ written fresh by the planner and author chain.
 |---|---|
 | `harness/zcode/skills/shipflow/` (whole folder) | `<project>/.zcode/skills/shipflow/` |
 | `harness/zcode/skills/z-workflow/` (whole folder, pins `persona-kit.dwf.ts` and `references/specialists.md`) | `<project>/.zcode/skills/z-workflow/` |
-| `harness/zcode/agents/z-gh-operator.md`, `z-pr-merge-steward.md`, `z-queue-sentinel.md`, `z-security-auditor.md` | `<project>/.zcode/agents/` |
+| `harness/zcode/agents/z-product-owner.md`, `z-security-auditor.md`, `z-qa-evaluator.md` | `<project>/.zcode/agents/` |
 | The `z-*` specialists the project's manifests call for (per `harness/zcode/skills/z-workflow/references/specialists.md`), plus `z-native-device-verifier.md` when the project ships a desktop or mobile surface | `<project>/.zcode/agents/` |
 | Stack skills those specialists name, from their approved sources | `<project>/.agents/skills/` |
 
@@ -109,7 +109,7 @@ A failure stops the install and is reported with its command; nothing is skipped
 | Check | Command | Must show |
 |---|---|---|
 | Real files | `find <project>/.zcode/agents <project>/.zcode/skills -type l` | empty output |
-| Agent discovery | start a new ZCode session in `<project>` (agents load at session start) and list agents | `z-gh-operator`, `z-pr-merge-steward`, `z-queue-sentinel`, `z-security-auditor` and each selected specialist, read from `<project>/.zcode/agents/` |
+| Agent discovery | start a new ZCode session in `<project>` (agents load at session start) and list agents | `z-product-owner`, `z-security-auditor`, `z-qa-evaluator` and each selected specialist, read from `<project>/.zcode/agents/` |
 | Kit identity | from the `hmziqrs/ai` checkout: `bun harness/zcode/scripts/check-personas.mjs`; then `shasum -a 256 <project>/.zcode/skills/z-workflow/persona-kit.dwf.ts` | the checker exits 0; the hash equals `personaKitSha256` in the snapshot |
 | gh auth | `gh auth status` and `gh api repos/OWNER/NAME -q '.permissions.push'` | logged in with the `repo` scope; `true` |
 | Merge methods | `gh api repos/OWNER/NAME -q '[.allow_squash_merge,.allow_merge_commit,.allow_rebase_merge]'` | at least one `true` that is also in `mergeMethods` |
@@ -127,7 +127,7 @@ the others. Close any probe session even when a step fails.
 
 Update by running `z-project-init` in the project; it compares the snapshot, asks before
 overwriting local edits, and rewrites the snapshot. Uninstall by deleting the copied
-`shipflow/` folder, the four queue agents, `.zcode/shipflow.json`, the crontab line and
+`shipflow/` folder, the three autopilot agents, `.zcode/shipflow.json`, the crontab line and
 `.shipflow/watchdog.sh`, then rerunning `z-project-init` to rewrite the snapshot. Labels and
 the pin issue stay on GitHub unless the user deletes them.
 
@@ -141,6 +141,7 @@ user wants), then rerun `z-project-init`:
 |---|---|
 | `<project>/.zcode/workflows/shipflow-queue.dwf.ts` (and `zflow-engine.dwf.ts` if present) | saved engines are retired; cycles are written fresh |
 | `<project>/.zcode/agents/shipflow-*.md` (all 20 roles) | replaced by the role map in `shipflow/SKILL.md` |
+| `<project>/.zcode/agents/z-gh-operator.md`, `z-pr-merge-steward.md`, `z-queue-sentinel.md`, `z-github-project-manager.md` | GitHub mechanics moved into the GitHub kit and project judgement into `z-product-owner` |
 | `<project>/docs/agents/*.md` copies the old installer created (`browser-vision.md`, `implementer-rust.md`, `implementer-svelte.md`, `pipeline-ops.md`, `qa-writer.md`, `queue-monitoring.md`, `reviewer.md`, `security-audit.md`) | checklists now live in `shipflow/references/review-checklists.md`; delete only files whose content matches the old copies, and keep any the project edited |
 | `<project>/.zcode/skills/shipflow/references/knowledge/` | retired with the agents |
 | Snapshot entries for every removed path in `<project>/.zcode/hmziqrs-ai-snapshot.json` | `z-project-init` rewrites them; a stale entry fails drift checks |

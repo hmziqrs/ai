@@ -8,9 +8,9 @@ the coordinator's pre-flight check it. Names in `<angle brackets>` come from the
 | From | Event | To | Actor |
 |---|---|---|---|
 | (new issue) | human triage | `pipeline:backlog` or `pipeline:ready` | human |
-| `pipeline:ready` | planner verdict not actionable | `pipeline:backlog` + exact question comment | coordinator via `z-gh-operator` |
-| `pipeline:ready` | claim won (re-read shows sole assignee @me) | `pipeline:claimed` | script via `z-gh-operator` |
-| `pipeline:ready` | claim lost | unchanged; own assignee removed, no comment | script via `z-gh-operator` |
+| `pipeline:ready` | planner verdict not actionable | `pipeline:backlog` + exact question comment | coordinator via the GitHub kit argv |
+| `pipeline:ready` | claim won (re-read shows sole assignee @me) | `pipeline:claimed` | script via the GitHub kit |
+| `pipeline:ready` | claim lost | unchanged; own assignee removed, no comment | script via the GitHub kit |
 | `pipeline:claimed` | issue `updatedAt` or body hash differs from the brief | `pipeline:ready` + comment "issue changed during planning" | script |
 | `pipeline:claimed` | merge confirmed | `pipeline:done` + comment with merge SHA | script |
 | `pipeline:claimed` | PR open, merge blocked or awaiting review | stays `pipeline:claimed` + comment with PR URL and itemized reasons | script |
@@ -28,11 +28,11 @@ watchdog opens. No other labels are created or removed.
    `refused`; nothing was claimed.
 2. Re-read the issue (`gh issue view <N> --json labels,assignees,updatedAt,state`). Not open,
    not `pipeline:ready`, or already assigned to someone else: return `refused`.
-3. `z-gh-operator` ops, in order: `assign @me`, `label-add pipeline:claimed`,
+3. GitHub kit ops, in order: `assign @me`, `label-add pipeline:claimed`,
    `label-remove pipeline:ready`.
 4. Script re-read of labels and assignees. Won only when `pipeline:claimed` is present,
    `pipeline:ready` is absent, and the assignees are exactly the authenticated login
-   (`gh api user -q .login`). Lost: `z-gh-operator` runs `unassign @me` only, the script
+   (`gh api user -q .login`). Lost: the GitHub kit runs `unassign @me` only, the script
    returns `released` with no comment and no further mutation.
 5. Compare the re-read `updatedAt` and the body sha256 (from a script-run
    `gh issue view <N> --json body -q .body | shasum -a 256`) against the brief. A mismatch
@@ -67,12 +67,12 @@ Phase names are string literals; the pre-flight greps for each.
    (`git rev-parse HEAD` in the integration worktree), push with the D5 refspec, then
    `git ls-remote origin refs/heads/wf/shipflow-<N>` must equal `reviewedSha`.
 8. `Pull request` - reuse the open PR for head `wf/shipflow-<N>` when one exists; otherwise
-   `z-gh-operator` `pr-create --body-file .shipflow/pr-body-<N>.md`, `--draft` when the
+   the GitHub kit `pr-create` op with `--body-file .shipflow/pr-body-<N>.md`, `--draft` when the
    local predicate rows are already false. Then wait on required checks with
    `gh pr checks <pr> --required --watch` under a timeout.
-9. `Merge decision` - `z-pr-merge-steward` `facts`, the predicate below in script code, then
-   `merge` mode only when every row holds.
-10. `Close out` - labels and comment per the state machine, through `z-gh-operator`, each
+9. `Merge decision` - GitHub kit `prFacts`, the predicate below in script code, then GitHub
+   kit `mergeTrain` only when every row holds.
+10. `Close out` - labels and comment per the state machine, through the GitHub kit, each
     verified by a script re-read.
 11. `Cleanup` - stop every preview server and close every browser or device session this
     cycle started (verify the port no longer answers); remove area worktrees whose lanes
@@ -91,7 +91,7 @@ Phase names are string literals; the pre-flight greps for each.
 | Findings | zero open high or medium findings, counting unconfirmed ones |
 | Guards | no read-only guard failure in `personaFindings` |
 | Head, local | integration `HEAD` equals `reviewedSha` |
-| Head, remote | steward `headRefOid` and `ls-remote` both equal `reviewedSha` |
+| Head, remote | `headRefOid` from the GitHub kit's `prFacts` and `ls-remote` both equal `reviewedSha` |
 | Draft | `isDraft` is false |
 | Review | `reviewDecision` is `APPROVED` and the approver is not the PR author |
 | Checks | every required check concluded `SUCCESS` on `reviewedSha` |
