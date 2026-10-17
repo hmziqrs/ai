@@ -21,6 +21,11 @@ ai/
 │   └── test-quality-*/   the 3 test-quality skills, listed below
 ├── languages/            cross-harness skill category: language ecosystems
 │   └── rust/             Rust performance (the 5 rust-* skills, listed below)
+├── product/              cross-harness skill category: product definition
+│   ├── prd-authoring/
+│   └── site-recon/
+├── testing/              cross-harness skill category: verification
+│   └── parity-testing/
 ├── research/             source reports, design studies, and historical experiments
 └── install.md            the install procedure
 ```
@@ -96,6 +101,9 @@ Every category skill installs for every harness:
 - **rust-simd-kernels** (`languages/rust/rust-simd-kernels/`): write, port, and debug hand-written SIMD/vector kernels when crates and the autovectorizer are not enough — std::simd / core::simd / wide / pulp, C-intrinsic ports, `#[target_feature]` and runtime dispatch, codegen verification via cargo-show-asm / llvm-mca / LLVM remarks.
 - **rust-parallel-cache** (`languages/rust/rust-parallel-cache/`): make Rust parallel and cache-friendly at the thread and memory level — rayon pool configuration, work-stealing vs pinned-shard design, false-sharing measurement and padding, cache tiling, NUMA first-touch, and Apple Silicon QoS/E-core steering.
 - **rust-fast-architecture** (`languages/rust/rust-fast-architecture/`): architecture-level speed for whole Rust services — contention math, single-writer actors, lock downgrade at commit, write-behind group commit, adaptive linger, pooling, determinism/deterministic-simulation-testing, and the async-runtime chooser.
+- **prd-authoring** (`product/prd-authoring/`): staged pipeline for writing or amending a PRD that agents build from, with levels, stable IDs, Given/When/Then acceptance criteria, and lint and critic gates. Per-project: installed with Shipflow autopilot projects via `z-project-init`.
+- **site-recon** (`product/site-recon/`): read-only reconnaissance of a public reference website into a discovery pack (archetypes, captures, data model, journeys, gated-area assumptions, parity spec) that a PRD and parity tests are built from. Per-project: installed with Shipflow autopilot projects via `z-project-init`.
+- **parity-testing** (`testing/parity-testing/`): reference-parity tests that compare a website clone with a versioned capture of its reference site, covering aria-snapshot structure matching, masked pixel diffs of static chrome, journey replay, per-archetype parity scores, and noise and sensitivity calibration. Per-project: installed with Shipflow autopilot projects via `z-project-init`.
 
 ## Install
 

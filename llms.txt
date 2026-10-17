@@ -5,7 +5,7 @@
 > pointed at this repo installs it by following the procedures below.
 
 Layout: harness-specific kits under `harness/` (`zcode/`, `codex/`);
-other top-level directories except `research/` (`copy/`, `coding/`, `languages/rust/`)
+other top-level directories except `research/` (`copy/`, `coding/`, `languages/rust/`, `product/`, `testing/`)
 are cross-harness skill categories. To install, follow [install.md](install.md),
 which enforces a strict **Global Core vs Per-Project Niche** split:
 - **Global Core (`~/.zcode/` and `~/.agents/skills/`)**: only the 7 core agents
@@ -71,6 +71,9 @@ for every harness; research archives never install.
 - [languages/rust/rust-simd-kernels/SKILL.md](languages/rust/rust-simd-kernels/SKILL.md): hand-written SIMD/vector kernels when crates and the autovectorizer are not enough — std::simd / core::simd / wide / pulp, C-intrinsic ports, `#[target_feature]` and runtime dispatch, codegen verification with cargo-show-asm / llvm-mca / LLVM remarks.
 - [languages/rust/rust-parallel-cache/SKILL.md](languages/rust/rust-parallel-cache/SKILL.md): parallel and cache-friendly Rust — rayon pool configuration, work-stealing vs pinned-shard design, false-sharing measurement and padding, cache tiling, NUMA first-touch, Apple Silicon QoS/E-core steering.
 - [languages/rust/rust-fast-architecture/SKILL.md](languages/rust/rust-fast-architecture/SKILL.md): architecture-level speed for whole Rust services — contention math, single-writer actors, lock downgrade at commit, write-behind group commit, adaptive linger, pooling, deterministic simulation testing, async-runtime chooser (glommio/monoio/compio/tokio).
+- [product/prd-authoring/SKILL.md](product/prd-authoring/SKILL.md): staged pipeline for writing or amending a PRD that agents build from — levels, stable IDs, Given/When/Then acceptance criteria, lint and critic gates.
+- [product/site-recon/SKILL.md](product/site-recon/SKILL.md): read-only reconnaissance of a public reference website into a discovery pack — archetypes, captures, data model, journeys, gated-area assumptions, parity spec.
+- [testing/parity-testing/SKILL.md](testing/parity-testing/SKILL.md): reference-parity tests for a website clone — aria-snapshot structure matching, masked pixel diffs of static chrome, journey replay, per-archetype parity scores, noise and sensitivity calibration.
 
 ## Codex kit (`harness/codex/`)
 
