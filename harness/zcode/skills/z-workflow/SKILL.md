@@ -243,16 +243,15 @@ Resolve the platform-contract path first: take the `dynamic-workflows` entry's `
 from this session's available-skills index. On the COMPLEX path the planner has already
 dispatched the author with the complete brief and that path, resolving dial mismatches
 itself; the coordinator receives the TopologyPlan together with the script. Otherwise
-(SMALL, or the planner's brief-only fallback) dispatch the workflow-author with the
-verbatim task, the brief (for one area: the task, repoRoot, baseCommit, signals, and
-dials), and that absolute path.
+dispatch the workflow-author with the verbatim task and that absolute path, plus: on
+SMALL, the anchors only (repoRoot, baseCommit, baseBranch, agentsMd), since the author
+measures the signals and sets the dials itself; on the planner's brief-only fallback, the
+planner's brief unchanged.
 The author returns a TopologyPlan (defined in `harness/zcode/agents/workflow-author.md`)
 naming the pattern numbers it used. If the author's dials differ from the brief's, stop and
-resolve the signals before going on. On the COMPLEX path the planner already retried
-mismatches itself (at most two retries); if it returned with a mismatch still named,
-dispatch a fresh `workflow-planner` with that mismatch and the current brief, never by the
-coordinator reading the material itself. On SMALL, the coordinator re-dispatches the
-workflow-author with the signals corrected.
+resolve the signals before going on. The planner already retried mismatches itself (at most
+two retries); if a mismatch is still named, dispatch a fresh `workflow-planner` with that
+mismatch and the current brief, never by the coordinator reading the material itself.
 
 Shape rules for every plan:
 
