@@ -59,10 +59,10 @@ exactly when every area reaches a terminal state.
 
 Topology is decided by `contention`:
 
-- **terminal** — parallel in the shared checkout; verifiable by commands; no
-  vision stage.
-- **web** — its own git worktree (`.zflow/worktrees/<area>`, branch
-  `zflow/<area>`) with a deterministic port (`4100 + index` among sorted web
+- **terminal** — parallel in the run's integration worktree (never the user's
+  checkout); verifiable by commands; no vision stage.
+- **web** — its own git worktree (`.zflow/worktrees/<runTag>-<area>`, branch
+  `zflow/<runTag>/<area>`, branched from the integration HEAD) with a deterministic port (`4100 + index` among sorted web
   areas) and an isolated `agent-browser --session zflow-<area>`; a dev-server
   URL named in the task overrides the port. Web captures run concurrently.
 - **desktop / mobile** — implement in worktrees like web, but the whole
@@ -71,9 +71,15 @@ Topology is decided by `contention`:
   at a time (ocu for desktop; xcodebuild/simctl, gradle/adb, or flutter for
   mobile).
 
-Clean areas' worktree branches merge back along the `dependsOn` DAG; a clean
-merge removes the worktree and branch again. A failed dependency blocks its
-dependents honestly (never runs them blind).
+The chain starts by creating a run-owned integration worktree
+(`.zflow/worktrees/_integration-<runTag>`, branch `zflow/<runTag>/integration`)
+from HEAD. Clean areas' branches merge into it along the `dependsOn` DAG; a
+conflicting merge is aborted there and reported. A clean merge removes the area
+worktree without `--force`; every branch is kept. The user's checkout is never
+written: merging the integration branch into it is a separate step the
+coordinator takes only after the user says yes (exit code checked, conflicts
+aborted). A failed dependency blocks its dependents honestly (never runs them
+blind).
 
 ## 3. Engine contract — `zflow-engine.dwf.ts`
 
@@ -90,9 +96,19 @@ ONE saved workflow, launched once per chain. Declared args (host-validated):
   dropped/broken with recorded problems so fan-out can never deadlock.
 - `modelProfile`: `balanced` (default — pro judgment roles, flash capture and
   vision audit) or `flash` (every role on flash; judgment compensated
-  mechanically by gates, confirmers, and the in-run POLICY).
+  mechanically by gates, confirmers, and the in-run POLICY). Flash judges pass
+  things they did not check (verification campaign `dwfrun-d14998c7`), so under
+  `flash` a confirmed finding is labelled `judged`, never `verified`, and a clean
+  area reads "clean (flash-judged)"; only gates and script measurements are
+  `verified`.
+- `vision`: default true. False compiles the run with no vision phase;
+  non-terminal areas are judged from code and gates only.
+- `runTag`: names the run's branches (`zflow/<runTag>/...`); defaults to the
+  first 8 characters of `baseSha`. Pass a new tag when an earlier run's
+  branches exist.
 - `commit`: default true. False skips every commit and every worktree merge —
-  work stays on disk and worktree dependents are blocked honestly.
+  work stays on disk in the run's worktrees and worktree dependents are
+  blocked honestly.
 - `maxRounds`: default unbounded — every area loops until clean, stagnation
   (two rounds without shrinking findings), or this cap.
 - `maxLines` / `maxFiles`: run-level size budget, default 400 / 10;
@@ -100,7 +116,7 @@ ONE saved workflow, launched once per chain. Declared args (host-validated):
 - `agentsMd`: default "AGENTS.md", empty string disables. Read-first line
   injected into every spawned subagent's ask; missing/empty is recorded in
   notCovered, never silent.
-- `baseSha`: the chain's starting sha; shared-checkout judge size evidence is
+- `baseSha`: the chain's starting sha; terminal-area judge size evidence is
   measured against it (worktree areas measure against their branch point).
 - `repoRoot`: absolute root — `world.run`'s cwd is NOT the workspace root for
   saved runs; pass `git rev-parse --show-toplevel` from prep.
@@ -143,7 +159,7 @@ Hard rules (all enforced in script code, never model judgment):
   from evidence alone. Red gates become verified HIGH findings without a
   judge in the loop.
 - **POLICY as loop conditions**: zero open findings + gates green → settle
-  clean and merge along the DAG; findings strictly shrinking → next round
+  clean and merge into the integration worktree along the DAG; findings strictly shrinking → next round
   with a fresh implementer carrying the open findings; two non-shrinking
   rounds → stagnation stop; `maxRounds` cap → honest stop. Half-done work
   stays on disk and is listed, never claimed clean.
@@ -159,18 +175,12 @@ Hard rules (all enforced in script code, never model judgment):
 
 ## 4. Per-skill map — thin coordinator sheets
 
-Six skills are thin coordinators over the ONE engine — no orchestration code,
-just slicing recipe, `modelProfile`, gates, and per-area skill routing; all
-launch `CreateWorkflow saved: zflow-engine` with `mode: "chain"`:
+Two skills are thin coordinators over the ONE engine — no orchestration code,
+just slicing recipe, `modelProfile`, gates, and per-area skill routing; both
+launch `CreateWorkflow saved: zflow-engine` with `mode: "chain"`, through the
+approval dialog with "Allow only this time", and after the run ask the user
+before merging `zflow/<runTag>/integration` into their checkout:
 
-- **z-workflow**: the general entry point — full contention taxonomy,
-  balanced profile, role model, POLICY, fallback lanes.
-- **z-proflow**: depth-first — balanced profile (pro judgment, flash only for
-  pixel capture/audit); ocu AX-tree structural audits ride judge evidence.
-- **z-flashflow**: all-flash (`modelProfile=flash`); hands off to z-proflow
-  when a complex area stalls.
-- **z-liteflow**: one area, `modelProfile=flash`, `commit=false` — the
-  coordinator commits by hand at hand-off.
 - **z-gpui-workflow**: GPUI slicing recipe (entity family / component /
   screen region per area); design areas are desktop contention (ocu lane).
 - **z-tauri-workflow**: Tauri v2 slicing recipe — `src-tauri/` core as
@@ -178,6 +188,11 @@ launch `CreateWorkflow saved: zflow-engine` with `mode: "chain"`:
   named in the task; the lane caveat: a web-lane audit cannot see the
   webview, native chrome, tray, or IPC (`invoke` cannot run in a plain
   browser) — the report marks those not-covered.
+- **z-workflow** is NOT engine-driven: its workflow-author writes a fresh
+  script per task from measured signals (see its SKILL.md). Three skills are
+  profiles of it and use no engine either: **z-proflow** (pro only, no
+  vision), **z-flashflow** (Flash only, with `workflow-author-flash`), and
+  **z-liteflow** (one area, a filled pre-tested template, no author).
 - **z-super-rustflow** is NOT engine-driven: it composes its own inline
   main-tier-only runs (no vision, no flash) over the rust-* family; node
   modes are not part of this engine.

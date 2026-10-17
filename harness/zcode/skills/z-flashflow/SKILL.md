@@ -1,93 +1,56 @@
 ---
 name: z-flashflow
 description: >-
-  All-flash one-launch parallel chain — the fast, cheap z-flow variant. One
-  zflow-engine chain launch with modelProfile=flash runs every area as its
-  own state machine (plan, implement, vision, judge, looping per area until
-  clean or honestly stopped); flash judgment is compensated mechanically by
-  objective gates, fresh blind judges, per-finding confirmers, and the
-  code-enforced POLICY. Use for speed- and cost-sensitive multi-area work;
-  hand off to z-proflow when a complex area stalls. Trigger phrases: flash
-  workflow, cheap orchestration, all-flash loop, fast iterate-until-clean.
+  z-workflow on Flash only: the same triage, dials, author, git safety, approval, and merge
+  question, but every model in the run (explorers, workflow-author, implementers, judges,
+  tracers, vision) is GLM-5.3-Flash and no pro model is used anywhere. Judge verdicts are
+  labelled judged, never verified. Runs only when the user asks for it.
 ---
 
 # z-flashflow
 
-Real work only — trivial one-file edits are cheaper done directly; these rules
-bind only runs started under this skill (siblings run their own).
+z-flashflow is z-workflow with one change: no pro model anywhere. It is the cheapest and
+fastest full workflow, for tasks where gates and commands can check most of the result.
+Everything else, including the dials, the complexity budget, the git rules, the vision
+phase, and the merge question, follows z-workflow unchanged.
 
-## Coordinator discipline (main agent = chain coordinator)
+## When to Use
 
-The main thread makes ONE launch and relays the report. The whole chain —
-plan, implement, vision, judge, fix rounds, merges — runs inside that single
-workflow; never relaunch to fix (AmendWorkflow revises a wrong run reusing
-its finished work; ResumeWorkflowRun continues a stopped one). Between prep
-and the report the coordinator holds nothing: results live in the run's
-typed return, board, and report artifact, and evidence under `.zflow/evidence/`.
+Use it when the user asks for z-flashflow, or for a fast, cheap run of a task whose result
+is mostly checkable by commands (tests, builds, greps, computed-style checks). For work
+where quality can only be judged by review (architecture, security, subtle concurrency),
+say that a Flash judge cannot be relied on there and suggest z-workflow or z-proflow; run
+z-flashflow only if the user still wants it.
 
-| Coordinator DOES | Coordinator NEVER |
+## How to run it
+
+Load and follow `z-workflow` (its `SKILL.md`, from this session's skills) step by step,
+with these overrides:
+
+| z-workflow step | z-flashflow override |
 |---|---|
-| Survey once: areas (contention, paths, gates, skills, complexity, dependsOn), baseline gates, baseSha, repoRoot | Read raw evidence — diffs, gate dumps, screenshots |
-| ONE CreateWorkflow: zflow-engine, mode=chain, modelProfile=flash | Relaunch implement/judge as separate rounds |
-| Relay the run's report at the end | Edit project source, run git, judge findings |
+| Step 1, explore | Explorers use the `explore-flash` agent, never `Explore` or a pro agent. |
+| Step 2, shape | Dispatch the `workflow-author-flash` agent (not `workflow-author`) and put `profile: flash` in the brief. |
+| Step 4, REVIEW | When the REVIEW dial is on, the fresh reviewer is also `workflow-author-flash`. |
+| Model matrix | Every `model()` literal in the script is `account:zai-individual-coding-plan/GLM-5.3-Flash` (a `$level` suffix is allowed). No pro literal may appear. |
+| Pillar 3 (one flash role) | Satisfied by every role. |
+| Labels | Judge and confirmer findings are labelled judged, never verified. Only commands (gates, greps, purity checks, computed-style checks) produce verified results. |
+| Final report | States that every model was Flash and lists the judged findings separately from the verified ones. |
 
-## Model profile — flash everywhere, by design
+Before launch, check the script with one command, for example
+`grep -c -E 'GLM-5\.3(\$[a-z]+)?"' <script>` (pro literals, must print 0) plus a count of Flash literals, and include
+the result with the command set. A pro literal in the script goes back to the author.
 
-`modelProfile=flash` pins every role — planner, reviewer, implementer,
-Committer, judge, confirmer, capture, auditor — to the flash model. Flash
-judgment is compensated mechanically, in code: gates and size numstats run
-as world.run with no model; judges are fresh and blind each round; every
-judge finding needs a separate confirmer's reproduction; POLICY exits
-(clean / shrink-to-continue / stagnation / cap) are loop conditions in the
-script. Depth beyond flash surfaces as an escalation (the bridge below) or
-a cross-flow hand-off — never a mid-run model swap.
+## Rules that do not change
 
-## Launch (once)
+Everything else is z-workflow: Area definition, the four signals and the dials, the
+complexity budget, the vision phase (capture by command, blind Flash audit, command check
+per row), git rules, "Allow only this time" approval, the merge question, the stop rule,
+and honest reporting.
 
-prep (coordinator): build areas[] — name, contention (terminal/web/desktop/
-  mobile), paths, excludedPaths, skills, gates {tool,args[]}, complexity,
-  dependsOn, budget. Non-mutating gates from the engine allowlist (npm, pnpm,
-  yarn, bun, cargo, make, go, python3, pytest, git; npx refuses — wrap in a
-  Makefile target or package script). Slice under the size budget (~400 lines
-  / ~10 files per area). Run every gate once yourself; record baseline reds
-  and OMIT those gates. Record baseSha (git rev-parse HEAD), repoRoot (git
-  rev-parse --show-toplevel), agentsMd; gitignore .zflow/; clean stale
-  zflow/* branches/worktrees and untracked files under worktree areas' paths.
+## Grounded in
 
-launch (once): CreateWorkflow saved zflow-engine — mode="chain",
-  modelProfile="flash", task, areas, agentsMd, baseSha, repoRoot,
-  maxLines/maxFiles (per-area budget optional), commit. No subagent_model.
-  No maxRounds unless the user caps. The run does
-  the rest; its completion notification carries the typed return.
-
-stop → relay the run's report: per-area terminal states, commits, merges,
-  gates, findings fixed vs deferred, evidence paths.
-
-## Conventions
-
-- Never claim clean while a gate is red; baseline reds get zero fix rounds
-  and ride the report from the baseline record.
-- Size-budgeted small commits: one logical unit ≤400 changed lines / ≤10
-  files, one commit per green round, `fix:` on fix rounds, explicit paths,
-  never `git add -A`/`--no-verify`/push. The engine's Committer owns git.
-- AGENTS.md binds every subagent (agentsMd arg); every skill it requires is
-  read on top of the routed skills.
-- Fresh judges never judge fixes they inspired; flash judges never soften
-  findings — false positives are absorbed by confirmers.
-- Unverified stays unverified; half-done work stays on disk, listed, never
-  claimed clean. Evidence by path, never inlined; evidence dir gitignored.
-- Skills are matched by capability against the session's available-skills
-  list; a gap is noted, not a blocker.
-
-## Fallback lanes
-
-- **Escalation bridge (depth mid-run)**: a blocked subagent escalates — only
-  it parks while the run carries on; resolve via Agent-tool subagents of any
-  tier. ONE escalation per area carrying ALL its evidence; cap 3.
-- **Cross-flow hand-off to z-proflow**: a complex-tagged area stagnating, or
-  a judge repeatedly contradicting green gates → let the run stop honestly,
-  report, and relaunch as the sibling flow. Never nest.
-- **Interactive desktop lane**: computer-use/browser-use plugins are
-  main-thread-only; in-run capture uses agent-browser (web, one session per
-  area), ocu (desktop), or simctl/adb device capture (mobile) — desktop and
-  mobile serialize through the single-worker device lane.
+- `harness/zcode/skills/z-workflow/SKILL.md`: the workflow this skill follows.
+- `harness/zcode/agents/workflow-author-flash.md`: the Flash author.
+- Verification campaign `dwfrun-d14998c7`: Flash judges passed properties with no
+  independent check, which is why their verdicts stay judged.

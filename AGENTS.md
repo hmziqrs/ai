@@ -62,8 +62,11 @@ llms.txt                     entry point for consuming agents
   `languages/rust/`, `languages/go/`) over adding new top-level
   directories. Skill folders still install flat by folder name, so
   nesting is organizational only.
-- Six of the seven z-flow skills are thin chain-coordinator wrappers over
-  `zflow-engine` nodes; keep them consistent with
+- z-workflow writes a fresh script per task through the workflow-author;
+  z-proflow (pro only, no vision) and z-flashflow (Flash only) are
+  profiles of it, and z-liteflow is its fast small-task form (a filled,
+  pre-tested template, no author). z-gpui-workflow and z-tauri-workflow
+  are still thin wrappers over `zflow-engine`; keep them consistent with
   `harness/zcode/workflows/zflow-SPEC.md` (the engine contract).
   z-super-rustflow composes its own main-tier-only runs inline (no
   vision, no flash) and needs no engine.

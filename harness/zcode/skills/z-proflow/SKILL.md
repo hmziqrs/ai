@@ -1,104 +1,53 @@
 ---
 name: z-proflow
 description: >-
-  Depth-first one-launch parallel chain — all-pro judgment, no router. One
-  zflow-engine chain launch (balanced profile: pro planning, implementation,
-  judging; flash only for pixel capture/audit when UI areas exist) runs every
-  area as its own state machine with gates, fresh blind judges, per-finding
-  confirmers, and code-enforced POLICY exits. ocu AX-tree structural audits
-  ride the judge's evidence; pixel verification belongs to the flash vision
-  lane. Use when depth beats speed on multi-area work. Trigger phrases: pro
-  workflow, max-depth orchestration, main-tier loop, depth-first
-  iterate-until-clean.
+  z-workflow on the pro model only, with no vision: the same triage, dials, author, git
+  safety, approval, and merge question, but every role runs on GLM-5.3, no Flash model is
+  used anywhere, and no screenshot is captured or read. Visible requirements are checked by
+  commands or reported as not covered. Runs only when the user asks for it.
 ---
 
 # z-proflow
 
-Real multi-area work where judgment-heavy implementation and audit verdicts
-need main-tier depth — complex concurrency, architecture, subtle bugs and
-straightforward areas alike (gates + fresh judges are the backstop). Trivial
-one-file edits are cheaper done directly. Siblings run under their own
-rules — never cross-apply: z-workflow (mixed tiers), z-flashflow (all-flash,
-fast), z-liteflow (small single-domain).
+z-proflow is z-workflow with two changes: every role runs on the pro model, and the vision
+phase is off. It is for work where review quality matters more than cost or speed, and
+where nothing needs to be judged from pixels. Everything else follows z-workflow unchanged.
 
-## Model profile — pro judgment, one launch
+## When to Use
 
-One launch, default `modelProfile=balanced`: planner, reviewer, implementer,
-Committer, judge, and confirmer all run pro; capture and vision audit run
-flash (pro is image-blind — pixel judgment happens only in that lane or a
-batched escalation). The coordinator surveys once at init and builds the
-areas list itself — no router: one tier means nothing to route.
+Use it when the user asks for z-proflow, or for judgment-heavy work (architecture,
+concurrency, security-sensitive code, tricky refactors) with no visual requirement. If the
+task's main requirement is visual, say that z-proflow does not look at the screen and
+suggest z-workflow; run z-proflow only if the user still wants it.
 
-| Work | Lane |
+## How to run it
+
+Load and follow `z-workflow` (its `SKILL.md`, from this session's skills) step by step,
+with these overrides:
+
+| z-workflow step | z-proflow override |
 |---|---|
-| Coordination (survey, ONE launch, final report) | Host model, main thread |
-| Implementation, planning, judging, confirming | pro, pinned in-engine |
-| Mechanical gates + size numstats | world.run — no model |
-| Pixel vision | flash capture/audit lane (or none, when all areas are terminal) |
-| AX structural checks | pro judge reads the .txt evidence (tier-blind text) |
+| Step 0, triage | Measure the visible-surface signal `V` as usual, but force the Vision dial off. |
+| Step 1, explore | Explorers use the `Explore` agent or `general-pro`, never a Flash agent. |
+| Step 2, shape | Dispatch `workflow-author` (pro) and put `profile: pro` in the brief. |
+| Model matrix | Every `model()` literal in the script is `account:zai-individual-coding-plan/GLM-5.3` (a `$level` suffix is allowed). No Flash literal may appear. Tracers, confirmers, and citation checkers run on pro. |
+| Pillar 3 (one flash role) | Does not apply. |
+| Vision phase | Absent: no screenshots, no capture, no image reading by any agent. |
+| Visible requirements | Checked by commands where possible (for example `agent-browser get text`, `is visible`, or a computed-style `eval`, which read the page without screenshots); anything left is listed under notCovered as "not checked visually". |
+| Final report | States that every model was pro and that no visual check ran. |
 
-## Launch (once)
+Before launch, check the script with one command, for example
+`grep -c 'Flash' <script>` (must print 0) and a search for `screenshot` (must find none),
+and include the result with the command set. A Flash literal or a screenshot step goes
+back to the author.
 
-prep (coordinator): survey the repo; build areas[] — name, contention
-  (terminal/web/desktop/mobile), paths, excludedPaths, skills (absolute
-  SKILL.md paths matched live against the session's available-skills list —
-  never hardcoded; a gap is noted), gates ({tool, args[]} — at least one per
-  area; engine allowlist: npm, pnpm, yarn, bun, cargo, make, go, python3,
-  pytest, git; npx refuses — wrap in a Makefile target; non-mutating; a
-  cargo gate's own --manifest-path is honored and absolutized), complexity,
-  dependsOn, budget. Slice under the size budget (~400 changed lines / ~10
-  files per area). Baseline gates once; record and OMIT pre-existing reds.
-  Record baseSha, repoRoot, agentsMd; gitignore .zflow/; clean stale
-  zflow/* branches/worktrees and untracked files under worktree areas' paths.
+## Rules that do not change
 
-launch (once): CreateWorkflow saved zflow-engine — mode="chain", task,
-  areas, agentsMd, baseSha, repoRoot, maxLines/maxFiles (per-area budget
-  optional), commit. No subagent_model. No maxRounds unless the user caps.
-  Never relaunch to fix — AmendWorkflow revises a wrong run reusing its
-  finished work; ResumeWorkflowRun continues a stopped one. The run loops each area internally:
-  plan → implement → (vision for non-terminal areas) → judge → fix rounds
-  while findings shrink → clean/stagnation/cap stop; worktree branches merge
-  along the dependsOn DAG and clean themselves up.
+Everything else is z-workflow: Area definition, the signals and dials (except Vision),
+the complexity budget, git rules, "Allow only this time" approval, the merge question, the
+stop rule, confirmers when risk is medium or high, and honest reporting.
 
-stop → relay the run's typed return + report artifact: per-area terminal
-  states, rounds, gates, commits and merges, findings fixed vs deferred,
-  half-done work listed. Add the one thing only the coordinator knows:
-  which profile the run used.
+## Grounded in
 
-## POLICY — in-run, code-enforced, never model-judged
-
-Clean = zero open findings + gates green (worktree areas also merge). Rework
-= findings strictly shrinking → fresh implementer each round. Stop = two
-non-shrinking rounds or the user's cap → honest report. A round over its
-size budget is a HIGH verified finding — split the area, never commit big.
-Gate failures become verified findings automatically; a red gate skips
-nothing and counts toward stagnation. Never claim clean while a gate is red.
-
-## Conventions
-
-- Size-budgeted small commits: ≤400 changed lines / ≤10 files, one commit
-  per green round, `fix:` on fix rounds, explicit paths, never `git add -A`/
-  `--no-verify`/push; match repo log style. The engine's Committer owns all
-  git; implementers never touch it.
-- AGENTS.md binds every subagent (agentsMd + baseSha args); its required
-  skills ride on top of the routed skills.
-- Fresh auditors never judge fixes they inspired. Baseline reds get zero
-  fix rounds. Unverified stays unverified; half-done work stays on disk,
-  listed; revert only on request.
-
-## Fallback lanes
-
-- **Mid-run vision** (a pro judge hits pixels it must see): the escalation
-  bridge, batched — ONE escalation per area carrying ALL its screenshots;
-  resolve with a flash Agent-tool subagent; cap 3 per ask. Never swap models
-  mid-run.
-- **Pixel/design verification wholesale**: let the run finish, relaunch
-  z-workflow as the sibling flow (cross-flow hand-off — no nesting).
-  Speed/cost-dominated work with objectively checkable failures →
-  z-flashflow, the same way.
-- **Desktop automation**: in-run capture is ocu via the device lane (AX
-  text is tier-blind — fine for pro structural checks); pixel PNGs decode
-  to files for the flash lane. The computer-use plugin is the MAIN THREAD's
-  interactive lane only.
-- **Stall**: two rounds without shrinking findings → the run stops itself;
-  report what is done and what is open.
+- `harness/zcode/skills/z-workflow/SKILL.md`: the workflow this skill follows.
+- `harness/zcode/agents/workflow-author.md`: the pro author and its `profile` rule.

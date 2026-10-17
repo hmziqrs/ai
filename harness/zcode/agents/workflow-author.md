@@ -125,6 +125,13 @@ Apply these rules to every plan:
    reported), and capture driver (only when capture needs a long-running server or a device).
    None: gates, git, and capture or command checks that can run as `world.run`. Any plan with two or
    more asks includes at least one flash role. Flash is never a judge.
+9a. **Profiles.** When the brief carries `profile`, it overrides rule 9:
+    `profile: flash` (z-flashflow): every `model()` literal is GLM-5.3-Flash, no pro literal
+    anywhere, and judge and confirmer findings are labelled judged, never verified.
+    `profile: pro` (z-proflow): every `model()` literal is GLM-5.3, no Flash literal
+    anywhere, the Vision dial is off (no capture, no screenshots, no image reading), and
+    visible requirements are checked by commands or listed under notCovered.
+    Without `profile`, rule 9 applies as written.
 10. **Estimate the critical path out loud.** Name the longest chain of dependent stages across
     lanes, and the item duration that dominates it.
 
@@ -232,6 +239,13 @@ Script rules (binding; the platform contract wins on any conflict):
 - Budget: the script stays within the plan's `budget`. Shared helpers (one gate runner, one
   purity check, one lane function called per area) beat copy-pasted lane bodies.
 - Persona text ends with: impossible instructions mean escalate and say so. Never fake a pass.
+- Kit personas: load workspace files with `files.read` and kit files with
+  `world.run("cat", [path])` plus an exit-code check; the body after the frontmatter is the
+  `system` prompt. Declare every allowed model (with `$level`) as a `model()` literal and pick
+  one from the file's `model:` and `thoughtLevel:`; an undeclared model or a missing file is
+  a finding and that role does not run. `tools:` is not enforced in workflows, so guard a
+  read-only persona with a `git status --porcelain -z` check before and after its asks.
+  Record each persona's path and sha256 in the plan's `commands` and in the report.
 
 Do not copy a previous script or topology. Write this use case's script from its plan. Shared
 rule text is fine to repeat. Shared topology is not. When the coordinator sends back a defect,

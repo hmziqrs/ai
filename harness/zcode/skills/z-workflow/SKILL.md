@@ -27,6 +27,8 @@ Nothing is reused from a template unless the user names a saved workflow.
 3. **At least one flash role.** Any run with two or more asks includes at least one flash role
    from the allowed list (see Model matrix). Flash never decides pass or fail. Pins are
    `model()` literals per role. The pillar is checked by counting flash actors in the run.
+   Profile skills override this pillar: z-flashflow runs every role on Flash, and
+   z-proflow runs every role on pro with no vision.
 4. **Scale to measured signals.** Size is a spectrum. Triage measures areas, changed files,
    risk, and uncertainty, and each dial of the run follows its own signal (Step 0).
 5. **Fresh eyes and honest gates.** Judges are new agents every round. Gates are `world.run`
@@ -398,6 +400,34 @@ inside the lane after the gate, every round, and uses all three model tiers on p
 The run's model mix is checked from its actors: pro only for implementer, judge, planner,
 attacker, auditor, and writer roles; flash only for the roles in the Model matrix; and no
 model for capture and command checks when they can run as `world.run`.
+
+## Kit personas (specialist subagents from agent files)
+
+A workflow cannot reference an agent definition by name: `agent()` takes only a system
+prompt and a model. A script can load an agent file at run time and use it as a persona,
+which gives runs specialist roles (a framework expert, a researcher) without pasting their
+prompts into each script. Verified in probe run `dwfrun-ee616ce6` (2026-10-17):
+
+- **Loading.** Files inside the workspace load with `files.read`. Kit files outside it (for
+  example `~/.zcode/agents/`) load with `world.run("cat", [path])`, and the exit code is
+  checked. A missing or empty file is a finding and that role does not run; it never runs
+  with an empty prompt. The agents folder comes from the brief, never a hard-coded user path.
+- **Prompt.** The body after the frontmatter becomes the subagent's `system` prompt.
+- **Model.** `model()` takes literals only, so the script declares every model it allows
+  (with its `$level` suffix, for example `GLM-5.3$max`) and picks one at run time from the
+  file's `model:` and `thoughtLevel:`. A model the script did not declare is a finding and
+  that role does not run; there is no fallback model. The `$level` suffix compiles and is
+  stored, but its effect on reasoning effort is not visible in ZCode's records: treat it as
+  unverified.
+- **Tools are not enforced.** Every workflow subagent gets the full tool set (Write, Edit,
+  Bash, MCP tools) whatever the file's `tools:` line says. A read-only persona is guarded by
+  the script: `git status --porcelain -z` before and after its asks, with any change
+  reported as a finding.
+- **AGENTS.md is injected.** Workflow subagents receive the workspace `AGENTS.md`
+  automatically, so a persona does not need to repeat it.
+- **Approval and report.** The approval dialog shows the script, not the persona files it
+  reads. Before launch, list each persona's path and sha256 with the command set; the final
+  report repeats them, so the user knows exactly which instructions ran.
 
 ## Model matrix
 

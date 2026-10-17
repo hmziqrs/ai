@@ -3,14 +3,17 @@ description: "zflow engine: the parallel chain — one launch, everything in-run
   Every area its own state machine (plan, implement, vision, judge, looping per
   area until clean or honestly stopped) over channels with a counted close, so
   areas sit at different stages and rounds at once. Contention decides topology:
-  terminal areas run parallel in the shared checkout; web areas each in their
+  terminal areas run parallel in the run's integration worktree; web areas each in their
   own git worktree with a deterministic port and isolated browser session (a
   dev-server URL named in the task overrides the port); desktop and mobile areas
   implement in worktrees but serialize the whole device phase through a
-  single-worker device lane. Worktree branches merge back along the dependsOn
-  DAG, then the merged worktree and branch are cleaned up automatically. Models
-  per profile: balanced (default) pins pro judgment + flash capture/audit; flash
-  pins every role on flash. All commands anchor to repoRoot (git/make/go/pnpm
+  single-worker device lane. Worktree branches merge into a run-owned
+  integration worktree (branch zflow/<runTag>/integration) along the dependsOn
+  DAG; merged worktrees are removed without --force and every branch is kept.
+  The user's checkout is never written: merging the integration branch into it
+  is a separate step the coordinator asks the user about. Models per profile:
+  balanced (default) pins pro judgment + flash capture/audit; flash pins every
+  role on flash, and flash verdicts are labelled judged, never verified. All commands anchor to repoRoot (git/make/go/pnpm
   via -C, npm via --prefix, yarn/bun via --cwd, cargo via a gate's own honored
   manifest path; python3/pytest via absolute path; npx refuses honestly); fresh
   judges with a confirmer per finding; gates re-run by the script;
@@ -40,9 +43,16 @@ args:
     default: null
   baseSha:
     type: string
-    description: Chain's starting commit sha; shared-checkout areas' judge size
+    description: Chain's starting commit sha; terminal areas' judge size
       evidence is measured against it (worktree areas measure against their
       branch point).
+    required: false
+    default: ""
+  runTag:
+    type: string
+    description: Unique tag for this run's branches (zflow/<runTag>/<area> and
+      zflow/<runTag>/integration). Defaults to the first 8 characters of
+      baseSha, else "run". Pass a new tag when an earlier run's branches exist.
     required: false
     default: ""
   commit:
@@ -79,6 +89,14 @@ args:
       confirmers, and the in-run POLICY."
     required: false
     default: balanced
+  vision:
+    type: boolean
+    description: "False compiles the run with NO vision phase at all — the capture
+      and audit stage is absent from the phase graph, no flash lane exists, and
+      non-terminal areas are judged from code and gates only (the report says so
+      under notCovered). Pro-only flows launch with vision: false."
+    required: false
+    default: true
   repoRoot:
     type: string
     description: Absolute repo root. world.run's cwd is not the workspace root for
@@ -103,18 +121,22 @@ args:
 //   repoRoot (passed by the coordinator; git/make/go/pnpm via -C, npm via
 //   --prefix, yarn/bun via --cwd, cargo via --manifest-path, python3/pytest
 //   via an absolute first path; npx refuses honestly).
-// - Worktrees are created lazily at implement entry (after deps merged), as
-//   absolute paths under <repoRoot>/.zflow/worktrees, branch zflow/<area>;
-//   a clean merge removes the worktree and branch again.
+// - The chain first creates a run-owned integration worktree under
+//   <repoRoot>/.zflow/worktrees/_integration-<runTag> on branch
+//   zflow/<runTag>/integration. Terminal areas work and commit there. Other
+//   areas get worktrees lazily at implement entry (after deps merged), branched
+//   from the integration HEAD as zflow/<runTag>/<area>, and merge back into it.
+//   The user's checkout is never written. A clean merge removes the area
+//   worktree (never --force); every branch is kept.
 // - One implementer ask per chain round; gate failures drive judge findings
 //   and rework rounds. Rounds are bounded by stagnation or the user's
 //   maxRounds cap.
 // - Desktop and mobile captures serialize through a single-worker device lane
 //   (one screen, one AX tree, one simulator/emulator at a time); web captures
 //   run concurrently, one isolated browser session and port per area.
-// - Stale zflow/<area> branches/worktrees make creation fail loudly; untracked
-//   files in the main checkout under an area's paths make its merge refuse —
-//   both are reported honestly and the coordinator is told to clean first.
+// - Stale zflow/<runTag>/* branches/worktrees make creation fail loudly (pass a
+//   new runTag); a merge that conflicts with the integration worktree is
+//   aborted there — both are reported honestly, never forced.
 // - Report cleanliness counts settle results, never standing findings alone.
 // Node modes are not part of this engine; the z-*flow ports run their own
 // node workflow.
@@ -147,7 +169,8 @@ interface EF {
   where: string;
   what: string;
   evidence: string;
-  status: "verified" | "unconfirmed";
+  /** verified: a command or a pro confirmer reproduced it; judged: only a flash confirmer did; unconfirmed: nobody reproduced it. */
+  status: "verified" | "judged" | "unconfirmed";
   severity: "low" | "medium" | "high";
   area: string;
   round: number;
@@ -309,6 +332,10 @@ for (const a of areas) {
 }
 
 const modelProfile = args.modelProfile === "flash" ? "flash" : "balanced";
+const visionEnabled = args.vision !== false;
+if (!visionEnabled && areas.some((a) => a.contention !== "terminal")) {
+  problems.push("vision disabled by launch arg (vision: false) — non-terminal area(s) get no capture and no pixel/AX evidence; judges see code and gates only");
+}
 const doCommit = args.commit !== false;
 const rawMaxRounds = typeof args.maxRounds === "number" ? args.maxRounds : 0;
 const maxRounds = rawMaxRounds >= 1 ? Math.floor(rawMaxRounds) : Number.POSITIVE_INFINITY;
@@ -317,6 +344,11 @@ const maxFiles = Math.max(1, Math.floor(typeof args.maxFiles === "number" ? args
 const agentsMdPath = typeof args.agentsMd === "string" ? args.agentsMd : "AGENTS.md";
 const baseSha = typeof args.baseSha === "string" ? args.baseSha.trim() : "";
 let ROOT = typeof args.repoRoot === "string" ? args.repoRoot.trim() : "";
+const rawTag = typeof args.runTag === "string" && args.runTag.trim() !== "" ? args.runTag.trim() : baseSha !== "" ? baseSha.slice(0, 8) : "run";
+const RUN_TAG = rawTag.replace(/[^A-Za-z0-9._-]/g, "-");
+/** The run-owned integration worktree and its branch; "" until created. */
+let INT = "";
+let INT_BRANCH = "";
 
 // The board is the watcher's live view; cards move as areas settle.
 artifact.board("status", {
@@ -525,23 +557,18 @@ function mergeRun(it: Item): Promise<boolean> {
         return dep === undefined ? Promise.resolve(true) : dep;
       }),
     );
-    const m = await serializedGit(() => gitRun(["merge", "--no-edit", it.branch ?? ""]));
+    const m = await serializedGit(() => gitRun(["merge", "--no-edit", it.branch ?? ""], INT));
     if (!(m.ran && m.exitCode === 0)) {
-      await serializedGit(() => gitRun(["merge", "--abort"]));
+      const ab = await serializedGit(() => gitRun(["merge", "--abort"], INT));
+      if (!(ab.ran && ab.exitCode === 0)) log(`${it.area.name}: merge --abort exited ${ab.exitCode} — ${ab.output.slice(0, 160)}`);
       return false;
     }
     mergedAreas.push(it.area.name);
-    // Clean hands: the merged worktree and its branch are spent — remove both so the
-    // next run with the same area name does not trip over them. Refusals (untracked
-    // leftovers) are logged and skipped, never forced.
-    if (it.worktree !== undefined) {
+    // The merged area worktree is spent: remove it, never with --force. The branch is
+    // kept so the user can inspect it; refusals are logged and the worktree stays.
+    if (it.worktree !== undefined && it.worktree !== INT) {
       const rm = await serializedGit(() => gitRun(["worktree", "remove", it.worktree!]));
-      if (rm.ran && rm.exitCode === 0) {
-        const bd = await serializedGit(() => gitRun(["branch", "-d", it.branch ?? ""]));
-        if (!(bd.ran && bd.exitCode === 0)) log(`${it.area.name}: merged branch kept — ${bd.output.slice(0, 160)}`);
-      } else {
-        log(`${it.area.name}: merged worktree kept — ${rm.output.slice(0, 160)}`);
-      }
+      if (!(rm.ran && rm.exitCode === 0)) log(`${it.area.name}: merged worktree kept — ${rm.output.slice(0, 160)}`);
     }
     return true;
   })();
@@ -680,6 +707,16 @@ async function runChain(): Promise<{ conclusion: string; findings: EF[]; verifie
     log(`repo root: ${ROOT === "" ? "(unresolved — commands stay cwd-relative)" : ROOT}`);
     const recent = await gitRun(["log", "--oneline", "-10"]);
     if (recent.ran && recent.exitCode === 0 && recent.output.trim().length > 0) logBlock = recent.output.trim();
+    const intPath = `${ROOT === "" ? "" : `${ROOT}/`}.zflow/worktrees/_integration-${RUN_TAG}`;
+    const intBranch = `zflow/${RUN_TAG}/integration`;
+    const addInt = await serializedGit(() => gitRun(["worktree", "add", "-b", intBranch, intPath, "HEAD"]));
+    if (addInt.ran && addInt.exitCode === 0) {
+      INT = intPath;
+      INT_BRANCH = intBranch;
+      log(`integration worktree ${intPath} on branch ${intBranch}; the user's checkout is not written`);
+    } else {
+      notCovered.push(`integration worktree ${intPath} could not be created — ${addInt.output.slice(0, 220)}. No area runs without it: remove the stale worktree/branch or pass a new runTag, then rerun.`);
+    }
     await Promise.all(
       areas.map(async (area) => {
         const depOks = await Promise.all(
@@ -749,10 +786,21 @@ async function runChain(): Promise<{ conclusion: string; findings: EF[]; verifie
         future(async () => {
           try {
             report({ key: it.area.name, name: it.area.name, status: "working", note: `implementation under way (${it.area.contention})`, round: it.rounds }, "status");
+            if (INT === "") {
+              notCovered.push(`${it.area.name}: not run — the integration worktree does not exist, and areas never write the user's checkout.`);
+              finalItems.push(it);
+              it.settle(false);
+              endWork();
+              return;
+            }
+            if (it.area.contention === "terminal" && it.worktree === undefined) {
+              it.worktree = INT;
+              log(`${it.area.name}: works in the integration worktree ${INT}`);
+            }
             if (it.area.contention !== "terminal" && it.worktree === undefined) {
-              const wt = `${ROOT === "" ? "" : `${ROOT}/`}.zflow/worktrees/${it.area.name}`;
-              const branch = `zflow/${it.area.name}`;
-              const addWt = await serializedGit(() => gitRun(["worktree", "add", "-b", branch, wt, "HEAD"]));
+              const wt = `${ROOT === "" ? "" : `${ROOT}/`}.zflow/worktrees/${RUN_TAG}-${it.area.name}`;
+              const branch = `zflow/${RUN_TAG}/${it.area.name}`;
+              const addWt = await serializedGit(() => gitRun(["worktree", "add", "-b", branch, wt, "HEAD"], INT));
               if (addWt.ran && addWt.exitCode === 0) {
                 it.worktree = wt;
                 it.branch = branch;
@@ -814,7 +862,7 @@ async function runChain(): Promise<{ conclusion: string; findings: EF[]; verifie
                 commitFailures.push(`${it.area.name}: commit error — ${String(error)}`);
               }
             }
-            if (it.area.contention !== "terminal") vision.send(it);
+            if (visionEnabled && it.area.contention !== "terminal") vision.send(it);
             else judgeCh.send(it);
           } catch (error) {
             finalItems.push(it);
@@ -829,7 +877,7 @@ async function runChain(): Promise<{ conclusion: string; findings: EF[]; verifie
   });
 
   const visionStage = future(async () => {
-    phase("Capture and audit the visual evidence for each UI area");
+    if (visionEnabled) phase("Capture and audit the visual evidence for each UI area");
     const tasks: Promise<void>[] = [];
     for await (const it of vision) {
       tasks.push(
@@ -928,7 +976,7 @@ async function runChain(): Promise<{ conclusion: string; findings: EF[]; verifie
                     .filter((l) => l !== "")
                     .join("\n"),
                 );
-                const ef: EF = { ...f, status: check.reproduced ? "verified" : "unconfirmed", area: name, round: it.rounds };
+                const ef: EF = { ...f, status: check.reproduced ? (modelProfile === "flash" ? "judged" : "verified") : "unconfirmed", area: name, round: it.rounds };
                 report(ef);
                 return ef;
               }),
@@ -947,7 +995,7 @@ async function runChain(): Promise<{ conclusion: string; findings: EF[]; verifie
                   const merged = await mergeRun(it);
                   it.settledOk = merged;
                   it.settle(merged);
-                  if (!merged) notCovered.push(`${name}: merge of ${it.branch} refused — usually untracked files in the main checkout under ${it.area.paths.join(", ")}; branch and worktree ${it.worktree} left for manual merge`);
+                  if (!merged) notCovered.push(`${name}: merge of ${it.branch} into ${INT_BRANCH} refused (conflict with work already integrated) and aborted; branch and worktree ${it.worktree} kept for review`);
                   report({ key: name, name, status: merged ? "passed" : "failed", note: merged ? `clean — branch ${it.branch} merged back` : `merge of ${it.branch} failed — left for manual merge`, round: it.rounds }, "status");
                 }
               } else {
@@ -994,8 +1042,10 @@ async function runChain(): Promise<{ conclusion: string; findings: EF[]; verifie
 
   await Promise.all([planStage, implStage, visionStage, judgeStage, ...Array.from(settled.values())]);
   phase("Collect the final state and publish the report");
-  const head = await gitRun(["rev-parse", "HEAD"]);
-  const log2 = await gitRun(["log", "--oneline", "-12"]);
+  const head = await gitRun(["rev-parse", "HEAD"], INT === "" ? undefined : INT);
+  const log2 = await gitRun(["log", "--oneline", "-12"], INT === "" ? undefined : INT);
+  if (INT !== "") notCovered.push(`Your checkout is untouched. The result is on ${INT_BRANCH} (worktree ${INT}); merging it into your checkout is a separate step the coordinator asks you about.`);
+  if (modelProfile === "flash") notCovered.push("Judges and confirmers ran on Flash (modelProfile=flash): their findings are labelled judged, and an area's clean means gates green with no Flash-judged findings, not a pro review.");
   const cleanCount = finalItems.filter((i) => i.settledOk === true).length;
   const standingAll = finalItems.flatMap((i) => i.standing);
   const deferredVision = finalItems.flatMap((i) => (i.settledOk === true ? i.visionOpen : []));
@@ -1010,7 +1060,7 @@ async function runChain(): Promise<{ conclusion: string; findings: EF[]; verifie
       "",
       "## Areas",
       ...finalItems.flatMap((i) => [
-        `### ${i.area.name} — ${i.settledOk === true ? "clean" : i.standing.length > 0 ? `${i.standing.length} standing` : "stopped"} (${i.area.contention}${i.worktree !== undefined ? ", worktree" : ""}${i.port !== undefined ? `, port ${i.port}` : ""})`,
+        `### ${i.area.name} — ${i.settledOk === true ? (modelProfile === "flash" ? "clean (flash-judged)" : "clean") : i.standing.length > 0 ? `${i.standing.length} standing` : "stopped"} (${i.area.contention}${i.worktree !== undefined ? ", worktree" : ""}${i.port !== undefined ? `, port ${i.port}` : ""})`,
         `- Rounds: ${i.rounds + 1}; commits: ${i.commitShas.join(", ") || "none"}`,
         `- Summary: ${i.workSummary ?? "none"}`,
         ...(i.workNotes !== undefined && i.workNotes.trim().length > 0 ? [`- Notes: ${i.workNotes.trim().slice(0, 300)}`] : []),
@@ -1023,6 +1073,7 @@ async function runChain(): Promise<{ conclusion: string; findings: EF[]; verifie
       ...(blockedAreas.length > 0 ? ["", "## Blocked", ...blockedAreas.map((b) => `- **${b}**: dependency did not finish with visible work`)] : []),
       ...(deferredVision.length > 0 ? ["", "## Unconfirmed vision findings (deferred to the user)", ...deferredVision.map((f) => `- **${f.where}** (${f.severity}): ${f.what} — ${f.evidence.slice(0, 200)}`)] : []),
       "",
+      ...(INT !== "" ? ["## Integration", `- Branch ${INT_BRANCH}, worktree ${INT}`, `- Merged areas: ${mergedAreas.join(", ") || "none"}`, "- Your checkout was not written. Merging this branch into it is a separate step the coordinator asks you about.", ""] : []),
       "## Recent git history",
       ...log2.output.split("\n").map((l) => `- ${l}`),
     ].join("\n"),
@@ -1037,7 +1088,7 @@ async function runChain(): Promise<{ conclusion: string; findings: EF[]; verifie
     verified: [
       ...finalItems.flatMap((i) => i.gates.filter((g) => g.ran).map((g) => `${g.argv} → exit ${g.exitCode} (area ${i.area.name})`)),
       ...finalItems.flatMap((i) => (i.commitShas.length > 0 ? [`${i.area.name}: commits ${i.commitShas.join(", ")}`] : [])),
-      ...mergedAreas.map((k) => `${k}: branch merged into the shared checkout`),
+      ...mergedAreas.map((k) => `${k}: branch merged into ${INT_BRANCH}`),
     ],
     notCovered: Array.from(new Set([...notCovered, ...commitFailures])),
   };

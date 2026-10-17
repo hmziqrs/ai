@@ -57,7 +57,8 @@ launch (once): CreateWorkflow saved zflow-engine — mode="chain", task,
   the relevant gpui-kit design-guide criteria in the task text so they reach
   the auditor — the engine routes area.skills to the planner and implementer
   asks, not to the vision auditor) → pro judge + confirmer per finding → fix rounds
-  while findings shrink → merge along dependsOn → self-cleanup.
+  while findings shrink → merge into the integration worktree along dependsOn →
+  area worktrees removed, branches kept.
 
 stop → relay the run's typed return + report: per-area terminal states,
   commits, merges, gate status, findings fixed vs deferred, degraded or
@@ -66,13 +67,29 @@ stop → relay the run's typed return + report: per-area terminal states,
 
 ## POLICY — in-run, code-enforced, never model-judged
 
-Clean = zero open findings + gates green (worktree areas also merge).
+Clean = zero open findings + gates green (worktree areas also merge into the
+integration worktree).
 Rework = findings strictly shrinking → fresh implementer each round; vision
 re-shoots the same states so rounds stay comparable. Stop = two
 non-shrinking rounds or the user's cap → honest report. A round over its
 size budget is a HIGH verified finding — split the area, never commit big.
 Never claim clean while a gate is red; never claim a screen verified that
 was not shot and audited this run.
+
+## Approval and merge
+
+- Launch through the approval dialog with "Allow only this time". Never pick "Always allow
+  in this session" for a run that commits or merges.
+- Pass `runTag` (the first 8 characters of `baseSha` by default; a new tag when
+  `zflow/<tag>/*` branches from an earlier run already exist).
+- The engine never writes the user's checkout. Terminal areas work in the run's
+  integration worktree; other areas work in their own worktrees and merge into it. The
+  result lands on `zflow/<runTag>/integration`; area worktrees are removed after a clean
+  merge (never `--force`) and every branch is kept.
+- After the run, show the integration branch, its diff stat against `baseSha`, and the gate
+  results, then ask with AskUserQuestion. Without a yes, stop and report the branch. On a
+  yes, check that the checkout is clean, merge with one command, check the exit code, and
+  run `git merge --abort` on a conflict.
 
 ## Conventions
 

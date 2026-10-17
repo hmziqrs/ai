@@ -57,7 +57,8 @@ launch (once): CreateWorkflow saved zflow-engine — mode="chain", task
   In-run per area: plan → implement (web areas in their own worktree;
   desktop areas in worktrees with capture serialized through the device
   lane) → flash vision → pro judge + confirmer per finding → fix rounds
-  while findings shrink → merge along dependsOn → self-cleanup.
+  while findings shrink → merge into the integration worktree along dependsOn →
+  area worktrees removed, branches kept.
 
 stop → relay the run's typed return + report: per-area terminal states,
   commits, merges, gate status, findings fixed vs deferred, degraded vision
@@ -67,6 +68,21 @@ stop → relay the run's typed return + report: per-area terminal states,
 but NOT the Tauri webview, native chrome, tray, or IPC (`invoke` cannot run
 in a plain browser) — the report marks those not-covered; the desktop lane
 covers them.
+
+## Approval and merge
+
+- Launch through the approval dialog with "Allow only this time". Never pick "Always allow
+  in this session" for a run that commits or merges.
+- Pass `runTag` (the first 8 characters of `baseSha` by default; a new tag when
+  `zflow/<tag>/*` branches from an earlier run already exist).
+- The engine never writes the user's checkout. Terminal areas work in the run's
+  integration worktree; other areas work in their own worktrees and merge into it. The
+  result lands on `zflow/<runTag>/integration`; area worktrees are removed after a clean
+  merge (never `--force`) and every branch is kept.
+- After the run, show the integration branch, its diff stat against `baseSha`, and the gate
+  results, then ask with AskUserQuestion. Without a yes, stop and report the branch. On a
+  yes, check that the checkout is clean, merge with one command, check the exit code, and
+  run `git merge --abort` on a conflict.
 
 ## Conventions
 

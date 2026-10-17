@@ -33,12 +33,14 @@ follow the research-access rule in [AGENTS.md](AGENTS.md).
      (`copy/antislop-copy`, `languages/rust/rust-superopt`, …), is
      cross-harness: copy those to `~/.agents/skills/`, keeping the
      folder name.
-3. The z-flow skills need the engine: copy
+3. z-gpui-workflow and z-tauri-workflow need the engine: copy
    `harness/zcode/workflows/zflow-engine.dwf.ts` to
    `~/.zcode/workflows/`. Its contract is `zflow-SPEC.md` beside the
-   source. z-super-rustflow is the exception: it composes its own inline
-   runs and needs no engine (it may offer to save a validated
-   `rustflow-engine` later — the user's call).
+   source. z-workflow, z-proflow, z-flashflow, and z-liteflow write
+   their own scripts and need no engine; z-liteflow's folder carries
+   `liteflow-template.dwf.ts`, so copy the whole folder. z-super-rustflow
+   composes its own inline runs and needs no engine either (it may offer
+   to save a validated `rustflow-engine` later — the user's call).
 4. Update = re-copy; folders are replaced wholesale. Uninstall = delete
    the copied folders listed above.
 
@@ -70,7 +72,8 @@ ZCode-kit steps above.
 ## Verify (ZCode)
 
 - `ls ~/.zcode/agents/` lists `general-flash.md`, `explore-flash.md`,
-  `general-pro.md`; `find ~/.zcode/agents -type l` prints nothing.
+  `general-pro.md`, `workflow-author.md`, `workflow-author-flash.md`;
+  `find ~/.zcode/agents -type l` prints nothing.
 - `ls ~/.zcode/skills/` lists the seven z-flow skills
   (`z-workflow`, `z-proflow`, `z-flashflow`, `z-liteflow`,
   `z-gpui-workflow`, `z-tauri-workflow`, `z-super-rustflow`), each
@@ -83,7 +86,7 @@ ZCode-kit steps above.
   `rust-fast-architecture`) — no z-flow skills.
 - `ls ~/.zcode/workflows/` lists `zflow-engine.dwf.ts`.
 - Agents load at session start: restart ZCode or open a new session,
-  then Settings → Subagents lists the three agents.
+  then Settings → Subagents lists the five agents.
 
 ## Report back
 
