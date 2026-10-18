@@ -42,7 +42,9 @@ const HOOKS_FILE = join(import.meta.dir, "..", "hooks", "hooks.json");
 const HARNESS_DIRS = [".zcode/skills/shipflow", ".zcode/skills/z-workflow", ".zcode/agents", ".agents/skills"];
 const HARNESS_FILES = [".zcode/hmziqrs-ai-snapshot.json"];
 // Check-script test data, never part of an installed project.
-const HARNESS_EXCLUDED = [".zcode/skills/shipflow/scripts/fixtures"];
+// Repository-owner material that is never installed into a project: the check fixtures, and the owner's
+// test playbook, whose pass criteria an autonomous run must not read.
+const HARNESS_EXCLUDED = [".zcode/skills/shipflow/scripts/fixtures", ".zcode/skills/shipflow/references/test-playbook.md"];
 const LOCKFILES = ["bun.lock", "bun.lockb", "pnpm-lock.yaml", "yarn.lock", "package-lock.json"];
 const APPROVALS = ["human", "auto", "window"];
 const BREAKDOWNS = ["upfront", "rolling"];

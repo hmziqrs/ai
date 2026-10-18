@@ -319,7 +319,7 @@ Supervised rules:
 - [references/brief-extension.md](references/brief-extension.md): the `shipflow` extension (supervised) and the `autopilot` extension (bespoke autopilot runs).
 - [references/gates.md](references/gates.md): gate discovery for supervised mode, charter gates for autopilot, the refusal list.
 - [references/review-checklists.md](references/review-checklists.md): checklists for `z-qa-evaluator`, the PRD critics and the test author.
-- [references/test-playbook.md](references/test-playbook.md): the live test playbook run in the ZCode app through Claude remote control: spikes S1 to S6 and runs R1 to R4, R4 being the autonomous backend build judged by `harness/zcode/scripts/probe-todo-backend.mjs`.
+- [references/test-playbook.md](references/test-playbook.md): repository-owner only, not installed into projects (its criteria must stay out of autonomous runs). The live test playbook run in the ZCode app through Claude remote control: spikes S1 to S6 and runs R1 to R4, R4 being the autonomous backend build judged by `harness/zcode/scripts/probe-todo-backend.mjs`.
 
 ## Grounded in
 

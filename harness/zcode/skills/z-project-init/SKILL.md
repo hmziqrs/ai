@@ -103,7 +103,7 @@ Inspect the target project's manifests (`Cargo.toml`, `src-tauri/Cargo.toml`, `s
 
 1. Create `<project>/.zcode/agents/`, `<project>/.zcode/skills/`, and (when domain skills are selected) `<project>/.agents/skills/`.
 2. Delete any legacy files identified in Step 3. Copy the selected `harness/zcode/agents/z-*.md` files to `<project>/.zcode/agents/` as **regular files** (`cp`, never `ln -s`). Never copy `general-pro.md`, `general-flash.md`, `explore-flash.md`, `workflow-author.md`, `workflow-author-flash.md`, `workflow-planner.md`, or `workflow-planner-flash.md` into `<project>/.zcode/agents/`.
-3. Copy `<aiRepo>/harness/zcode/skills/z-workflow/` and the selected niche workflow folders (`z-gpui-workflow/`, `z-tauri-workflow/`, `z-super-rustflow/`, `shipflow/`) wholesale into `<project>/.zcode/skills/`, except that `shipflow/` is copied without `scripts/fixtures/` (test data for this repository's check scripts, never installed). Never copy ZCode workflow skills into `<project>/.agents/skills/`.
+3. Copy `<aiRepo>/harness/zcode/skills/z-workflow/` and the selected niche workflow folders (`z-gpui-workflow/`, `z-tauri-workflow/`, `z-super-rustflow/`, `shipflow/`) wholesale into `<project>/.zcode/skills/`, except that `shipflow/` is copied without `scripts/fixtures/` (test data for this repository's check scripts) and without `references/test-playbook.md` (the owner's test criteria, which an autonomous run must not read); neither is installed. Never copy ZCode workflow skills into `<project>/.agents/skills/`.
 4. Copy selected `hmziqrs/ai` domain skills (such as `languages/rust/rust-*`) wholesale into `<project>/.agents/skills/<skill-name>/`, never from `research/`.
 5. Write `<project>/.zcode/hmziqrs-ai-snapshot.json` with the exact schema below:
 

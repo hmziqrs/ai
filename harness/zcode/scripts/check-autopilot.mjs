@@ -1189,6 +1189,12 @@ async function setupFakeChecks() {
     assert.equal(gitOk(work, ["for-each-ref", "--format=%(refname)", "refs/heads/wf/"]).trim(), "", "the merged setup branch stays in the checkout");
     assert.equal(fake.branches.has(branch), false, "the merged setup branch stays on GitHub");
   });
+  await check("setup (D17 section 3): the owner's test playbook and the fixtures never enter a project", () => {
+    const text = readText(join(skill, "scripts/setup.ts"));
+    const listed = text.slice(text.indexOf("const HARNESS_EXCLUDED"), text.indexOf("];", text.indexOf("const HARNESS_EXCLUDED")));
+    assert.match(listed, /scripts\/fixtures/, "fixtures are excluded");
+    assert.match(listed, /references\/test-playbook\.md/, "the playbook is excluded so an autonomous run cannot read its criteria");
+  });
   await check("setup (D17 section 5): the autopilot ruleset exists once under the name in the template", () => {
     const name = JSON.parse(readText(join(skill, "templates/ruleset-main.json"))).name;
     assert.equal(fake.rulesets.size, 1);
