@@ -163,18 +163,6 @@ dependencies and evidence; no worker launches nested agents or workflows.
   coordinator delivers it after the run under z-workflow Step 6, checking the captured
   destination branch as well as HEAD, cleanliness and gates. Read-only and no-commit runs
   have no checkout merge.
-- Publication exception, supervised Shipflow: only when the brief carries the `shipflow`
-  extension (a supervised Shipflow cycle; see the shipflow skill), the script may run exactly
-  one non-force `git push origin refs/heads/wf/shipflow-<N>:refs/heads/wf/shipflow-<N>` of its
-  own run-owned branch (no `-f`, no `--force*`, no other refspec), listed as its own group in
-  the Step 5 command-set approval.
-- Publication exception, Shipflow autopilot: only when the brief carries the `autopilot`
-  extension or the script is the task-cycle template, the script may run non-force pushes of
-  its own run-owned `refs/heads/wf/*` branches (`wf/<task-id>`, `wf/test-<task-id>`,
-  `wf/prd-v<n>`, `wf/recon-<n>`), each `git push origin refs/heads/<b>:refs/heads/<b>` with no
-  `-f`, no `--force*` and no other refspec, verified by `ls-remote`. Remote merges happen only
-  through the pasted GitHub kit (`github-kit.dwf.ts`). Every other brief keeps `push`
-  forbidden.
 - Every git call's exit code is checked. A nonzero exit is recorded and stops that lane's git
   chain. A failed merge runs `git merge --abort` in that worktree and records the conflict.
 - Purity checks report the out-of-scope paths as findings. They never revert them.

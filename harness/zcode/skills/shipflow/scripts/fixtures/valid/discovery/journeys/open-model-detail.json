@@ -1,5 +1,0 @@
-{
-  "id": "journey:open-model-detail",
-  "archetype": "arch:model-detail",
-  "steps": ["open /leaderboard", "activate a model name"]
-}

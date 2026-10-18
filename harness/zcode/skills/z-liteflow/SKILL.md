@@ -81,8 +81,7 @@ Asks per round: 3 (implementer, tracer, judge). Roles: 3. Worktrees: 1.
    Selected personas also require `cat`, `shasum`, and `bun` for loading and read-only
    source-state fingerprints; show their paths, hashes, models and authority.
 4. **Launch** with CreateWorkflow using `path` (the filled copy) and
-   `name: "zflow-lite-<slug>"`. Use the existing session-wide workflow allowance, or request permission for this run
-   when none exists, following z-workflow Step 5. The grant stays within the user's task scope.
+   `name: "zflow-lite-<slug>"`. Approve with "Allow only this time", never "Always allow".
 5. **Merge.** Follow z-workflow Step 6: fast-forward `wf/<slug>` into the checkout by
    yourself (`git -C <repo> merge --ff-only wf/<slug>`) when the run ended with zero open
    findings, `git status --porcelain` exits 0 with empty output, the full destination

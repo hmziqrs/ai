@@ -44,8 +44,8 @@ ai/
 | `workflow-planner` | glm-5.3 | Planning agent (`PLAN`/`PLAN+AUTHOR`) that gathers all facts into the WorkflowBrief for complex tasks, then dispatches the workflow-author itself |
 | `workflow-planner-flash` | glm-5.3-flash | Flash planning agent for `z-flashflow` |
 
-Only these seven core agents install globally into `~/.zcode/agents/`. The 25 reusable `z-*`
-domain, verification, and product specialists install **per project**
+Only these seven core agents install globally into `~/.zcode/agents/`. The 24 reusable `z-*`
+domain and verification specialists install **per project**
 into `<project>/.zcode/agents/` via `z-project-init` and are tracked in
 `<project>/.zcode/hmziqrs-ai-snapshot.json`. Agent descriptions select expertise; the
 coordinator assigns scope and explicit analysis, implementation, or review authority. See
@@ -69,15 +69,6 @@ coordinator assigns scope and explicit analysis, implementation, or review autho
     framework-specific gates, web/native coverage, and serialized device capture.
   - `z-super-rustflow`: measurement-first Rust optimization; analysis by default,
     implementation only when requested.
-  - `shipflow`: autopilot profile of z-workflow for PRD-driven delivery on GitHub, with modes
-    setup, plan, publish, implement, kickoff, dispatch, audit and supervised. Plan, publish and
-    implement are independent entry points, composed only when the prompt asks, and GitHub holds
-    the delivery state. The owner only prompts: setup generates the charter, labels, PRD issue,
-    Project, ruleset and CI under the owner's own `gh` login (a reviewer GitHub App is optional
-    hardening). GitHub mechanics come from the pasted `github-kit.dwf.ts`, and each standard task
-    cycle is the pre-tested `task-cycle-template.dwf.ts`. `ai-review` is a commit status.
-    Installed per project by `z-project-init`; follow its
-    [installation procedure](harness/zcode/skills/shipflow/INSTALL.md).
 
 The persona kit records source hashes and selected models, validates role loading and
 checks read-only repository state. Tool metadata is advisory within workflows; change
@@ -85,10 +76,8 @@ checks do not sandbox agents or prevent external effects. Claims of verification
 command evidence. Local checkout fast-forward follows z-workflow's guarded Step 6;
 remote PR merging has a separate policy. No workflow is launched by installing the kit.
 
-Five Bun check scripts in `harness/zcode/scripts/` (`check-personas.mjs`, `check-github-kit.mjs`,
-`check-shipflow-planning.mjs`, `check-autopilot.mjs`, `check-autopilot-e2e.mjs`) verify the agents,
-kits and autopilot scripts without live GitHub; [install.md](install.md) lists them.
-`probe-app.mjs` smoke-tests the full-stack app that playbook scenario R4 builds from one prompt.
+`harness/zcode/scripts/check-personas.mjs` checks the agent definitions and the embedded
+persona-kit copies without live GitHub; [install.md](install.md) describes how to run it.
 
 Copy the ZCode agents and whole skill folders using [install.md](install.md). There are
 no saved workflow engines: every run executes a script written or filled for that task.
@@ -107,9 +96,9 @@ Every category skill installs for every harness:
 - **rust-simd-kernels** (`languages/rust/rust-simd-kernels/`): write, port, and debug hand-written SIMD/vector kernels when crates and the autovectorizer are not enough — std::simd / core::simd / wide / pulp, C-intrinsic ports, `#[target_feature]` and runtime dispatch, codegen verification via cargo-show-asm / llvm-mca / LLVM remarks.
 - **rust-parallel-cache** (`languages/rust/rust-parallel-cache/`): make Rust parallel and cache-friendly at the thread and memory level — rayon pool configuration, work-stealing vs pinned-shard design, false-sharing measurement and padding, cache tiling, NUMA first-touch, and Apple Silicon QoS/E-core steering.
 - **rust-fast-architecture** (`languages/rust/rust-fast-architecture/`): architecture-level speed for whole Rust services — contention math, single-writer actors, lock downgrade at commit, write-behind group commit, adaptive linger, pooling, determinism/deterministic-simulation-testing, and the async-runtime chooser.
-- **prd-authoring** (`product/prd-authoring/`): staged pipeline for writing or amending a PRD that agents build from, with levels, stable IDs, Given/When/Then acceptance criteria, and lint and critic gates. Per-project: installed with Shipflow autopilot projects via `z-project-init`.
-- **site-recon** (`product/site-recon/`): read-only reconnaissance of a public reference website into a discovery pack (archetypes, captures, data model, journeys, gated-area assumptions, parity spec) that a PRD and parity tests are built from. Per-project: installed with Shipflow autopilot projects via `z-project-init`.
-- **parity-testing** (`testing/parity-testing/`): reference-parity tests that compare a website clone with a versioned capture of its reference site, covering aria-snapshot structure matching, masked pixel diffs of static chrome, journey replay, per-archetype parity scores, and noise and sensitivity calibration. Per-project: installed with Shipflow autopilot projects via `z-project-init`.
+- **prd-authoring** (`product/prd-authoring/`): staged pipeline for writing or amending a PRD that agents build from, with levels, stable IDs, Given/When/Then acceptance criteria, and lint and critic gates. Per-project niche: installed by `z-project-init` into projects that need it.
+- **site-recon** (`product/site-recon/`): read-only reconnaissance of a public reference website into a discovery pack (archetypes, captures, data model, journeys, gated-area assumptions, parity spec) that a PRD and parity tests are built from. Per-project niche: installed by `z-project-init` into projects that need it.
+- **parity-testing** (`testing/parity-testing/`): reference-parity tests that compare a website clone with a versioned capture of its reference site, covering aria-snapshot structure matching, masked pixel diffs of static chrome, journey replay, per-archetype parity scores, and noise and sensitivity calibration. Per-project niche: installed by `z-project-init` into projects that need it.
 
 ## Install
 

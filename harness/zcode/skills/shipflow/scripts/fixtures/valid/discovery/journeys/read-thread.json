@@ -1,5 +1,0 @@
-{
-  "id": "journey:read-thread",
-  "archetype": "arch:forum-thread",
-  "steps": ["open /forum", "open a thread", "scroll the replies"]
-}

@@ -6,41 +6,37 @@ versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
 
 ## [Unreleased]
 
+### Removed
+- **The autonomous Shipflow layer is retired.** The `shipflow/` skill (its GitHub
+  kit, task-cycle template, reconciler, setup, cleanup, policy hooks, PRD lint and
+  planning checkers), the approval helper, the probe scripts and the `z-product-owner`
+  agent are removed. The code stays in git history at tag `archive/shipflow-autopilot`.
+  The four GitHub agents that Shipflow used (`z-gh-operator`, `z-pr-merge-steward`,
+  `z-queue-sentinel`, `z-github-project-manager`) are removed too. Kept: `z-workflow`,
+  `z-proflow`, `z-flashflow`, `z-liteflow`, `z-project-init`, the niche specialists, and
+  the planning skills `prd-authoring`, `site-recon` and `parity-testing`.
+
 ### Changed
-- **Shipflow is now autopilot (D13-D17).** Usage accounting is removed and execution limits
-  stay under `limits` (D13). PRD/task planning, GitHub publication and implementation are
-  independent entry points, composed only when the prompt asks (D14). Detailed upfront plans
-  and feature-scoped task linting support review before a later build, and implementation-only
-  dispatch stops with `needs-plan` instead of expanding scope (D15). Workflow permission is
-  reused for the session and kept separate from product approval (D16).
-- **Autopilot is prompt-only (D17).** The owner only prompts; the harness generates the
-  charter, PRD, tasks, issues, Project, labels, milestones, ruleset, CI and hook configuration.
-  Setup runs under the owner's existing `gh` login, and a reviewer GitHub App is optional
-  hardening. Owner rationale is recorded in `research/harness/zcode/autopilot-design.md`
-  section 0.1 (2026-10-18).
 - **No saved engines: every z-flow run executes a script written for its
   task.** z-workflow writes a fresh script per task through the
   workflow-author; for larger work the new `workflow-planner` /
   `workflow-planner-flash` agents gather every fact into the WorkflowBrief
   and dispatch the author, so the coordinator never gathers facts
   (Pillar 9). The only reusable workflow code is the persona kit
-  (`harness/zcode/skills/z-workflow/persona-kit.dwf.ts`), z-liteflow's
-  pre-tested template, and the shipflow GitHub kit and task-cycle template,
-  all pasted and drift-checked. No skill offers to save an engine or to
+  (`harness/zcode/skills/z-workflow/persona-kit.dwf.ts`) and z-liteflow's
+  pre-tested template. No skill offers to save an engine or to
   SaveWorkflow a generated script.
-- **Shipflow supervised mode keeps the issue-queue loop.** One `state:ready`
-  issue per cycle, each a fresh z-workflow run on the COMPLEX path, with the
-  normal approval dialog, a run-owned `wf/shipflow-<N>` worktree,
-  planner-discovered gates, merge policy in script code, and one documented
-  exception to z-workflow's no-push rule: a single non-force push of the
-  run's own branch. Roles formerly carried by dedicated agents map onto the
-  core agents and `z-*` specialists.
-- **z-project-init** installs Shipflow as the `shipflow/` skill (without
-  `scripts/fixtures/`) with `z-product-owner` and `z-security-auditor`,
-  `z-qa-evaluator`, `z-accessibility-auditor` and `z-native-device-verifier`
-  for the matching surfaces, and the project's selected specialists; its
-  setup then runs from a prompt. It removes legacy per-project engine,
-  queue, and role files (with their snapshot entries) on update.
+- **Shipflow is now a framework-agnostic z-workflow profile.** One cycle
+  takes one GitHub issue through a fresh z-workflow run on the COMPLEX
+  path, with the normal approval dialog, a run-owned `wf/shipflow-<N>`
+  worktree, planner-discovered gates, merge policy in script code, and
+  one documented exception to z-workflow's no-push rule: a single
+  non-force push of the run's own branch. Roles formerly carried by
+  dedicated agents map onto the core agents and `z-*` specialists.
+- **z-project-init** installs Shipflow as the `shipflow/` skill plus the
+  four new `z-*` agents and the project's selected specialists, and
+  removes legacy per-project engine, queue, and role files (with their
+  snapshot entries) on update.
 - **Repo restructured by kind.** `zcode/` → `harness/zcode/` and
   `codex/` → `harness/codex/` — harness-specific kits live under
   `harness/`, cross-harness skills in top-level categories. The
@@ -50,56 +46,13 @@ versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
 ### Added
 - `workflow-planner` and `workflow-planner-flash` core agents (Global
   Core is now seven agents).
-- Per-project niche agent `z-security-auditor` (read-only diff security
-  audit), usable by any z-workflow run.
-- Per-project niche agents `z-product-owner` (autopilot PRD owner: drafts and
-  amends the PRD, decomposes features into tasks, triages issues, and returns
-  op plans that the GitHub kit or reconciler apply; edits only the PRD paths
-  it is given) and `z-qa-evaluator` (skeptical browser QA against
-  Given/When/Then criteria on a running preview, scored on a calibrated
-  rubric; never edits code).
-- **Shipflow GitHub kit** (`harness/zcode/skills/shipflow/github-kit.dwf.ts`):
-  claims by comment nonce, state transitions, reconcile writes, the merge
-  predicate, and the serialized merge train as tested code. The kit is pasted
-  unchanged into run scripts and drift-checked by `check-github-kit.mjs`
-  against a mocked `gh`, including claim races.
-- **Shipflow task-cycle template** (`task-cycle-template.dwf.ts`): the
-  pre-tested standard task cycle for parallel lanes (claim, worktree,
-  baseline, done contract, implement and verify, independent review,
-  publish, `ai-review`, serialized merge, close-out). The persona and GitHub
-  kits are carried verbatim inside it.
-- **Shipflow PRD tooling**: `prd-lint.ts` lints the PRD at stages s2, s3 and
-  s5 and writes `prd/index.json`; `reconcile.ts` plans and applies the
-  PRD-to-GitHub sync through the kit, including Project publication; and
-  `snapshot.ts` prints ids and counts with the `decide()` decision that
-  picks the next action.
-- **Shipflow setup and helpers**: `setup.ts`, the one owner-invoked step that
-  writes `autopilot.yaml` from the prompt and the repository, then configures
-  labels, milestones, the PRD issue, the Project, a setup PR and the ruleset;
-  `fill-cycle.ts`, which fills the task-cycle template and verifies it for
-  drift; `run-gate.ts`, which runs charter gates in CI and lanes with a
-  protected-path check; `preview.ts`, which starts one lane's QA preview in
-  its own process group; `post-review.ts`, which posts `ai-review` as a check
-  run for an optional reviewer App; and `lib/detect.ts`, which detects gates,
-  preview and areas from manifests when the charter leaves them empty.
-- **Shipflow hooks policy** (`hooks/policy.ts`, `hooks/hooks.json`): ZCode
-  PreToolUse and PermissionRequest policy that denies force pushes, merges
-  outside the kit, ruleset and secret edits, writes to protected paths, and
-  network hosts outside `authority.network_allow`. Setup merges its block into
-  the project config.
-- **Shipflow templates**: the example charter `autopilot.yaml`, the branch
-  ruleset `ruleset-main.json`, the CI workflow `ci.yml` (jobs `ci`,
-  `acceptance`, `parity`), and `watchdog.yml`, a notify-only stall check that
-  setup does not install.
-- **Shipflow check scripts** under `harness/zcode/scripts/`:
-  `check-personas.mjs`, `check-github-kit.mjs`, `check-shipflow-planning.mjs`,
-  `check-autopilot.mjs` and `check-autopilot-e2e.mjs`, sharing the fake GitHub
-  in `lib/fake-github.mjs`. They test code and fixtures without live GitHub.
-- **Category skills for autopilot projects**: `product/prd-authoring` (staged
-  PRD pipeline with levels, stable IDs, Given/When/Then criteria, and lint and
-  critic gates), `product/site-recon` (read-only reference-site discovery
-  pack), and `testing/parity-testing` (reference-parity tests for a website
-  clone). z-project-init installs them per project when kickoff is used.
+- Four per-project niche agents for Shipflow-style GitHub work, usable by
+  any z-workflow run: `z-gh-operator` (exact listed `gh` label, assignee,
+  comment, and PR-create operations, each verified by re-read),
+  `z-pr-merge-steward` (typed merge-readiness facts; merges only one
+  authorized reviewed head with `--match-head-commit`), `z-queue-sentinel`
+  (read-only queue health), and `z-security-auditor` (read-only diff
+  security audit).
 - Migration plan: `research/harness/zcode/zflow-migration-plan.md`.
 - **`coding/` category: three `test-quality-*` skills.** Test-discipline
   suite for AI-heavy development, every claim, quote, and link traced to
@@ -171,10 +124,6 @@ versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
 - The 20 dedicated Shipflow role agents (`harness/zcode/agents/shipflow-*.md`),
   `harness/zcode/skills/shipflow/references/knowledge/`, and
   `harness/zcode/scripts/check-shipflow.mjs`.
-- The four GitHub agents `z-gh-operator`, `z-pr-merge-steward`,
-  `z-queue-sentinel` and `z-github-project-manager`, and their per-project
-  copies, which z-project-init removes on update. GitHub mechanics moved into
-  the GitHub kit; project judgement moved to `z-product-owner`.
 - Research documents for the superseded design: the V3 unification plan,
   `research/harness/zcode/shipflow/`, and `research/harness/zcode/history/`
   (including the zflow-port development snapshots).

@@ -18,16 +18,16 @@ follow the research-access rule in [AGENTS.md](AGENTS.md).
 
 ## Installation policy: Global Core vs Per-Project Niche (Hard Rule)
 
-Do **not** dump all 32 agents, all workflow profiles, or all domain skills into global `~/.zcode/` or `~/.agents/skills/` directories. Installing niche sub-agents, niche workflows, and stack-specific skills globally pollutes every session's index across unrelated repositories and forces every project on the machine to update simultaneously whenever `hmziqrs/ai` changes.
+Do **not** dump all 31 agents, all workflow profiles, or all domain skills into global `~/.zcode/` or `~/.agents/skills/` directories. Installing niche sub-agents, niche workflows, and stack-specific skills globally pollutes every session's index across unrelated repositories and forces every project on the machine to update simultaneously whenever `hmziqrs/ai` changes.
 
 Installation is strictly split into two tiers:
 
 | Tier | Destination | What belongs here |
 |---|---|---|
 | **1. Global Core (machine-wide)** | `~/.zcode/agents/`, `~/.zcode/skills/`, `~/.agents/skills/` | **Only the 7 core orchestration/general agents** (`general-pro.md`, `general-flash.md`, `explore-flash.md`, `workflow-author.md`, `workflow-author-flash.md`, `workflow-planner.md`, `workflow-planner-flash.md`), **the 5 general workflow/initializer skills** (`z-workflow`, `z-proflow`, `z-flashflow`, `z-liteflow`, `z-project-init`), and **the 5 universal cross-project baseline skills** (`antislop-copy`, `code-comments`, `test-quality-guardrails`, `test-quality-tdd-agents`, `test-quality-audit`). |
-| **2. Per-Project Niche (project-scoped via `z-project-init`)** | `<project>/.zcode/agents/`, `<project>/.zcode/skills/`, `<project>/.agents/skills/`, `<project>/.zcode/hmziqrs-ai-snapshot.json` | **Only the niche `z-*.md` specialists** (including `z-product-owner`, `z-security-auditor`, and `z-qa-evaluator` when Shipflow autopilot is enabled), **niche workflow profiles** (`z-gpui-workflow`, `z-tauri-workflow`, `z-super-rustflow`, `shipflow`, plus a project-pinned copy of `z-workflow`), and **stack-specific domain skills** (`languages/rust/rust-*` and external framework skills) that `<project>` actually uses, pinned by commit SHA and file hashes in `<project>/.zcode/hmziqrs-ai-snapshot.json`. |
+| **2. Per-Project Niche (project-scoped via `z-project-init`)** | `<project>/.zcode/agents/`, `<project>/.zcode/skills/`, `<project>/.agents/skills/`, `<project>/.zcode/hmziqrs-ai-snapshot.json` | **Only the niche `z-*.md` specialists** (for example `z-security-auditor` and `z-qa-evaluator`), **niche workflow profiles** (`z-gpui-workflow`, `z-tauri-workflow`, `z-super-rustflow`, plus a project-pinned copy of `z-workflow`), and **stack-specific domain skills** (`languages/rust/rust-*` and external framework skills) that `<project>` actually uses, pinned by commit SHA and file hashes in `<project>/.zcode/hmziqrs-ai-snapshot.json`. |
 
-Never install `general-pro`, `general-flash`, `explore-flash`, `workflow-author`, `workflow-author-flash`, `workflow-planner`, or `workflow-planner-flash` per-project. Never install `z-*.md`, `z-gpui-workflow`, `z-tauri-workflow`, `z-super-rustflow`, or `shipflow` globally.
+Never install `general-pro`, `general-flash`, `explore-flash`, `workflow-author`, `workflow-author-flash`, `workflow-planner`, or `workflow-planner-flash` per-project. Never install `z-*.md`, `z-gpui-workflow`, `z-tauri-workflow`, or `z-super-rustflow` globally.
 
 ## Step 1 — Global Core install (ZCode kit + universal baseline)
 
@@ -46,7 +46,7 @@ Never install `general-pro`, `general-flash`, `explore-flash`, `workflow-author`
    - `z-flashflow/`
    - `z-liteflow/` (carries `liteflow-template.dwf.ts`)
    - `z-project-init/` (the native ZCode project initializer and snapshot manager)
-   Never copy ZCode-harness skills into `~/.agents/skills/` — they are useless in other harnesses and double every ZCode session's skill index when mirrored there. Do **not** copy `z-gpui-workflow`, `z-tauri-workflow`, `z-super-rustflow`, or `shipflow` into `~/.zcode/skills/`.
+   Never copy ZCode-harness skills into `~/.agents/skills/` — they are useless in other harnesses and double every ZCode session's skill index when mirrored there. Do **not** copy `z-gpui-workflow`, `z-tauri-workflow`, or `z-super-rustflow` into `~/.zcode/skills/`.
 3. Copy **only the 5 universal baseline category skills** to `~/.agents/skills/` (whole folders, keeping folder names):
    - `copy/antislop-copy/`
    - `coding/code-comments/`
@@ -60,14 +60,14 @@ Never install `general-pro`, `general-flash`, `explore-flash`, `workflow-author`
 When initializing or updating a specific project `<project>`, load and follow [`harness/zcode/skills/z-project-init/SKILL.md`](harness/zcode/skills/z-project-init/SKILL.md):
 
 1. **Inspect `<project>`'s manifests** (`Cargo.toml`, `src-tauri/tauri.conf.json`, `package.json`, `wrangler.*`, `cloudflare.config.ts`, `svelte.config.*`, `astro.config.*`, `pubspec.yaml`) and select only the matching niche artifacts from the `z-project-init` Stack-to-Artifact Matrix.
-2. **Copy selected niche sub-agents** (`harness/zcode/agents/z-*.md`; when Shipflow is enabled, add `z-product-owner.md` and `z-security-auditor.md`, plus `z-qa-evaluator.md` and `z-accessibility-auditor.md` for a UI, and `z-native-device-verifier.md` for a desktop or mobile app) as regular files into `<project>/.zcode/agents/`.
-3. **Copy selected niche workflow folders** (`z-gpui-workflow/`, `z-tauri-workflow/`, `z-super-rustflow/`, or `shipflow/`, plus `z-workflow/` so `<project>` pins its own `persona-kit.dwf.ts` and `references/specialists.md` at the snapshot commit) into `<project>/.zcode/skills/`. Shipflow's folder is copied without `scripts/fixtures/` (test data for this repository's checkers) and without `references/test-playbook.md` (the owner's test criteria, which an autonomous run must not read); neither is installed. If Shipflow is enabled, also follow [harness/zcode/skills/shipflow/INSTALL.md](harness/zcode/skills/shipflow/INSTALL.md).
-4. **Copy selected niche domain skills** (for example `languages/rust/rust-superopt`, `rust-simd-crates`, `rust-simd-kernels`, `rust-parallel-cache`, `rust-fast-architecture`, required external stack skills, and for Shipflow autopilot projects `product/prd-authoring`, `product/site-recon` and `testing/parity-testing`) into `<project>/.agents/skills/`.
+2. **Copy selected niche sub-agents** (`harness/zcode/agents/z-*.md`, chosen by the stack rows in `z-project-init`: for example `z-security-auditor.md`, `z-qa-evaluator.md` and `z-accessibility-auditor.md` for a UI, and `z-native-device-verifier.md` for a desktop or mobile app) as regular files into `<project>/.zcode/agents/`.
+3. **Copy selected niche workflow folders** (`z-gpui-workflow/`, `z-tauri-workflow/`, or `z-super-rustflow/`, plus `z-workflow/` so `<project>` pins its own `persona-kit.dwf.ts` and `references/specialists.md` at the snapshot commit) into `<project>/.zcode/skills/`.
+4. **Copy selected niche domain skills** (for example `languages/rust/rust-superopt`, `rust-simd-crates`, `rust-simd-kernels`, `rust-parallel-cache`, `rust-fast-architecture`, required external stack skills, and for PRD, site-recon or parity work `product/prd-authoring`, `product/site-recon` and `testing/parity-testing`) into `<project>/.agents/skills/`.
 5. **Write `<project>/.zcode/hmziqrs-ai-snapshot.json`** recording:
    - `sourceRepo: "hmziqrs/ai"` and `sourceCommit` (`git -C <aiRepo> rev-parse HEAD`)
    - `personaKitVersion` (`v4`) and `personaKitSha256`
    - `detectedStacks` and `installed.{agents,workflowSkills,domainSkills,externalSkillDependencies}` with per-file `sha256` hashes.
-6. **Updating one project:** run `z-project-init` in `<project>`. It compares the files on disk against `<project>/.zcode/hmziqrs-ai-snapshot.json` first (blocking on any locally modified file until confirmed), replaces only `<project>`'s niche files from the target `hmziqrs/ai` commit, removes legacy files this repo no longer ships (`<project>/.zcode/agents/shipflow-*.md`, `<project>/.zcode/agents/z-gh-operator.md`, `<project>/.zcode/agents/z-pr-merge-steward.md`, `<project>/.zcode/agents/z-queue-sentinel.md`, `<project>/.zcode/agents/z-github-project-manager.md`, `<project>/.zcode/workflows/shipflow-queue.dwf.ts`, `<project>/.zcode/workflows/zflow-engine.dwf.ts`) together with their snapshot entries, and writes the new snapshot without affecting any other project on the machine.
+6. **Updating one project:** run `z-project-init` in `<project>`. It compares the files on disk against `<project>/.zcode/hmziqrs-ai-snapshot.json` first (blocking on any locally modified file until confirmed), replaces only `<project>`'s niche files from the target `hmziqrs/ai` commit, removes legacy files this repo no longer ships (`<project>/.zcode/agents/shipflow-*.md`, `<project>/.zcode/agents/z-gh-operator.md`, `<project>/.zcode/agents/z-pr-merge-steward.md`, `<project>/.zcode/agents/z-queue-sentinel.md`, `<project>/.zcode/agents/z-github-project-manager.md`, `<project>/.zcode/agents/z-product-owner.md`, `<project>/.zcode/skills/shipflow/`, `<project>/.zcode/workflows/shipflow-queue.dwf.ts`, `<project>/.zcode/workflows/zflow-engine.dwf.ts`) together with their snapshot entries, and writes the new snapshot without affecting any other project on the machine.
 
 ## Codex kit
 
@@ -117,7 +117,7 @@ ZCode-kit steps above.
     global core agents.
   - `<project>/.zcode/skills/` contains `z-workflow/` plus only the project's
     selected niche workflows (`z-gpui-workflow`, `z-tauri-workflow`,
-    `z-super-rustflow`, `shipflow`), and `<project>/.agents/skills/` contains
+    `z-super-rustflow`), and `<project>/.agents/skills/` contains
     the project's selected domain/framework skills (such as `rust-*`, `gpui-kit`,
     `tauri-v2`, etc.).
 - Agents load at session start: restart ZCode or open a new session,
@@ -170,28 +170,10 @@ with project configuration and environment-file autoloading disabled.
 
 ## Source validation
 
-Five Bun check scripts in `harness/zcode/scripts/` test this repository. Run each with `bun`
-from the repository root:
-
-- `check-personas.mjs`: agent frontmatter, model pins and colors, loader behavior, and the
-  embedded persona-kit copies.
-- `check-github-kit.mjs`: the GitHub kit against a mocked `gh` (claim races, transitions, the
-  merge predicate, dry runs) and its pasted copies.
-- `check-shipflow-planning.mjs`: PRD lint rules, charter parsing and the snapshot decision,
-  against the `valid` and `violations` fixtures.
-- `check-autopilot.mjs`: charter, detection, hook policy, gate runner, review poster, preview
-  server, fill-cycle, setup against the fake GitHub, and template drift. Its type-check runs
-  only when `TSC` is set.
-- `check-autopilot-e2e.mjs`: phase separation end to end in temporary git repositories with a
-  bare origin and the fake GitHub, including a run of the task-cycle template.
-
-They check code and fixtures, not live GitHub. None launches a ZCode workflow or proves runtime
-tool restrictions.
-
-`probe-todo-backend.mjs` is the black-box acceptance probe for the backend-only R4 build, and
-`probe-app.mjs` is the smoke probe for the full-stack R4 build (`harness/zcode/skills/shipflow/references/test-playbook.md`). Its
-`--self-test` runs offline: the probe must pass the reference app in `fixtures/todo-backend/` and
-fail each of six injected faults. `--gh-repo <owner/name>` probes a fresh clone of a built app.
+Run `bun harness/zcode/scripts/check-personas.mjs` from the repository root. It checks agent
+frontmatter, model pins and colors, loader behavior, and the embedded persona-kit copies in
+every skill. It checks code and fixtures only: it does not launch a ZCode workflow or prove
+runtime tool restrictions.
 
 If the repository carries `harness/zcode/agents/z-web-spec-auditor.md`, run the persona check on
 a copy of the tree without that file:

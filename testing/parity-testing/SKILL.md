@@ -289,8 +289,8 @@ ERROR product-detail.header.pixels header ratio 0.0041 above max 0.0020, cart co
 
 ## Grounded in
 
-Discovery and calibration steps derive from the repository's autopilot design study,
-the provenance record; this skill does not require loading it. Key sources:
+Discovery and calibration steps derive from the repository's parity design study under
+`research/`, the provenance record; this skill does not require loading it. Key sources:
 
 - Anthropic, [Harness design for long-running application development](https://www.anthropic.com/engineering/harness-design-long-running-apps): a separate evaluator uses Playwright, hard thresholds and a calibrated rubric, since self-evaluation is lenient.
 - Anthropic, [Building a C compiler with a team of parallel Claudes](https://www.anthropic.com/engineering/building-c-compiler): the verifier must be nearly perfect, GCC served as the oracle, output is kept short and logged to files, and a sampled `--fast` suite runs during iteration.

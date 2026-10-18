@@ -17,13 +17,12 @@ Each stage expands exactly one level. When a gate fails, rerun only that stage.
 
 | Stage | Input | Output | Owner | Gate before the next stage |
 |---|---|---|---|---|
-| S0 Scope | Prompt and existing files | Requested phases, scope, detail level, approval preference and milestones | User direction | Work matches the request |
+| S0 Scope | Prompt and existing files | Requested phases, scope, detail level and milestones | User direction | Work matches the request |
 | S1 Evidence | Reference site or domain requirements | Discovery pack or sourced research and assumptions | Recon/research specialists | Requested behaviors are covered |
-| S2 Overview (level 0) | Goal and evidence | `prd/prd.md` | Product owner | Overview lint and critics |
-| S3 Sections (levels 1-2) | Overview and section evidence | Sections, features, criteria and data contracts | Product owner per requested section | Section lint and cross-section consistency |
+| S2 Overview (level 0) | Goal and evidence | `prd/prd.md` | Author | Overview lint and critics |
+| S3 Sections (levels 1-2) | Overview and section evidence | Sections, features, criteria and data contracts | Author per requested section | Section lint and cross-section consistency |
 | S4 Executable tests | Approved criteria and runnable scaffold | Acceptance and parity specs | Independent test author | Verified against scaffold/reference where possible; implementation preparation only |
-| S5 Task planning (level 3) | Selected features, code or architecture assumptions | Fine-grained tasks, dependencies, criteria and check paths | Product owner | DAG, size and coverage lint for the selected scope |
-| S6 Publish | Reviewed plan and publication authorization | Tracker items, dependencies and Project view | Sync code | Repeated sync changes nothing; verify membership and links |
+| S5 Task planning (level 3) | Selected features, code or architecture assumptions | Fine-grained tasks, dependencies, criteria and check paths | Author | DAG, size and coverage lint for the selected scope |
 
 Stage identifiers describe outputs. They do not force S4 before S5: writing a plan names
 checks without implementing them. An overview-only request stops at S2; a detailed PRD can
@@ -208,7 +207,7 @@ Evidence: arch:<slug>, int:<slug>, journey:<slug>
 - **Tests:** the acceptance or parity specs that must pass. New unit tests are expected alongside them.
 - **Depends on:** task ids in the same milestone or an earlier one, never a later one.
 - **No steps.** Never write implementation steps. The cycle's planner writes them against the live code.
-- **Empty repository.** The first M0 task scaffolds the project and wires every check script CI runs, each with at least one passing test, so the required checks are green from the first merge. Every other task depends on it. For Shipflow the scripts are `typecheck` (plus `build` and `lint` when the stack has them), `test`, and `test:acceptance`.
+- **Empty repository.** The first M0 task scaffolds the project and wires every check script CI runs, each with at least one passing test, so the required checks are green from the first merge. Every other task depends on it. The check scripts are `typecheck` (plus `build` and `lint` when the stack has them), `test`, and `test:acceptance`.
 
 **Good**
 ```markdown
@@ -226,7 +225,6 @@ The bad row has implementation steps, a vague area, a dependency on a task in M3
 
 - The PRD says what; the tracker says where the build stands. A status word (not started, in progress, done, blocked) or a checkbox in the PRD turns the spec into a status board. The PRD may carry only scope decisions: `dropped` and `superseded by`.
 - Builders read `prd/` but never write it. Acceptance and parity tests are protected the same way; an agent that cannot edit the spec cannot win by rewriting it.
-- The tracker holds progress and serves as the build's long-term memory ([GitHub as long-term memory](https://meshintelligence.substack.com/p/how-to-use-github-as-long-term-memory)). The sync maps each section to an epic, each feature to a sub-issue of its section, each task to a sub-issue of its feature, and `Depends on` to blocked-by links ([sub-issues](https://docs.github.com/en/rest/issues/sub-issues), [issue dependencies](https://docs.github.com/en/rest/issues/issue-dependencies)).
 
 ## 9. Lint Checklist
 
@@ -275,26 +273,23 @@ Each finding uses this format; severity is `high` (the build would ship the wron
 |---|---|---|---|
 | F-1 | high | Clicking a model name has no criterion, so the detail link can ship broken. | LB-1.AC3 missing; journey:sort-by-score, step 3 |
 
-**Revision.** The product owner agent revises from the high and medium findings, then lint and critics rerun with fresh context. Stop at zero high findings, after two rounds in a row without fewer high findings, or after three rounds. Each leftover finding becomes an assumption (section 11) and the gate passes with it logged. Lint errors are never logged; fix them.
+**Revision.** The author revises from the high and medium findings, then lint and critics rerun with fresh context. Stop at zero high findings, after two rounds in a row without fewer high findings, or after three rounds. Each leftover finding becomes an assumption (section 11) and the gate passes with it logged. Lint errors are never logged; fix them.
 
 ## 11. Assumption Logging
 
-- Every gap becomes `A-<nnn>` with confidence (`low`, `medium` or `high`), evidence and affected ids. In an authorized automatic build, log ordinary assumptions and continue. For complex/niche requirements or a requested review, bring questions that change product intent to the owner before publication or implementation. Never renumber: an assumption proven wrong gets a new id citing the old one.
+- Every gap becomes `A-<nnn>` with confidence (`low`, `medium` or `high`), evidence and affected ids. Log ordinary assumptions and continue. For complex or niche requirements, bring questions that change product intent to the owner before implementation begins. Never renumber: an assumption proven wrong gets a new id citing the old one.
 
-## 12. Approval Modes and PRD Changes
+## 12. Review Gates and PRD Changes
 
-| Mode | What happens | Default for |
-|---|---|---|
-| `auto` | Continue through the phases already authorized after lint and critics pass | Explicit small-project end-to-end builds or a proven setup the user wants unattended |
-| `window` | Allow only the agreed work during an asynchronous review window | Explicitly chosen asynchronous review within an authorized build |
-| `human` | Present the local PRD and requested task list; await confirmation for the next requested phase | Plan-only requests, complex/niche requirements or "confirm first" |
+The owner reviews the local PRD and task list before any implementation begins. Plan-only
+requests stop after that review.
 
 A reference URL informs evidence, not authority. Local planning does not open a PR or require
 a remote approval. User confirmation can authorize publishing that reviewed version;
 publication alone does not authorize implementation. After publication, repository review
 rules still apply. A session's tool permission is separate from product approval.
 
-**PRD changes** are change PRs written by the product owner agent and gated by the same lint and critics. Raise one for an uncovered parity gap, a task split that changes scope, repeated failures that expose an ambiguity, or comments from the owner or collaborators. The default approval is `auto`, except that a change adding more than 10% new features, or touching the overview (vision, scope, stack), uses the approval mode set at kickoff. Each merge increments the tag: `prd-v2`, `prd-v3`, and so on.
+**PRD changes** are edits gated by the same lint and critics. Raise one for an uncovered parity gap, a task split that changes scope, or repeated failures that expose an ambiguity. A change that touches the overview (vision, scope, stack) or adds more than 10% new features goes back to the owner before it is accepted.
 
 ## 13. The No-Reference Variant
 
@@ -350,5 +345,4 @@ UI states, data contract, edge cases and out of scope follow section 5.2 and are
 - Anthropic, [Harness design for long-running application development](https://www.anthropic.com/engineering/harness-design-long-running-apps): the planner keeps specs at product level, so errors do not cascade into tasks (sections 1 and 2).
 - [ccpm, Claude Code PM](https://github.com/automazeio/ccpm): a PRD-to-tracker reference.
 - [How to use GitHub as long-term memory for coding agents](https://meshintelligence.substack.com/p/how-to-use-github-as-long-term-memory): the tracker holds progress while the PRD holds intent (section 8).
-- GitHub docs, [REST sub-issues](https://docs.github.com/en/rest/issues/sub-issues) and [REST issue dependencies](https://docs.github.com/en/rest/issues/issue-dependencies): the parent and blocked-by mapping (section 8).
 - Martin Fowler, [GivenWhenThen](https://martinfowler.com/bliki/GivenWhenThen.html): the acceptance criterion form (section 6).
