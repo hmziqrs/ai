@@ -313,54 +313,54 @@ Prompts sent: <numbered, exact text>. Recorded values: <What to record fields>. 
 Surprises: <text>. Design changes proposed: <design section: change>.
 ```
 
-## R4: One prompt to a built backend, no owner input
+## R4: One simple prompt to a built full-stack app, then a bug the owner reports
 
-Goal: the two autopilot systems work together from one simple prompt in one session. PRD creation turns a short app description into a PRD and tasks; implementation then builds and merges them, with no owner input (D14 composed delivery; D15 automatic approval for an explicit small end-to-end request; D17 prompt-only). Claude remote control drives the ZCode app in the owner's place. A black-box probe judges the result, not the session's own report. R4 can also run before S1 as a smoke test of the whole path.
+Goal: from one short prompt, PRD creation and implementation run without owner input, and a bug the owner reports afterwards is queued and fixed by the same system (D14 composed delivery; D15 automatic approval; D17 prompt-only). Claude remote control drives the ZCode app in the owner's place. GitHub state and the app probe judge the result, not the session's own report.
 
-The app is a backend-only to-do API with email login. Its dummy mailer sends no email: it prints each login code to the terminal, where the probe reads it.
+The repository is public (autopilot-fullstack-e2e) so GitHub Actions runs at no charge. It holds no secrets.
 
-Repository preparation, once per repository and outside the measured run:
+Preparation, once and outside the measured run:
 1. The global core in `~/.zcode/` matches this checkout (`install.md`, Global Core).
-2. A new private repository autopilot-todo-e2e with a README exists, and a fresh clone of it is open in the ZCode desktop app with Full access.
-3. "Initialize this project for Shipflow autopilot from the hmziqrs/ai checkout at <path of this checkout>. It is a Bun TypeScript backend with no UI. Install without asking me to confirm."
+2. A fresh clone of the public repository is open in the ZCode desktop app with Full access.
+3. "Initialize this project for Shipflow autopilot from the hmziqrs/ai checkout at <path of this checkout>. It is a full-stack web app with a UI. Install without asking me to confirm."
 4. "Set up Shipflow autopilot for this repository with automatic PRD approval, the detailed task list upfront and two lanes. Show the dry run, then apply it without asking me."
 5. Trust the two policy hooks when ZCode lists them as pending review (INSTALL.md section 3).
 
 The measured run:
 1. Open one new session in the project and send the build prompt below unchanged. It is the only prompt of the run.
-2. Driver rules, until the session's final report, 12 nudges or 8 hours:
+2. Driver rules, until the final report, 12 nudges or 8 hours:
    - When the session is idle (turn ended, no active run, last message not a final report) for 10 minutes, send "Continue end-to-end delivery." and count it as a nudge.
-   - Workflow-creation dialog: choose the option for the rest of the session. Any other dialog or question: answer "Use your recommended option and continue without asking me." Record the text of each.
-   - Never edit a file in the project, write to GitHub, merge, or approve a pull request. Judge progress by reading GitHub, the app's run list and `.shipflow/`.
-3. In this checkout, run `bun harness/zcode/scripts/probe-todo-backend.mjs --self-test`, then `bun harness/zcode/scripts/probe-todo-backend.mjs --gh-repo <owner>/autopilot-todo-e2e`. The self-test shows that the probe passes a reference app and fails each of six injected faults. The real probe clones the default branch, installs it, runs `bun test`, starts the app twice on one database, reads every login code from the app's stdout and checks each behaviour over HTTP. The PRD picks exact status codes and field names, so the probe accepts the reasonable choices (for example 401 or 403, `done` or `completed`).
-4. Read GitHub: the PRD issue's labels; open and closed task issues; each merged pull request with its merge method and the `ci` and `ai-review` states on its head; open `stop-the-line` or `autopilot stalled` issues; open `wf/` pull requests; the `autopilot-main` ruleset or the setup warning.
-5. Read `.shipflow/policy.log` in the clone the app used, and count denies by rule.
+   - Workflow-creation dialog: choose the option for the rest of the session. Workspace hooks pending review: trust both (INSTALL.md section 3). Any other dialog or question: answer "Use your recommended option and continue without asking me." Record the text of each.
+   - Never edit a file in the project, merge, or approve a pull request. Judge progress by reading GitHub, the run list and `.shipflow/`.
+3. The scripted owner report. When the first task pull request has merged, the driver reports a bug as the owner, with the owner's `gh` login: `gh issue create -R <owner>/autopilot-fullstack-e2e --title "Adding a to-do made only of spaces saves an empty item" --body "Steps: type three spaces and press Add. Expected: the app refuses the empty title with a message. Actual: an empty row appears in the list."` Record the issue number and the time. The driver sends nothing else about this bug.
+4. Clean-up is checked from the checkout the run used, after the final report: no worktree beyond the main checkout, no local `wf/` branch, and on GitHub no `wf/` branch unless its pull request is open.
+5. In this checkout, run `bun harness/zcode/scripts/probe-app.mjs --self-test`, then `bun harness/zcode/scripts/probe-app.mjs --gh-repo <owner>/autopilot-fullstack-e2e`. The self-test shows that the probe passes a reference app and fails each of two injected faults. The real probe clones the default branch, installs it, runs its build, check, typecheck, lint and test scripts, starts it, and fetches the page twice. It judges that the app builds, runs its checks and serves HTML, not that each feature works; features are judged by the acceptance gate in CI, which the merge rules already required.
+6. Read GitHub: the PRD issue's labels; the PRD file's features and acceptance criteria (count, and whether edge cases such as empty input, duplicates, deletion of a missing item and sign-out appear); task issues open and closed; each merged pull request with its merge method and its `ci`, `acceptance`, `parity` and `ai-review` states on the merged head; the reported bug's issue, its labels, the pull request that closed it and that pull request's merge time against the other tasks; open `stop-the-line`, `autopilot stalled` or `kind:bug` issues; open `wf/` pull requests; and the ruleset or the setup warning.
+7. Read `.shipflow/policy.log` in the checkout and count denies by rule.
 
 Build prompt:
 
 ```
-Build a simple to-do app backend end-to-end with Shipflow autopilot: create the PRD from this description, then implement it. Use automatic PRD approval and no human review, merge each task when its checks pass, and do not ask me anything.
-
-The app: Bun and TypeScript, backend only, no frontend. Users log in with their email and a one-time code, and a successful login returns a bearer token. No real email is sent: a dummy mailer prints each code to the terminal as MAIL to=<email> code=<code>. Logged-in users can create, list, update, complete and delete their own to-dos. Data is stored in SQLite.
-
-Keep these names so the app can be tested from outside: routes POST /auth/request, POST /auth/verify, POST /auth/logout, GET and POST /todos, PATCH and DELETE /todos/:id, and GET /health. bun run start serves on PORT, DB_PATH sets the database file, and LOGIN_CODE_TTL_SECONDS sets how long a code lives.
+Build a to-do app end-to-end with Shipflow autopilot: create the PRD from this one line, then implement it. The stack is SvelteKit with shadcn-svelte for the interface, Bun with ElysiaJS for the API, and SQLite for storage. Use automatic PRD approval, no human review, and merge each task when its checks pass. Do not ask me anything.
 ```
 
-What to record: app version and permission mode; the preparation prompts and their minutes; each driver message in the measured run with its time; dialog texts; runs launched, with name, status and minutes, from the run list; the PRD's feature and task counts; merged pull requests, retries and failed cycles; the probe output; the step 4 reads; policy denies by rule; minutes from the build prompt to the final report.
+What to record: app version and permission mode; each preparation prompt and its minutes; each driver message in the measured run with its time; dialog texts; runs launched, with name, status and minutes, from the run list; the PRD's feature, task and acceptance-criterion counts; merged pull requests, retries and failed cycles; the reported bug's issue number, the minute it was filed, the minute its fix merged and whether it merged before the last task; the probe output; the step 4 and step 6 reads; policy denies by rule; minutes from the build prompt to the final report.
 
 Pass criteria:
-- The measured run has exactly one prompt; every other driver message is a nudge or a dialog answer from the rules.
-- A PRD with features, tasks and acceptance criteria exists, was generated by the run, and covers the description.
-- The probe passes every check on the default branch, `bun test` included.
+- The measured run has exactly one prompt. Its other driver messages are nudges, dialog answers and the one scripted bug report.
+- The PRD was generated by the run, has features, tasks and acceptance criteria, and covers at least three of the edge cases listed in step 6.
+- The probe passes every check on the default branch.
 - Every task issue is closed by a merged pull request, and the PRD issue carries `kickoff:done`.
-- Every merge was a squash merge with `ci` and `ai-review` successful on the merged head.
+- Every merge was a squash merge with `ci`, `acceptance`, `parity` and `ai-review` successful on the merged head.
+- The reported bug is queued and fixed without another owner message: its issue is closed by a merged pull request that carries a regression test, and that pull request merged before the last task.
+- After the final report the checkout has no extra worktree and no local `wf/` branch, and GitHub has no `wf/` branch without an open pull request.
 - No `stop-the-line` or `autopilot stalled` issue is open, and no `wf/` pull request is left open.
 - The policy log has no force-push or merge-outside-kit deny.
 - More than three nudges is a finding for dispatch chaining (`references/dispatch.md`), not a failure.
 
 ```
 ### R4 results
-Date: <yyyy-mm-dd>. ZCode: <app version>, permission mode <mode>. gh: <version>. Models: <model ids>. Owner: <personal or free organisation>, repository <name>.
-Preparation: <prompts and minutes>. Driver messages in the run: <numbered, time and exact text>. Recorded values: <What to record fields>. Probe: <passed>/<total>, failed checks <names>. Pass or fail per criterion: <criterion: pass or fail, value>.
+Date: <yyyy-mm-dd>. ZCode: <app version>, permission mode <mode>. gh: <version>. Models: <model ids>. Owner: <personal or free organisation>, repository <name> (public).
+Preparation: <prompts and minutes>. Driver messages in the run: <numbered, time and exact text>. Bug report: <issue number, minute filed, minute merged>. Recorded values: <What to record fields>. Probe: <passed>/<total>, failed checks <names>. Pass or fail per criterion: <criterion: pass or fail, value>.
 Surprises: <text>. Design changes proposed: <design section: change>.
 ```

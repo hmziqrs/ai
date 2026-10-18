@@ -1,0 +1,10 @@
+{
+  "name": "todo-web-reference",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun build-check.mjs",
+    "test": "bun -e \"process.exit(0)\"",
+    "start": "bun server.ts"
+  }
+}
