@@ -288,7 +288,7 @@ Supervised rules:
 
 ## Authority and git
 
-- **Workspace.** Writing happens only in run-owned worktrees under `<repoRoot>/.zflow/worktrees/`, on `wf/<task-id>` (lanes), `wf/test-<task-id>` (test authors), `wf/prd-v<n>`, `wf/recon-<n>`, or the supervised `wf/shipflow-<N>`. The user's checkout and current branch are never written.
+- **Workspace.** Writing happens only in run-owned worktrees under `<repoRoot>/.zflow/worktrees/`, on `wf/<task-id>` (lanes), `wf/test-<task-id>` (test authors), `wf/prd-v<n>`, `wf/recon-<n>`, or the supervised `wf/shipflow-<N>`. A run that needs several branches names them with a hyphen below its own branch (`wf/recon-<n>-<area>`), never with a slash: git cannot hold `wf/recon-1` and `wf/recon-1/scope` together, and a live run stopped on exactly that clash. The user's checkout and current branch are never written.
 - **Pushes.** Non-force pushes of `refs/heads/wf/*` only, through the git chain, within the charter's `authority.push`. Never `main`; never `-f`, `--force*`, `--mirror`, a `+` refspec or another destination. `hooks/policy.ts` enforces this.
 - **Merges.** Only the kit's `mergeTrain`, pinned to the reviewed SHA (`gh pr merge --squash --match-head-commit`). `gh pr merge` anywhere else is denied by the hook. Supervised merges run only in the bounded merge run after the owner's merge prompt (Mode: supervised). Merges are serialized, and nothing self-approves.
 - **GitHub writes** happen only inside runs, through kit ops with an exact argv list. The main thread writes nothing, except the owner's setup run (Mode: setup).

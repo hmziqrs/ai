@@ -98,6 +98,12 @@ check("a queued bug is dispatched first, even outside the current milestone", ()
   assert.equal(picked.action, "task-cycles");
   assert.equal(picked.issues[0], 500);
 });
+check("run branches never nest under another wf/ branch (git refuses wf/a with wf/a/b)", () => {
+  const skill = readFileSync(resolve(import.meta.dirname, "../skills/shipflow/SKILL.md"), "utf8");
+  const brief = readFileSync(resolve(import.meta.dirname, "../skills/shipflow/references/brief-extension.md"), "utf8");
+  assert.match(skill, /names them with a hyphen below its own branch/);
+  assert.match(brief, /Never write a slash below another `wf\/` branch/);
+});
 check("implementation never starts kickoff", () => {
   assert.equal(decide({ ...ready, mode: "implement", kickoffStage: "S2" }).action, "needs-plan");
   assert.equal(decide({ ...ready, mode: "dispatch", kickoffStage: "S2" }).action, "kickoff");

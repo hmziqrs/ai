@@ -112,6 +112,12 @@ interface ShipflowBriefExtension {
 - The script re-hashes the body after claim (cycle contract, claim step 5); a mismatch means
   the plan no longer matches the issue and the claim is released.
 
+## Branch names in a run
+
+A run's branches sit at one level: `wf/recon-<n>` for the run and `wf/recon-<n>-<area>` for each
+area lane. Never write a slash below another `wf/` branch. Git refuses `wf/recon-1` and
+`wf/recon-1/scope` together, and the kickoff S1 run stopped on exactly that clash.
+
 ## Hard stops in the brief
 
 The planner returns no author dispatch and says why when: the PRD issue carries
