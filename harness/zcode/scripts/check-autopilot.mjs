@@ -1085,10 +1085,10 @@ async function setupOfflineChecks() {
   });
   await check("setup offline (D17 section 3): appendIgnores adds the autopilot rules once and keeps existing lines", () => {
     const first = appendIgnores(null);
-    assert.equal(first, ".shipflow/\n.zflow/\n");
+    assert.equal(first, ".shipflow/\n.zflow/\n.zcode/workflow-drafts/\n");
     assert.equal(appendIgnores(first), first);
     const existing = appendIgnores("node_modules/\n.shipflow/");
-    assert.equal(existing, "node_modules/\n.shipflow/\n.zflow/\n");
+    assert.equal(existing, "node_modules/\n.shipflow/\n.zflow/\n.zcode/workflow-drafts/\n");
     assert.equal(appendIgnores(existing), existing);
   });
 }

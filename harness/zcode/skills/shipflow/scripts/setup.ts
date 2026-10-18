@@ -557,7 +557,8 @@ export function generateCharter(inputs: CharterInputs, existingText: string | nu
 // ---------------------------------------------------------------------------------------------
 
 const AUTOPILOT_STATUS = "autopilot policy";
-const IGNORE_RULES = [".shipflow/", ".zflow/"];
+// The author writes run scripts to .zcode/workflow-drafts/; they are never committed.
+const IGNORE_RULES = [".shipflow/", ".zflow/", ".zcode/workflow-drafts/"];
 
 function parseJsonObject(text: string, label: string): Obj {
   let value: unknown;

@@ -63,7 +63,7 @@ re-run changed nothing.
 | Labels, milestones | the kit's label set (`state:*`, `kind:*`, `prio:*` and the rest) and the charter's milestones |
 | PRD issue | `[PRD]` plus the project slug, labelled `kind:prd` and `kickoff:S1`, pinned; its number goes to `dispatcher.prd_issue` |
 | Project | a GitHub Project titled as you asked (default: the project slug), with the PRD issue added |
-| Setup PR | `[Setup] autopilot`, merged through the kit. It adds `autopilot.yaml`, `.github/workflows/autopilot-ci.yml`, the `.shipflow/` and `.zflow/` lines in `.gitignore`, the hook block in `.zcode/config.json`, and the harness files from section 2 |
+| Setup PR | `[Setup] autopilot`, merged through the kit. It adds `autopilot.yaml`, `.github/workflows/autopilot-ci.yml`, the `.shipflow/`, `.zflow/` and `.zcode/workflow-drafts/` lines in `.gitignore`, the hook block in `.zcode/config.json`, and the harness files from section 2 |
 | Ruleset | `autopilot-main` on the default branch, applied after the merge, requiring `ci`, `acceptance`, `parity` and `ai-review` |
 
 Setup exits 0 when it finishes, 1 when a required step fails (the report's `error` names it), and
