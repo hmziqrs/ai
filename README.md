@@ -88,7 +88,7 @@ remote PR merging has a separate policy. No workflow is launched by installing t
 Five Bun check scripts in `harness/zcode/scripts/` (`check-personas.mjs`, `check-github-kit.mjs`,
 `check-shipflow-planning.mjs`, `check-autopilot.mjs`, `check-autopilot-e2e.mjs`) verify the agents,
 kits and autopilot scripts without live GitHub; [install.md](install.md) lists them.
-`probe-todo-backend.mjs` judges the app built by the autonomous playbook scenario R4.
+`probe-todo-backend.mjs` judges the app that playbook scenario R4 builds from one prompt.
 
 Copy the ZCode agents and whole skill folders using [install.md](install.md). There are
 no saved workflow engines: every run executes a script written or filled for that task.

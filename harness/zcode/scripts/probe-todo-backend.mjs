@@ -1,8 +1,10 @@
 // Black-box acceptance probe for the R4 backend in harness/zcode/skills/shipflow/references/
 // test-playbook.md: a to-do API with email login whose dummy mailer prints
 // "MAIL to=<email> code=<code>" to the terminal. The probe starts the app with `bun run start`,
-// reads each login code from the app's stdout, checks every contract rule over HTTP, restarts the
-// app to check persistence, and runs the app's own `bun test`. Run from the repository root:
+// reads each login code from the app's stdout, checks each behaviour over HTTP, restarts the app to
+// check persistence, and runs the app's own `bun test`. The PRD chooses exact status codes and
+// field names, so each check accepts the reasonable choices (401 or 403, done or completed, a bare
+// or wrapped body). Run from the repository root:
 //   bun harness/zcode/scripts/probe-todo-backend.mjs --app <dir>             probe a local checkout
 //   bun harness/zcode/scripts/probe-todo-backend.mjs --gh-repo <owner/name>  probe a fresh clone of
 //                                                                            the default branch
@@ -18,7 +20,7 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REFERENCE = join(HERE, "fixtures", "todo-backend");
 const CODE_TTL_SECONDS = 2;
-const MAIL_LINE = /MAIL\b[^\n]*?\bto=(\S+)[^\n]*?\bcode=(\d{6})\b/;
+const MAIL_LINE = /MAIL\b[^\n]*?\bto=(\S+)[^\n]*?\bcode=([A-Za-z0-9-]+)/;
 const USER_A = "probe-a@example.test";
 const USER_B = "probe-b@example.test";
 
@@ -140,6 +142,47 @@ function prepare(dir) {
   }
 }
 
+// Status classes a PRD may reasonably choose; the probe checks behaviour, not one exact contract.
+const OK = (status) => status >= 200 && status < 300;
+const one = (...codes) => (status) => codes.includes(status);
+const INVALID = one(400, 422);
+const DENIED = one(400, 401, 403);
+const UNAUTHORIZED = one(401, 403);
+const HIDDEN = one(403, 404);
+const GONE = one(404, 410);
+
+// A token under the usual names, at the top level or under `data`.
+function tokenOf(json) {
+  for (const box of [json, json?.data]) {
+    for (const key of ["token", "accessToken", "access_token", "sessionToken"]) {
+      if (typeof box?.[key] === "string" && box[key] !== "") return box[key];
+    }
+  }
+  return null;
+}
+
+// A to-do object, bare or wrapped in `todo` or `data`.
+function todoOf(json) {
+  for (const box of [json?.todo, json?.data, json]) {
+    if (box && typeof box === "object" && !Array.isArray(box) && "title" in box) return box;
+  }
+  return null;
+}
+
+// A to-do list, bare or wrapped in `todos`, `data` or `items`.
+function listOf(json) {
+  for (const box of [json, json?.todos, json?.data, json?.items]) {
+    if (Array.isArray(box)) return box;
+  }
+  return null;
+}
+
+// A different code of the same shape, for the wrong-code check.
+function wrongCode(code) {
+  if (/^\d+$/.test(code)) return String((Number(code) + 1) % 10 ** code.length).padStart(code.length, "0");
+  return `${code}x`;
+}
+
 // Runs every check against the app in `dir`. Returns the list of { name, pass, detail }.
 export async function probe(dir, { env = {}, skipTests = false } = {}) {
   prepare(dir);
@@ -160,108 +203,105 @@ export async function probe(dir, { env = {}, skipTests = false } = {}) {
     const login = async (email) => {
       const from = app.lines.length;
       const res = await app.call("POST", "/auth/request", { body: { email } });
-      if (res.status !== 202) return null;
+      if (!OK(res.status)) return null;
       const code = await app.mail(email, from);
       if (!code) return null;
-      const verified = await app.call("POST", "/auth/verify", { body: { email, code } });
-      return verified.status === 200 && typeof verified.json?.token === "string" ? verified.json.token : null;
+      return tokenOf((await app.call("POST", "/auth/verify", { body: { email, code } })).json);
+    };
+    const titles = async (token) => {
+      const list = listOf((await app.call("GET", "/todos", { token })).json);
+      return list === null ? null : list.map((t) => t.title).sort();
     };
 
     let res = await app.call("POST", "/auth/request", { body: { email: "not-an-email" } });
-    check("request-bad-email", res.status === 400, `want 400, ${got(res)}`);
+    check("request-bad-email", INVALID(res.status), `want 400 or 422, ${got(res)}`);
 
     let from = app.lines.length;
     res = await app.call("POST", "/auth/request", { body: { email: USER_A } });
-    check("request-code", res.status === 202, `want 202, ${got(res)}`);
+    check("request-code", OK(res.status), `want 2xx, ${got(res)}`);
     const codeA = await app.mail(USER_A, from);
-    check("mail-printed", codeA !== null, `no "MAIL to=${USER_A} code=<6 digits>" line on stdout; last lines:\n${app.tail(5)}`);
+    check("mail-printed", codeA !== null, `no "MAIL to=${USER_A} code=<code>" line on stdout; last lines:\n${app.tail(5)}`);
 
-    const wrong = String((Number(codeA ?? "0") + 1) % 1000000).padStart(6, "0");
-    res = await app.call("POST", "/auth/verify", { body: { email: USER_A, code: wrong } });
-    check("verify-wrong-code", res.status === 401, `want 401, ${got(res)}`);
+    res = await app.call("POST", "/auth/verify", { body: { email: USER_A, code: wrongCode(codeA ?? "000000") } });
+    check("verify-wrong-code", DENIED(res.status), `want 400, 401 or 403, ${got(res)}`);
 
     res = await app.call("POST", "/auth/verify", { body: { email: USER_A, code: codeA ?? "" } });
-    const tokenA = res.status === 200 && typeof res.json?.token === "string" ? res.json.token : null;
-    check("verify-code", tokenA !== null, `want 200 with a token, ${got(res)}`);
+    const tokenA = OK(res.status) ? tokenOf(res.json) : null;
+    check("verify-code", tokenA !== null, `want 2xx with a token, ${got(res)}`);
     res = await app.call("POST", "/auth/verify", { body: { email: USER_A, code: codeA ?? "" } });
-    check("verify-reused-code", codeA !== null && res.status === 401, `want 401, ${got(res)}`);
+    check("verify-reused-code", codeA !== null && DENIED(res.status), `want 400, 401 or 403, ${got(res)}`);
 
     res = await app.call("GET", "/todos");
-    check("todos-no-token", res.status === 401, `want 401, ${got(res)}`);
+    check("todos-no-token", UNAUTHORIZED(res.status), `want 401 or 403, ${got(res)}`);
     res = await app.call("GET", "/todos", { token: "not-a-real-token" });
-    check("todos-bad-token", res.status === 401, `want 401, ${got(res)}`);
+    check("todos-bad-token", UNAUTHORIZED(res.status), `want 401 or 403, ${got(res)}`);
 
     res = await app.call("POST", "/todos", { token: tokenA, body: { title: "buy milk" } });
-    const first = res.json;
+    const first = todoOf(res.json);
+    const doneKey = first !== null && "completed" in first && !("done" in first) ? "completed" : "done";
     check(
       "create-todo",
-      res.status === 201 && first?.id !== undefined && first?.title === "buy milk" && first?.done === false,
-      `want 201 {id,title:"buy milk",done:false}, ${got(res)}`,
+      OK(res.status) && first?.id !== undefined && first?.title === "buy milk" && first?.[doneKey] === false,
+      `want 2xx with {id, title:"buy milk", done or completed false}, ${got(res)}`,
     );
     res = await app.call("POST", "/todos", { token: tokenA, body: { title: "" } });
-    check("create-empty-title", res.status === 400, `want 400, ${got(res)}`);
+    check("create-empty-title", INVALID(res.status), `want 400 or 422, ${got(res)}`);
     res = await app.call("POST", "/todos", { token: tokenA, body: {} });
-    check("create-missing-title", res.status === 400, `want 400, ${got(res)}`);
+    check("create-missing-title", INVALID(res.status), `want 400 or 422, ${got(res)}`);
     res = await app.call("POST", "/todos", { token: tokenA, body: { title: "walk dog" } });
-    check("create-second-todo", res.status === 201 && res.json?.title === "walk dog", `want 201, ${got(res)}`);
+    check("create-second-todo", OK(res.status) && todoOf(res.json)?.title === "walk dog", `want 2xx, ${got(res)}`);
 
-    res = await app.call("GET", "/todos", { token: tokenA });
-    const titles = Array.isArray(res.json) ? res.json.map((t) => t.title) : null;
-    check(
-      "list-todos",
-      res.status === 200 && JSON.stringify(titles) === JSON.stringify(["buy milk", "walk dog"]),
-      `want 200 ["buy milk","walk dog"] oldest first, ${got(res)}`,
-    );
+    let listed = await titles(tokenA);
+    check("list-todos", JSON.stringify(listed) === JSON.stringify(["buy milk", "walk dog"]), `want both titles, got ${JSON.stringify(listed)}`);
 
     const id = first?.id;
-    res = await app.call("PATCH", `/todos/${id}`, { token: tokenA, body: { done: true } });
-    check("patch-done", res.status === 200 && res.json?.done === true, `want 200 done:true, ${got(res)}`);
+    res = await app.call("PATCH", `/todos/${id}`, { token: tokenA, body: { [doneKey]: true } });
+    let after = listOf((await app.call("GET", "/todos", { token: tokenA })).json)?.find((t) => t.id === id);
+    check("patch-done", OK(res.status) && after?.[doneKey] === true, `want 2xx and ${doneKey} true, ${got(res)}`);
     res = await app.call("PATCH", `/todos/${id}`, { token: tokenA, body: { title: "buy oat milk" } });
+    after = listOf((await app.call("GET", "/todos", { token: tokenA })).json)?.find((t) => t.id === id);
     check(
       "patch-title",
-      res.status === 200 && res.json?.title === "buy oat milk" && res.json?.done === true,
-      `want 200 title updated and done kept, ${got(res)}`,
+      OK(res.status) && after?.title === "buy oat milk" && after?.[doneKey] === true,
+      `want 2xx, title updated and ${doneKey} kept, ${got(res)}`,
     );
 
     const tokenB = await login(USER_B);
     check("login-second-user", tokenB !== null, "second user could not log in");
-    res = await app.call("GET", "/todos", { token: tokenB });
-    check("isolation-list", res.status === 200 && Array.isArray(res.json) && res.json.length === 0, `want 200 [], ${got(res)}`);
-    res = await app.call("PATCH", `/todos/${id}`, { token: tokenB, body: { done: false } });
-    check("isolation-patch", res.status === 404, `want 404 for another user's todo, ${got(res)}`);
+    listed = await titles(tokenB);
+    check("isolation-list", Array.isArray(listed) && listed.length === 0, `want an empty list, got ${JSON.stringify(listed)}`);
+    res = await app.call("PATCH", `/todos/${id}`, { token: tokenB, body: { [doneKey]: false } });
+    check("isolation-patch", HIDDEN(res.status), `want 403 or 404 for another user's todo, ${got(res)}`);
     res = await app.call("DELETE", `/todos/${id}`, { token: tokenB });
-    check("isolation-delete", res.status === 404, `want 404 for another user's todo, ${got(res)}`);
+    check("isolation-delete", HIDDEN(res.status), `want 403 or 404 for another user's todo, ${got(res)}`);
 
     res = await app.call("DELETE", `/todos/${id}`, { token: tokenA });
-    check("delete-todo", res.status === 204, `want 204, ${got(res)}`);
+    check("delete-todo", OK(res.status), `want 2xx, ${got(res)}`);
     res = await app.call("DELETE", `/todos/${id}`, { token: tokenA });
-    check("delete-again", res.status === 404, `want 404, ${got(res)}`);
-    res = await app.call("PATCH", "/todos/999999", { token: tokenA, body: { done: true } });
-    check("unknown-id", res.status === 404, `want 404, ${got(res)}`);
-    res = await app.call("GET", "/todos", { token: tokenA });
-    const left = Array.isArray(res.json) ? res.json.map((t) => t.title) : null;
-    check("list-after-delete", JSON.stringify(left) === JSON.stringify(["walk dog"]), `want ["walk dog"], ${got(res)}`);
+    check("delete-again", GONE(res.status), `want 404 or 410, ${got(res)}`);
+    res = await app.call("PATCH", "/todos/999999", { token: tokenA, body: { [doneKey]: true } });
+    check("unknown-id", GONE(res.status), `want 404 or 410, ${got(res)}`);
+    listed = await titles(tokenA);
+    check("list-after-delete", JSON.stringify(listed) === JSON.stringify(["walk dog"]), `want ["walk dog"], got ${JSON.stringify(listed)}`);
 
     res = await app.call("POST", "/auth/logout", { token: tokenB });
-    check("logout", res.status === 204, `want 204, ${got(res)}`);
+    check("logout", OK(res.status), `want 2xx, ${got(res)}`);
     res = await app.call("GET", "/todos", { token: tokenB });
-    check("token-after-logout", tokenB !== null && res.status === 401, `want 401 after logout, ${got(res)}`);
+    check("token-after-logout", tokenB !== null && UNAUTHORIZED(res.status), `want 401 or 403 after logout, ${got(res)}`);
 
     from = app.lines.length;
     await app.call("POST", "/auth/request", { body: { email: USER_B } });
     const late = await app.mail(USER_B, from);
     await sleep(CODE_TTL_SECONDS * 1000 + 600);
     res = await app.call("POST", "/auth/verify", { body: { email: USER_B, code: late ?? "" } });
-    check("code-expiry", late !== null && res.status === 401, `want 401 after LOGIN_CODE_TTL_SECONDS=${CODE_TTL_SECONDS}, ${got(res)}`);
+    check("code-expiry", late !== null && DENIED(res.status), `want 400, 401 or 403 after LOGIN_CODE_TTL_SECONDS=${CODE_TTL_SECONDS}, ${got(res)}`);
 
     await app.stop();
     app = new App(dir, appEnv);
     if (!(await app.start())) throw new ProbeError(`app did not restart on the same DB_PATH\n${app.tail()}`);
     check("restart", true);
-    const again = await login(USER_A);
-    res = await app.call("GET", "/todos", { token: again });
-    const kept = Array.isArray(res.json) ? res.json.map((t) => t.title) : null;
-    check("persistence", JSON.stringify(kept) === JSON.stringify(["walk dog"]), `want ["walk dog"] after restart, ${got(res)}`);
+    listed = await titles(await login(USER_A));
+    check("persistence", JSON.stringify(listed) === JSON.stringify(["walk dog"]), `want ["walk dog"] after restart, got ${JSON.stringify(listed)}`);
   } finally {
     await app.stop();
     rmSync(scratch, { recursive: true, force: true });

@@ -313,50 +313,44 @@ Prompts sent: <numbered, exact text>. Recorded values: <What to record fields>. 
 Surprises: <text>. Design changes proposed: <design section: change>.
 ```
 
-## R4: Autonomous backend build, no owner input
+## R4: One prompt to a built backend, no owner input
 
-Goal: a small backend goes from one prompt to merged code with no owner input (D14 composed delivery; D15 automatic approval for an explicit small end-to-end request; D17 prompt-only). Claude remote control drives the ZCode app in the owner's place. It may send only the fixed prompts below and one fixed nudge, and it answers dialogs by fixed rules. A black-box probe judges the result, not the session's own report. R4 can also run before S1 as a smoke test of the whole path; its records answer part of S1.
+Goal: the two autopilot systems work together from one simple prompt in one session. PRD creation turns a short app description into a PRD and tasks; implementation then builds and merges them, with no owner input (D14 composed delivery; D15 automatic approval for an explicit small end-to-end request; D17 prompt-only). Claude remote control drives the ZCode app in the owner's place. A black-box probe judges the result, not the session's own report. R4 can also run before S1 as a smoke test of the whole path.
 
-The app under test is a backend-only to-do API with email login. Its dummy mailer sends no email: it prints each login code to the terminal, where the probe reads it.
+The app is a backend-only to-do API with email login. Its dummy mailer sends no email: it prints each login code to the terminal, where the probe reads it.
 
-Setup, done by the driver before step 1:
+Repository preparation, once per repository and outside the measured run:
 1. The global core in `~/.zcode/` matches this checkout (`install.md`, Global Core).
-2. A new private repository autopilot-todo-e2e with a README exists, and a fresh clone of it is open in the ZCode desktop app. Record the permission mode the app shows.
-3. The machine stays awake for the whole run. If the owner wants to watch, start ZCode's web remote control for the session and give the link to the owner only; it never goes into GitHub, a file or a prompt.
+2. A new private repository autopilot-todo-e2e with a README exists, and a fresh clone of it is open in the ZCode desktop app with Full access.
+3. "Initialize this project for Shipflow autopilot from the hmziqrs/ai checkout at <path of this checkout>. It is a Bun TypeScript backend with no UI. Install without asking me to confirm."
+4. "Set up Shipflow autopilot for this repository with automatic PRD approval, the detailed task list upfront and two lanes. Show the dry run, then apply it without asking me."
+5. Trust the two policy hooks when ZCode lists them as pending review (INSTALL.md section 3).
 
-Driver rules:
-- Send only steps 1 to 3 and, when the session is idle, the nudge "Continue end-to-end delivery." A session is idle when it has ended its turn, has no active run, and its last message is not a final report. Wait for 10 minutes of idle before each nudge.
-- Workflow-creation dialog: choose the option for the rest of the session. Workspace hooks pending review: open Review, confirm both commands run `.zcode/skills/shipflow/hooks/policy.ts`, and trust both (INSTALL.md section 3). Any other dialog or question: answer "Use your recommended option and continue without asking me." Record the text of each.
-- Never edit a file in the project, write to GitHub, merge, or approve a pull request. Judge progress by reading GitHub, the app's run list and `.shipflow/`.
-- Stop at the session's final report, after 12 nudges, or after 8 hours, whichever comes first.
-
-Steps:
-1. "Initialize this project for Shipflow autopilot from the hmziqrs/ai checkout at <path of this checkout>. It is a Bun TypeScript backend with no UI. Install without asking me to confirm." When it reports done, start a new session in the project.
-2. "Set up Shipflow autopilot for this repository with automatic PRD approval, the detailed task list upfront and two lanes. Show the dry run, then apply it without asking me."
-3. Send the build prompt below unchanged.
-4. Apply the driver rules until a stop condition.
-5. In this checkout, run `bun harness/zcode/scripts/probe-todo-backend.mjs --self-test`, then `bun harness/zcode/scripts/probe-todo-backend.mjs --gh-repo <owner>/autopilot-todo-e2e`. The self-test shows that the probe passes a reference app and fails each of six injected faults. The real probe clones the default branch, installs it, runs `bun test`, starts the app twice on one database, reads every login code from the app's stdout and checks each contract rule over HTTP.
-6. Read GitHub: the PRD issue's labels; open and closed task issues; each merged pull request with its merge method and the `ci` and `ai-review` states on its head; open `stop-the-line` or `autopilot stalled` issues; open `wf/` pull requests; the `autopilot-main` ruleset or the setup warning.
-7. Read `.shipflow/policy.log` in the clone the app used, and count denies by rule.
+The measured run:
+1. Open one new session in the project and send the build prompt below unchanged. It is the only prompt of the run.
+2. Driver rules, until the session's final report, 12 nudges or 8 hours:
+   - When the session is idle (turn ended, no active run, last message not a final report) for 10 minutes, send "Continue end-to-end delivery." and count it as a nudge.
+   - Workflow-creation dialog: choose the option for the rest of the session. Any other dialog or question: answer "Use your recommended option and continue without asking me." Record the text of each.
+   - Never edit a file in the project, write to GitHub, merge, or approve a pull request. Judge progress by reading GitHub, the app's run list and `.shipflow/`.
+3. In this checkout, run `bun harness/zcode/scripts/probe-todo-backend.mjs --self-test`, then `bun harness/zcode/scripts/probe-todo-backend.mjs --gh-repo <owner>/autopilot-todo-e2e`. The self-test shows that the probe passes a reference app and fails each of six injected faults. The real probe clones the default branch, installs it, runs `bun test`, starts the app twice on one database, reads every login code from the app's stdout and checks each behaviour over HTTP. The PRD picks exact status codes and field names, so the probe accepts the reasonable choices (for example 401 or 403, `done` or `completed`).
+4. Read GitHub: the PRD issue's labels; open and closed task issues; each merged pull request with its merge method and the `ci` and `ai-review` states on its head; open `stop-the-line` or `autopilot stalled` issues; open `wf/` pull requests; the `autopilot-main` ruleset or the setup warning.
+5. Read `.shipflow/policy.log` in the clone the app used, and count denies by rule.
 
 Build prompt:
 
 ```
-Build this small project end-to-end with Shipflow autopilot. You have my approval for every phase: plan it, publish it and implement it with automatic PRD approval and no human review, and merge each task when its checks pass. Do not ask me anything.
+Build a simple to-do app backend end-to-end with Shipflow autopilot: create the PRD from this description, then implement it. Use automatic PRD approval and no human review, merge each task when its checks pass, and do not ask me anything.
 
-Project: a backend-only to-do API in Bun and TypeScript, with no frontend.
-- Email login with one-time codes. POST /auth/request with {"email"} answers 202 and sends a 6-digit code through a dummy mailer that sends no real email: it prints one line to the terminal, MAIL to=<email> code=<code>. A malformed email answers 400.
-- POST /auth/verify with {"email","code"} answers 200 with {"token"}. A wrong, already used or expired code answers 401. Codes expire after LOGIN_CODE_TTL_SECONDS seconds, default 600.
-- POST /auth/logout with the token answers 204 and ends that token.
-- Every /todos route needs Authorization: Bearer <token>, else 401. GET /todos lists the caller's todos, oldest first. POST /todos with {"title"} answers 201 with {"id","title","done":false}; an empty or missing title answers 400. PATCH /todos/:id with title or done answers 200 with the updated todo. DELETE /todos/:id answers 204. Another user's todo, or an unknown id, answers 404.
-- GET /health answers 200.
-- Storage is SQLite through bun:sqlite at DB_PATH, default data/todo.sqlite, and data survives a restart. bun run start serves on PORT, default 3000. bun test covers every rule above.
+The app: Bun and TypeScript, backend only, no frontend. Users log in with their email and a one-time code, and a successful login returns a bearer token. No real email is sent: a dummy mailer prints each code to the terminal as MAIL to=<email> code=<code>. Logged-in users can create, list, update, complete and delete their own to-dos. Data is stored in SQLite.
+
+Keep these names so the app can be tested from outside: routes POST /auth/request, POST /auth/verify, POST /auth/logout, GET and POST /todos, PATCH and DELETE /todos/:id, and GET /health. bun run start serves on PORT, DB_PATH sets the database file, and LOGIN_CODE_TTL_SECONDS sets how long a code lives.
 ```
 
-What to record: app version and permission mode; each driver message with its time (prompts, nudges, dialog answers); dialog texts; runs launched, with name, status and minutes, from the run list; task count, merged pull requests, retries and failed cycles; the probe output; the step 6 reads; policy denies by rule; minutes from step 3 to the final report.
+What to record: app version and permission mode; the preparation prompts and their minutes; each driver message in the measured run with its time; dialog texts; runs launched, with name, status and minutes, from the run list; the PRD's feature and task counts; merged pull requests, retries and failed cycles; the probe output; the step 4 reads; policy denies by rule; minutes from the build prompt to the final report.
 
 Pass criteria:
-- Every driver message is step 1, 2 or 3, the nudge, or a dialog answer from the rules; there are zero owner messages.
+- The measured run has exactly one prompt; every other driver message is a nudge or a dialog answer from the rules.
+- A PRD with features, tasks and acceptance criteria exists, was generated by the run, and covers the description.
 - The probe passes every check on the default branch, `bun test` included.
 - Every task issue is closed by a merged pull request, and the PRD issue carries `kickoff:done`.
 - Every merge was a squash merge with `ci` and `ai-review` successful on the merged head.
@@ -367,6 +361,6 @@ Pass criteria:
 ```
 ### R4 results
 Date: <yyyy-mm-dd>. ZCode: <app version>, permission mode <mode>. gh: <version>. Models: <model ids>. Owner: <personal or free organisation>, repository <name>.
-Driver messages: <numbered, time and exact text>. Recorded values: <What to record fields>. Probe: <passed>/<total>, failed checks <names>. Pass or fail per criterion: <criterion: pass or fail, value>.
+Preparation: <prompts and minutes>. Driver messages in the run: <numbered, time and exact text>. Recorded values: <What to record fields>. Probe: <passed>/<total>, failed checks <names>. Pass or fail per criterion: <criterion: pass or fail, value>.
 Surprises: <text>. Design changes proposed: <design section: change>.
 ```
