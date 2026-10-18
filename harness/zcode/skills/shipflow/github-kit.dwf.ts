@@ -841,7 +841,7 @@ function makeGithubKit(cfg: KitConfig) {
   if (!kitValidRepo(cfg.repo)) throw new Error("github kit: repo must be OWNER/NAME");
   if (cfg.login === "") throw new Error("github kit: login must not be empty");
   if (!/^[a-z0-9][a-z0-9-]{0,31}$/.test(cfg.instance)) throw new Error("github kit: instance has an invalid shape");
-  if (!kitValidNumber(cfg.prdIssue)) throw new Error("github kit: prdIssue must be a positive integer");
+  if (!Number.isInteger(cfg.prdIssue) || cfg.prdIssue < 0) throw new Error("github kit: prdIssue must be 0 (none yet) or a positive integer");
   if (!cfg.writeRoot.startsWith("/")) throw new Error("github kit: writeRoot must be an absolute path");
   if (cfg.attemptCap < 1) throw new Error("github kit: attemptCap must be at least 1");
   if (cfg.pollSeconds < 1) throw new Error("github kit: pollSeconds must be at least 1");
@@ -1020,6 +1020,7 @@ function makeGithubKit(cfg: KitConfig) {
   }
 
   async function paused(): Promise<{ ok: boolean; paused: boolean }> {
+    if (cfg.prdIssue === 0) return { ok: true, paused: false };
     const view = await viewIssue(cfg.prdIssue);
     if (!view.ok) return { ok: false, paused: false };
     return { ok: true, paused: view.labels.includes("autopilot:paused") };
@@ -1284,6 +1285,7 @@ function makeGithubKit(cfg: KitConfig) {
 
   async function setKickoffStage(stage: string): Promise<{ outcome: "done" | "refused" | "failed" | "dry-run" }> {
     if (!/^S[0-6]$/.test(stage) && stage !== "done") return { outcome: "refused" };
+    if (cfg.prdIssue === 0) return { outcome: "refused" };
     const view = await viewIssue(cfg.prdIssue);
     if (!view.ok) return { outcome: "failed" };
     const target = "kickoff:" + stage;
@@ -1773,7 +1775,9 @@ function makeGithubKit(cfg: KitConfig) {
     };
     const stamp = await now();
     if (!Number.isFinite(stamp)) return { ...base, error: "clock unreadable" };
-    const prd = await viewIssue(cfg.prdIssue);
+    const prd = cfg.prdIssue === 0
+      ? { ok: true, state: "", labels: [] as string[], error: "" }
+      : await viewIssue(cfg.prdIssue);
     if (!prd.ok) return { ...base, now: stamp, error: "PRD issue unreadable: " + prd.error };
     const listed = await listIssues("open");
     if (!listed.ok) return { ...base, now: stamp, error: "issue list failed" };

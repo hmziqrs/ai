@@ -1065,6 +1065,25 @@ async function test28() {
   });
 }
 
+async function test30() {
+  await withEnv(async (env) => {
+    const fake = newFake();
+    seedTask(fake, { number: 2, id: "LB-1.4", state: "ready" });
+    const { kit } = await env.kit(fake, { prdIssue: 0 });
+    const guard = await kit.paused();
+    assert.deepEqual(guard, { ok: true, paused: false }, "test 30: with no PRD issue there is no pause flag");
+    const stage = await kit.setKickoffStage("S1");
+    assert.equal(stage.outcome, "refused", "test 30: kickoff stage needs a PRD issue");
+    const snap = await kit.snapshot({ withPromotable: false });
+    assert.equal(snap.ok, true, "test 30: snapshot works before the PRD issue exists");
+    assert.equal(snap.kickoffStage, "S0", "test 30: kickoff stage defaults to S0");
+    assert.equal(snap.prdIssueOpen, false, "test 30: no PRD issue is open");
+    const claim = await kit.claim(2);
+    assert.equal(claim.outcome, "won", "test 30: claims work without a PRD issue");
+    assertSupported(fake, "test 30");
+  });
+}
+
 async function test29() {
   await withEnv(async (env) => {
     const fake = newFake();
@@ -1131,5 +1150,6 @@ await run("test 26 repo info, whoami and rulesets", test26);
 await run("test 27 project ensure and membership", test27);
 await run("test 28 project status sync", test28);
 await run("test 29 dry run of delta 2", test29);
+await run("test 30 no PRD issue yet", test30);
 
 console.log(`GitHub kit validation passed: ${checks} checks, ${pastedCopies} pasted copies identical.`);
