@@ -188,6 +188,11 @@ from the repository root:
 They check code and fixtures, not live GitHub. None launches a ZCode workflow or proves runtime
 tool restrictions.
 
+`probe-todo-backend.mjs` is the black-box acceptance probe for playbook scenario R4, the
+autonomous backend build (`harness/zcode/skills/shipflow/references/test-playbook.md`). Its
+`--self-test` runs offline: the probe must pass the reference app in `fixtures/todo-backend/` and
+fail each of six injected faults. `--gh-repo <owner/name>` probes a fresh clone of a built app.
+
 If the repository carries `harness/zcode/agents/z-web-spec-auditor.md`, run the persona check on
 a copy of the tree without that file:
 

@@ -45,9 +45,9 @@ queue work, use `z-workflow`.
 | `audit` | "Audit the delivered project" | Delivery install and requested audit scope |
 | `supervised` | `shipflow supervised`, "work the queue with per-cycle review" | Repository and labels; per-cycle product review |
 
-These modes are the workflow contract. The GitHub kit, reconciler, snapshot, fill-cycle, setup
-and helper scripts now exist; the task-cycle template is being added. Check prerequisites before
-a delivery launch and report missing pieces. GUI behaviour and live GitHub are verified by the
+These modes are the workflow contract. The GitHub kit, reconciler, snapshot, fill-cycle, setup,
+helper scripts and task-cycle template implement it. Check prerequisites before a delivery launch
+and report missing pieces. GUI behaviour and live GitHub are verified by the
 owner's test playbook (`references/test-playbook.md`), not by these docs; never claim that
 publication, Project sync or unattended delivery was tested from these docs.
 
@@ -303,7 +303,7 @@ Supervised rules:
 - [references/brief-extension.md](references/brief-extension.md): the `shipflow` extension (supervised) and the `autopilot` extension (bespoke autopilot runs).
 - [references/gates.md](references/gates.md): gate discovery for supervised mode, charter gates for autopilot, the refusal list.
 - [references/review-checklists.md](references/review-checklists.md): checklists for `z-qa-evaluator`, the PRD critics and the test author.
-- [references/test-playbook.md](references/test-playbook.md): where each test kind lives, which gate runs it, and how test authors and implementers use it.
+- [references/test-playbook.md](references/test-playbook.md): the live test playbook run in the ZCode app through Claude remote control: spikes S1 to S6 and runs R1 to R4, R4 being the autonomous backend build judged by `harness/zcode/scripts/probe-todo-backend.mjs`.
 
 ## Grounded in
 
