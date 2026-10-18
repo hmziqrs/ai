@@ -616,6 +616,19 @@ async function gateChecks() {
     assert.equal(run.out, "gate parity: not configured\n");
   });
 
+  const noReference = tempDir("gates-no-reference");
+  writeTree(noReference, {
+    "autopilot.yaml": charterText({ find: 'reference: ["https://bench.example"]', replace: "reference: []" }),
+  });
+  await check("run-gate: with no reference site, parity is not applicable and green; acceptance stays not configured", () => {
+    const parity = bunCli(runGateCli, ["--charter", "autopilot.yaml", "--gate", "parity", "--log-dir", "logs"], { cwd: noReference });
+    assert.equal(parity.code, 0, parity.err);
+    assert.equal(parity.out, "gate parity: not applicable, the charter names no reference site\n");
+    const acceptance = bunCli(runGateCli, ["--charter", "autopilot.yaml", "--gate", "acceptance", "--log-dir", "logs"], { cwd: noReference });
+    assert.equal(acceptance.code, 1);
+    assert.equal(acceptance.out, "gate acceptance: not configured\n");
+  });
+
   const pinned = tempDir("gates-pinned");
   writeTree(pinned, {
     "autopilot.yaml": charterText({

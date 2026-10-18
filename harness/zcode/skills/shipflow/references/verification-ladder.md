@@ -27,7 +27,7 @@ Notes:
 ## Where the commands come from
 
 - In autopilot mode gates come from `effectiveSettings` (`scripts/lib/detect.ts`): a charter `gates` group pinned by a setup prompt wins; an empty group is detected from the manifests (package.json scripts, Cargo.toml, pyproject.toml). Each entry is argv with no shell: `{name, tool, args, timeout_minutes}`. The AGENTS.md discovery in `references/gates.md` applies to supervised mode only. The refusal list in that file applies to charter gates too, but the validator checks shape, not flags, so review every `args` list when a setup prompt sets a gate.
-- A group with nothing pinned and nothing detected is not configured, and not configured is red. `run-gate.ts` prints `gate <name>: not configured` and exits 1. An area without a green gate cannot merge.
+- A group with nothing pinned and nothing detected is not configured, and not configured is red. `run-gate.ts` prints `gate <name>: not configured` and exits 1. An area without a green gate cannot merge. One exception: with `reference: []` there is nothing to compare, so an unconfigured parity gate prints `not applicable` and exits 0. In an empty repository the first M0 task wires the gate scripts (`z-product-owner` PLAN mode).
 - A gate that exceeds its `timeout_minutes` is red with reason `timeout`, never a pass. `run-gate.ts` sends SIGTERM at the limit and SIGKILL five seconds later.
 - A lane's checks are the charter's `acceptance` or `parity` entry with the task's test paths appended. The same list reaches CI through `run-gate.ts --tests`, which refuses any path that starts with `-`.
 

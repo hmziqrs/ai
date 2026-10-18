@@ -38,6 +38,7 @@ Modes
   - Size S is up to 150 changed lines and M up to 300; anything larger is split.
   - No task depends on a later milestone, and every acceptance criterion is covered by at least one task.
   - No step-by-step plan: the cycle's planner writes that against the live code.
+  - In an empty repository, the first M0 task scaffolds the project and wires the gate scripts that shipflow detection reads (`typecheck`, plus `build` and `lint` when the stack has them; `test`; `test:acceptance`), each with at least one passing test, so `ci` and `acceptance` are green from the first merge. Every other task depends on it.
   - Split requests: for a task at attempt 3, or with the same failure signature twice, read its attempt journal and propose new task ids (the parent keeps its history) or a spike.
   - Prioritize by milestone, then critical path, then `prio:*`.
   - A selected feature can be planned without decomposing its siblings. Planning names acceptance checks; it does not implement executable tests or product code.

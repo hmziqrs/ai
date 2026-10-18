@@ -208,6 +208,7 @@ Evidence: arch:<slug>, int:<slug>, journey:<slug>
 - **Tests:** the acceptance or parity specs that must pass. New unit tests are expected alongside them.
 - **Depends on:** task ids in the same milestone or an earlier one, never a later one.
 - **No steps.** Never write implementation steps. The cycle's planner writes them against the live code.
+- **Empty repository.** The first M0 task scaffolds the project and wires every check script CI runs, each with at least one passing test, so the required checks are green from the first merge. Every other task depends on it. For Shipflow the scripts are `typecheck` (plus `build` and `lint` when the stack has them), `test`, and `test:acceptance`.
 
 **Good**
 ```markdown

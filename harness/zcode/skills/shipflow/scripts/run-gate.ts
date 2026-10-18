@@ -1,6 +1,7 @@
 // run-gate: runs the charter gates for CI and lanes (spec section 3). A gate the charter does not
 // pin is detected from the working directory's manifests (lib/detect.ts). Exit 0 when every gate
-// passes, 1 when a gate fails, times out or is not configured, 2 for usage or charter errors.
+// passes, or for parity when the charter names no reference site; 1 when a gate fails, times out
+// or is not configured; 2 for usage or charter errors.
 import { appendFileSync, closeSync, mkdirSync, openSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { loadCharter, protectedRule, type Charter } from "./lib/charter.ts";
@@ -264,7 +265,12 @@ export async function main(argv: string[]): Promise<number> {
   const gates = effectiveSettings(charter, process.cwd()).gates;
   const entries = gateEntries(gates, options.gate);
   if (entries.length === 0) {
-    // A gate with no entries is never green.
+    // Parity (L4) compares the build with a reference site; a charter that names none has nothing
+    // to compare, so the gate does not apply. Every other gate with no entries is never green.
+    if (options.gate === "parity" && charter.reference.length === 0) {
+      process.stdout.write("gate parity: not applicable, the charter names no reference site\n");
+      return 0;
+    }
     process.stdout.write(`gate ${options.gate}: not configured\n`);
     return 1;
   }

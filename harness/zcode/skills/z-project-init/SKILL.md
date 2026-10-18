@@ -11,6 +11,9 @@ description: >-
   z-proflow, z-flashflow, z-liteflow, z-project-init) stay global, while niche
   specialists, niche workflows (z-gpui-workflow, z-tauri-workflow,
   z-super-rustflow, shipflow), and stack skills install per project.
+  Use it when asked to initialize, install into, update or check a project
+  for ZCode, a stack workflow, or Shipflow autopilot ("Initialize this
+  project for Shipflow autopilot").
 ---
 
 # z-project-init
