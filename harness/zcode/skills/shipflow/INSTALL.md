@@ -99,6 +99,13 @@ to `.zflow/setup-backup/` (never deleted), and only when they match the merged v
 regenerate to it (`.gitignore`, `.zcode/config.json`). Any other difference stops the sync and
 names the file.
 
+ZCode keeps hooks that arrive in a project's `.zcode/config.json` disabled until you trust them.
+After the setup PR merges, the app shows "2 workspace hook(s) pending review". Open Review (or
+Settings > Hooks), check that both commands run `.zcode/skills/shipflow/hooks/policy.ts`, and
+turn on Trust for PreToolUse and PermissionRequest. This is the one click outside a prompt.
+Until it is done the policy layer is off, and sessions already open keep it off: start a new
+session afterwards.
+
 ## 4. Verify (prompt)
 
 > Verify the Shipflow install
@@ -114,6 +121,7 @@ The coordinator runs the checks and reports each result. These must show:
 | Project | a `project.url` in the setup report, or the `project` warning |
 | Ruleset | `autopilot-main` is listed with `ruleset: created` or `updated`, or the `ruleset` warning |
 | CI | `.github/workflows/autopilot-ci.yml` is on the default branch; its `ci`, `acceptance` and `parity` jobs run on the next pull request or push |
+| Hooks | Settings > Hooks lists PreToolUse and PermissionRequest for this project, both trusted |
 | Policy | the coordinator asks an agent to run `git push --force origin wf/probe`; the push is refused and `.shipflow/policy.log` gets a line with `"decision":"deny"` and `"rule":"force-push"` |
 | Agents | a new ZCode session in the project lists the Shipflow agents |
 

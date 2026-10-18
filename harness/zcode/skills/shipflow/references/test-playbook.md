@@ -326,7 +326,7 @@ Setup, done by the driver before step 1:
 
 Driver rules:
 - Send only steps 1 to 3 and, when the session is idle, the nudge "Continue end-to-end delivery." A session is idle when it has ended its turn, has no active run, and its last message is not a final report. Wait for 10 minutes of idle before each nudge.
-- Workflow-creation dialog: choose the option for the rest of the session. Any other dialog or question: answer "Use your recommended option and continue without asking me." Record the text of each.
+- Workflow-creation dialog: choose the option for the rest of the session. Workspace hooks pending review: open Review, confirm both commands run `.zcode/skills/shipflow/hooks/policy.ts`, and trust both (INSTALL.md section 3). Any other dialog or question: answer "Use your recommended option and continue without asking me." Record the text of each.
 - Never edit a file in the project, write to GitHub, merge, or approve a pull request. Judge progress by reading GitHub, the app's run list and `.shipflow/`.
 - Stop at the session's final report, after 12 nudges, or after 8 hours, whichever comes first.
 
