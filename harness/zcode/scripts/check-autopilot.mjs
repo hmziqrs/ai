@@ -1189,6 +1189,14 @@ async function setupFakeChecks() {
     assert.equal(gitOk(work, ["for-each-ref", "--format=%(refname)", "refs/heads/wf/"]).trim(), "", "the merged setup branch stays in the checkout");
     assert.equal(fake.branches.has(branch), false, "the merged setup branch stays on GitHub");
   });
+  await check("setup (D17 section 3): --repo defaults to the working folder, and a path that is not a folder is refused by name", () => {
+    const defaulted = parseSetupArgs(["--gh-repo", REPO]);
+    assert.equal(defaulted.kind, "run", "a run without --repo uses the working folder");
+    assert.equal(defaulted.options.root, process.cwd());
+    const mistyped = parseSetupArgs(["--repo", join(work, "no-such-folder"), "--gh-repo", REPO]);
+    assert.equal(mistyped.kind, "usage");
+    assert.match(mistyped.message, /is not a folder; the working folder is /, "the refusal names the working folder");
+  });
   await check("setup (D17 section 3): the owner's test playbook and the fixtures never enter a project", () => {
     const text = readText(join(skill, "scripts/setup.ts"));
     const listed = text.slice(text.indexOf("const HARNESS_EXCLUDED"), text.indexOf("];", text.indexOf("const HARNESS_EXCLUDED")));

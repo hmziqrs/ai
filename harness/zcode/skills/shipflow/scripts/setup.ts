@@ -16,7 +16,7 @@ import { expandHome, parseCharter, type Charter } from "./lib/charter.ts";
 import { loadKit, realWorld, type KitModule, type World } from "./lib/kit.ts";
 
 const USAGE = [
-  "usage: bun setup.ts --repo <root> [--gh-repo OWNER/NAME] [--dry-run] [--no-ruleset]",
+  "usage: bun setup.ts [--repo <root>, default the working folder] [--gh-repo OWNER/NAME] [--dry-run] [--no-ruleset]",
   "                    [--reference <https-url>]... [--reference-clear]",
   "                    [--approval human|auto|window] [--breakdown upfront|rolling] [--lanes <n>]",
   "                    [--attempts <n>] [--timeout-minutes <n>] [--page-cap <n>]",
@@ -241,8 +241,12 @@ function parseArgsOrThrow(argv: string[]): ParsedArgs {
 
   const one = (name: string): string | null => values.get(name)?.[0] ?? null;
   const has = (name: string): boolean => values.has(name) || flags.has(name);
-  const rootFlag = one("--repo");
-  if (rootFlag === null) throw new UsageError("--repo is required");
+  // The repository is the working folder unless --repo names another. A path that is not a folder is
+  // refused here, with the working folder named, so a mistyped path cannot be mistaken for a missing origin.
+  const rootFlag = one("--repo") ?? process.cwd();
+  if (!existsSync(rootFlag) || !statSync(rootFlag).isDirectory()) {
+    throw new UsageError(`--repo ${rootFlag} is not a folder; the working folder is ${process.cwd()}. Pass --repo with that path, or leave it out.`);
+  }
   const syncCheckout = flags.has("--sync-checkout");
   if (syncCheckout) {
     const misplaced = APPLY_ONLY_FLAGS.find((name) => has(name));
@@ -744,7 +748,7 @@ function gitOk(git: GitRunner, root: string, args: string[], label: string): Git
 
 function repoFromOrigin(git: GitRunner, root: string): string {
   const result = git(root, ["remote", "get-url", "origin"]);
-  if (result.exitCode !== 0) throw new SetupFailure("no origin remote; pass --gh-repo OWNER/NAME", 2);
+  if (result.exitCode !== 0) throw new SetupFailure(`no origin remote in ${root}; pass --gh-repo OWNER/NAME`, 2);
   const repo = repoFromRemote(result.stdout);
   if (repo === null) throw new SetupFailure("origin is not a GitHub repository; pass --gh-repo OWNER/NAME", 2);
   return repo;
