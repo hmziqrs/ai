@@ -69,20 +69,25 @@ coordinator assigns scope and explicit analysis, implementation, or review autho
     framework-specific gates, web/native coverage, and serialized device capture.
   - `z-super-rustflow`: measurement-first Rust optimization; analysis by default,
     implementation only when requested.
-  - `shipflow`: framework-agnostic z-workflow profile for a GitHub issue queue. Each cycle
-    takes one issue through a fresh z-workflow run on the complex path, with the normal
-    approval dialog, a run-owned worktree, planner-discovered gates, and one documented
-    non-force push of the run-owned branch. GitHub mechanics (claims, labels, sub-issues, PRs, the merge predicate and merge)
-    are tested script code, the GitHub kit pasted into each cycle script;
-    `z-product-owner`, `z-security-auditor`, and `z-qa-evaluator` plus the project's
-    selected specialists cover judgement and review.
-    Follow its [installation procedure](harness/zcode/skills/shipflow/INSTALL.md).
+  - `shipflow`: autopilot profile of z-workflow for PRD-driven delivery on GitHub, with modes
+    setup, plan, publish, implement, kickoff, dispatch, audit and supervised. Plan, publish and
+    implement are independent entry points, composed only when the prompt asks, and GitHub holds
+    the delivery state. The owner only prompts: setup generates the charter, labels, PRD issue,
+    Project, ruleset and CI under the owner's own `gh` login (a reviewer GitHub App is optional
+    hardening). GitHub mechanics come from the pasted `github-kit.dwf.ts`, and each standard task
+    cycle is the pre-tested `task-cycle-template.dwf.ts`. `ai-review` is a commit status.
+    Installed per project by `z-project-init`; follow its
+    [installation procedure](harness/zcode/skills/shipflow/INSTALL.md).
 
 The persona kit records source hashes and selected models, validates role loading and
 checks read-only repository state. Tool metadata is advisory within workflows; change
 checks do not sandbox agents or prevent external effects. Claims of verification require
 command evidence. Local checkout fast-forward follows z-workflow's guarded Step 6;
 remote PR merging has a separate policy. No workflow is launched by installing the kit.
+
+Five Bun check scripts in `harness/zcode/scripts/` (`check-personas.mjs`, `check-github-kit.mjs`,
+`check-shipflow-planning.mjs`, `check-autopilot.mjs`, `check-autopilot-e2e.mjs`) verify the agents,
+kits and autopilot scripts without live GitHub; [install.md](install.md) lists them.
 
 Copy the ZCode agents and whole skill folders using [install.md](install.md). There are
 no saved workflow engines: every run executes a script written or filled for that task.

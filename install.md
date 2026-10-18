@@ -60,8 +60,8 @@ Never install `general-pro`, `general-flash`, `explore-flash`, `workflow-author`
 When initializing or updating a specific project `<project>`, load and follow [`harness/zcode/skills/z-project-init/SKILL.md`](harness/zcode/skills/z-project-init/SKILL.md):
 
 1. **Inspect `<project>`'s manifests** (`Cargo.toml`, `src-tauri/tauri.conf.json`, `package.json`, `wrangler.*`, `cloudflare.config.ts`, `svelte.config.*`, `astro.config.*`, `pubspec.yaml`) and select only the matching niche artifacts from the `z-project-init` Stack-to-Artifact Matrix.
-2. **Copy selected niche sub-agents** (`harness/zcode/agents/z-*.md`; when Shipflow is enabled, add `z-product-owner.md`, `z-security-auditor.md`, and `z-qa-evaluator.md` for a web UI) as regular files into `<project>/.zcode/agents/`.
-3. **Copy selected niche workflow folders** (`z-gpui-workflow/`, `z-tauri-workflow/`, `z-super-rustflow/`, or `shipflow/`, plus `z-workflow/` so `<project>` pins its own `persona-kit.dwf.ts` and `references/specialists.md` at the snapshot commit) into `<project>/.zcode/skills/`. If Shipflow is enabled, also follow [harness/zcode/skills/shipflow/INSTALL.md](harness/zcode/skills/shipflow/INSTALL.md).
+2. **Copy selected niche sub-agents** (`harness/zcode/agents/z-*.md`; when Shipflow is enabled, add `z-product-owner.md` and `z-security-auditor.md`, plus `z-qa-evaluator.md` and `z-accessibility-auditor.md` for a UI, and `z-native-device-verifier.md` for a desktop or mobile app) as regular files into `<project>/.zcode/agents/`.
+3. **Copy selected niche workflow folders** (`z-gpui-workflow/`, `z-tauri-workflow/`, `z-super-rustflow/`, or `shipflow/`, plus `z-workflow/` so `<project>` pins its own `persona-kit.dwf.ts` and `references/specialists.md` at the snapshot commit) into `<project>/.zcode/skills/`. Shipflow's folder is copied without `scripts/fixtures/` (test data for this repository's checkers, never installed). If Shipflow is enabled, also follow [harness/zcode/skills/shipflow/INSTALL.md](harness/zcode/skills/shipflow/INSTALL.md).
 4. **Copy selected niche domain skills** (for example `languages/rust/rust-superopt`, `rust-simd-crates`, `rust-simd-kernels`, `rust-parallel-cache`, `rust-fast-architecture`, required external stack skills, and for Shipflow autopilot projects `product/prd-authoring`, `product/site-recon` and `testing/parity-testing`) into `<project>/.agents/skills/`.
 5. **Write `<project>/.zcode/hmziqrs-ai-snapshot.json`** recording:
    - `sourceRepo: "hmziqrs/ai"` and `sourceCommit` (`git -C <aiRepo> rev-parse HEAD`)
@@ -170,9 +170,31 @@ with project configuration and environment-file autoloading disabled.
 
 ## Source validation
 
-Run `bun harness/zcode/scripts/check-personas.mjs` for metadata, loader behavior and
-embedded-kit consistency. This does not launch a ZCode workflow or prove runtime tool
-restrictions.
+Five Bun check scripts in `harness/zcode/scripts/` test this repository. Run each with `bun`
+from the repository root:
+
+- `check-personas.mjs`: agent frontmatter, model pins and colors, loader behavior, and the
+  embedded persona-kit copies.
+- `check-github-kit.mjs`: the GitHub kit against a mocked `gh` (claim races, transitions, the
+  merge predicate, dry runs) and its pasted copies.
+- `check-shipflow-planning.mjs`: PRD lint rules, charter parsing and the snapshot decision,
+  against the `valid` and `violations` fixtures.
+- `check-autopilot.mjs`: charter, detection, hook policy, gate runner, review poster, preview
+  server, fill-cycle, setup against the fake GitHub, and template drift. Its type-check runs
+  only when `TSC` is set.
+- `check-autopilot-e2e.mjs`: phase separation end to end in temporary git repositories with a
+  bare origin and the fake GitHub, including a run of the task-cycle template.
+
+They check code and fixtures, not live GitHub. None launches a ZCode workflow or proves runtime
+tool restrictions.
+
+If the repository carries `harness/zcode/agents/z-web-spec-auditor.md`, run the persona check on
+a copy of the tree without that file:
+
+```sh
+S=$(mktemp -d) && rsync -a --exclude .git --exclude .zcode --exclude .zflow --exclude research ./ "$S/" \
+  && rm "$S/harness/zcode/agents/z-web-spec-auditor.md" && (cd "$S" && bun harness/zcode/scripts/check-personas.mjs)
+```
 
 ## Report back
 

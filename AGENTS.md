@@ -85,21 +85,28 @@ llms.txt                     entry point for consuming agents
   profiles of it, and z-liteflow is its fast small-task form (a filled,
   pre-tested template, no author). z-gpui-workflow and z-tauri-workflow
   are domain profiles of z-workflow with scoped framework gates and device evidence;
-  shipflow is its framework-agnostic GitHub issue-queue profile (one issue per
-  cycle, each cycle a fresh z-workflow run).
+  shipflow is its framework-agnostic autopilot profile: plan, publish and
+  implement are independent entry points, composed only when the prompt asks,
+  with GitHub as delivery state.
   z-super-rustflow composes its own main-tier-only runs inline (no
   vision, no flash).
+- Autopilot is prompt-only (D17): the harness generates charters, PRDs, tasks,
+  issues and repository configuration; never ask the owner to hand-write JSON,
+  YAML or credentials beyond an existing `gh` login.
 - No saved engines: every z-flow run executes a script written (or, for
   z-liteflow, filled from its template) for that task. Do not add saved
   workflow engines or offer to SaveWorkflow a generated script as a standing
-  engine; the only reusable workflow code is the persona kit and z-liteflow's
-  pre-tested template.
+  engine; the only reusable workflow code is the pasted, drift-checked blocks:
+  the persona kit, z-liteflow's pre-tested template, the shipflow GitHub kit
+  (`github-kit.dwf.ts`) and the shipflow task-cycle template
+  (`task-cycle-template.dwf.ts`).
 - Workflows cannot call agents by name. To drive a workflow subagent
   with an agent file (a specialist), paste the persona kit
   `harness/zcode/skills/z-workflow/persona-kit.dwf.ts` unchanged into
   the script and use its functions; never hand-write a persona loader.
   A change to the kit goes into that file first (new version marker),
-  then into every script that carries it (z-liteflow's template too).
+  then into every script that carries it (z-liteflow's template and the
+  shipflow task-cycle template too).
 - Embedded filesystem/process helpers use TypeScript executed by Bun through
   `world.run`. Pass data as arguments and disable project config and environment-file
   autoloading for read-only checks. Declare Bun as a runtime dependency.
