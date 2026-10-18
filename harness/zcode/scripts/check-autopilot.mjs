@@ -396,6 +396,9 @@ const HOOK_CASES = [
   { name: "git-destructive: branch -D", tool: "Bash", input: { command: "git branch -D wf/a" }, deny: "git-destructive" },
   { name: "git-destructive: rebase", tool: "Bash", input: { command: "git rebase main" }, deny: "git-destructive" },
   { name: "git-destructive: stash drop", tool: "Bash", input: { command: "git stash drop" }, deny: "git-destructive" },
+  { name: "git-destructive: update-ref -d without an expected commit", tool: "Bash", input: { command: "git update-ref -d refs/heads/wf/a" }, deny: "git-destructive" },
+  { name: "git-destructive: update-ref -d outside wf/", tool: "Bash", input: { command: "git update-ref -d refs/heads/main 0123456789abcdef0123456789abcdef01234567" }, deny: "git-destructive" },
+  { name: "cleanup: update-ref -d of a wf/ branch at a known commit", tool: "Bash", input: { command: "git update-ref -d refs/heads/wf/LB-1.4 0123456789abcdef0123456789abcdef01234567" }, deny: null },
   // git-mutation (subagents only)
   { name: "git-mutation: a subagent commits", tool: "Bash", input: { command: "git commit -m x" }, agent: "implement-LB-1.4", deny: "git-mutation" },
   { name: "git-mutation: a subagent stages", tool: "Bash", input: { command: "git add -- src/a.ts" }, agent: "implement-LB-1.4", deny: "git-mutation" },
@@ -919,6 +922,27 @@ async function fillChecks() {
     assert.equal(test.branch, `wf/test-${tasks[2].id}`);
     assert.equal(built.lanes[0].specialist, "z-svelte-engineer");
   });
+  await check("fill-cycle (spec 2): a queued bug becomes a lane with no PRD path and its report as the spec", () => {
+    const area = built.lanes[0].lane.area.join(", ");
+    const bugBody = ["Clicking login does nothing.", "", "```autopilot", "id: BUG-424242", "kind: bug", `area: [${area}]`,
+      "satisfies: [BUG-424242.AC1]", "size: S", "milestone: M0", "```", ""].join("\n");
+    const bugFact = { number: 40, error: "", open: true, state: "ready", stateCount: 1, attempt: 1, body: bugBody };
+    const lane = buildLanes([bugFact], { charter, settings, index: baseIndex, promote: [], persona }, kitModule.kitParseMachineBlock);
+    assert.deepEqual(lane.refused, [], "a ready bug is not refused");
+    const bug = lane.lanes[0].lane;
+    assert.equal(bug.id, "BUG-424242");
+    assert.equal(bug.branch, "wf/BUG-424242");
+    assert.equal(bug.prd, "", "a bug has no PRD path");
+    assert.deepEqual(bug.satisfies, ["BUG-424242.AC1"]);
+    assert.match(bug.spec, /Clicking login does nothing\./, "the bug report is the lane spec");
+  });
+  await check("fill-cycle (spec 2): a bug that is not ready is refused with its state", () => {
+    const area = built.lanes[0].lane.area.join(", ");
+    const body = ["x", "", "```autopilot", "id: BUG-424243", "kind: bug", `area: [${area}]`, "satisfies: [BUG-424243.AC1]", "size: S", "milestone: M0", "```", ""].join("\n");
+    const refused = buildLanes([{ number: 41, error: "", open: true, state: "backlog", stateCount: 1, attempt: 1, body }], { charter, settings, index: baseIndex, promote: [], persona }, kitModule.kitParseMachineBlock);
+    assert.equal(refused.lanes.length, 0);
+    assert.equal(refused.refused[0].reason, "state backlog is not ready");
+  });
   await check("fill-cycle (spec 2): the judge is the same specialist as the implementer", () => {
     for (const { lane } of built.lanes) assert.equal(lane.judge, lane.implementer);
   });
@@ -1162,6 +1186,8 @@ async function setupFakeChecks() {
     }
     assert.equal(fake.prs.get(first.report.pr.number).state, "MERGED");
     assert.ok(gitOk(origin, ["ls-tree", "-r", "--name-only", "main"]).split("\n").includes("autopilot.yaml"));
+    assert.equal(gitOk(work, ["for-each-ref", "--format=%(refname)", "refs/heads/wf/"]).trim(), "", "the merged setup branch stays in the checkout");
+    assert.equal(fake.branches.has(branch), false, "the merged setup branch stays on GitHub");
   });
   await check("setup (D17 section 5): the autopilot ruleset exists once under the name in the template", () => {
     const name = JSON.parse(readText(join(skill, "templates/ruleset-main.json"))).name;

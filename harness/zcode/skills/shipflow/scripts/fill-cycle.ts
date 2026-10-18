@@ -25,6 +25,8 @@ export interface CycleLane {
   tests: string[];
   satisfies: string[];
   prd: string;
+  /** Raw issue text of a bug lane (capped); empty for PRD tasks, whose spec is the PRD excerpt. */
+  spec: string;
   roundCap: number;
   budget: { files: number; lines: number };
   tier: "pro" | "flash";
@@ -61,6 +63,8 @@ export interface CycleConfig {
   reviewer: { appId: string; installationId: string; keyPath: string } | null;
   protectedPaths: string[];
   testAuthorPaths: string[];
+  /** Milestone a bug filed by the cycle goes under: the charter's first milestone. */
+  bugMilestone: string;
   release: number[];
   promote: number[];
   lanes: CycleLane[];
@@ -429,14 +433,18 @@ function buildOne(facts: IssueFacts, inputs: LaneInputs, parseBlock: BlockParser
   if (parsed.block === null) return refuse(parsed.errors.join("; ") || "invalid machine block");
   const block = parsed.block;
   if (parsed.unknownKeys.length > 0) return refuse(`unknown machine block key ${parsed.unknownKeys.join(", ")}`);
-  if (block.kind !== "task") return refuse(`kind ${block.kind} is not a task`);
+  // A bug is filed by the kit, not planned: it has no PRD item, so no PRD path or hash to check.
+  const isBug = block.kind === "bug";
+  if (block.kind !== "task" && !isBug) return refuse(`kind ${block.kind} is not a task or bug`);
   if (facts.stateCount !== 1) return refuse(`${facts.stateCount} state labels, expected one`);
   const wanted = inputs.promote.includes(facts.number) ? ["ready", "backlog"] : ["ready"];
   if (!wanted.includes(facts.state)) return refuse(`state ${facts.state} is not ${wanted.join(" or ")}`);
-  const hash = planHashCheck(block, inputs.index);
-  if (!hash.ok) return refuse(hash.reason);
+  if (!isBug) {
+    const hash = planHashCheck(block, inputs.index);
+    if (!hash.ok) return refuse(hash.reason);
+  }
   if (accepted.some((built) => built.lane.id === block.id)) return refuse(`duplicate task id ${block.id}`);
-  if (block.prd === "") return refuse("machine block has no prd");
+  if (!isBug && block.prd === "") return refuse("machine block has no prd");
   if (block.area.length === 0) return refuse("task area must not be empty");
   if (block.size !== "S" && block.size !== "M") return refuse(`size must be S or M, found "${block.size}"`);
 
@@ -483,7 +491,8 @@ function buildOne(facts: IssueFacts, inputs: LaneInputs, parseBlock: BlockParser
     area: [...block.area],
     tests: [...block.tests],
     satisfies: [...block.satisfies],
-    prd: block.prd,
+    prd: isBug ? "" : block.prd,
+    spec: isBug ? facts.body.slice(0, 8000) : "",
     roundCap: block.size === "S" ? 2 : 3,
     budget: block.budget ?? { files: DEFAULT_BUDGET_FILES, lines: block.size === "S" ? 150 : 300 },
     tier: facts.attempt >= 2 ? "pro" : charter.tiers.first_attempt,
@@ -551,6 +560,7 @@ export function buildConfig(inputs: ConfigInputs): CycleConfig {
         : { appId: reviewer.app_id, installationId: reviewer.installation_id, keyPath: expandHome(reviewer.key_path) },
     protectedPaths: charter.protected.map((rule) => rule.prefix),
     testAuthorPaths,
+    bugMilestone: charter.milestones[0] ?? "",
     release: inputs.release,
     promote: inputs.promote,
     lanes: inputs.lanes,

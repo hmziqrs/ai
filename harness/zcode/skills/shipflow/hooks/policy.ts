@@ -391,8 +391,13 @@ function destructiveReason(sub: string, args: string[]): string | null {
       return positionalsOf(args)[0] === "remove" && hasFlag(args, "f", ["--force"])
         ? "git worktree remove --force deletes a worktree"
         : null;
-    case "update-ref":
-      return hasFlag(args, "d", []) ? "git update-ref -d deletes a ref" : null;
+    case "update-ref": {
+      if (!hasFlag(args, "d", [])) return null;
+      // Allowed: compare-and-delete of a run-owned branch at a known commit, as cleanup does after a merge.
+      const safe = args.length === 3 && args[0] === "-d" && /^refs\/heads\/wf\/[A-Za-z0-9._\/-]+$/.test(args[1])
+        && !args[1].includes("..") && /^[0-9a-f]{40}$/.test(args[2]);
+      return safe ? null : "git update-ref -d deletes a ref; only -d refs/heads/wf/<branch> <40-hex sha> is allowed";
+    }
     case "reflog":
       return args.includes("expire") ? "git reflog expire drops reflog entries" : null;
     case "gc":

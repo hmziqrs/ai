@@ -710,6 +710,9 @@ export function gitAllowed(args: string[]): boolean {
     case "ls-tree":
       return rest.length === 3 && rest[0] === "-r" && rest[1] === "--name-only" && rest[2].startsWith(ORIGIN)
         && safeRef(rest[2].slice(ORIGIN.length));
+    case "update-ref":
+      // Only the merged setup branch, and only while it still points at the commit setup made.
+      return rest.length === 3 && rest[0] === "-d" && /^refs\/heads\/wf\/setup-[0-9]+$/.test(rest[1]) && /^[0-9a-f]{40}$/.test(rest[2]);
     default:
       return false;
   }
@@ -1149,6 +1152,17 @@ function removeWorktree(git: GitRunner, root: string, worktree: string, st: RunS
   if (removed.exitCode !== 0) st.warnings.push(`WARN worktree ${worktree} kept: ${firstLine(removed.stderr)}`);
 }
 
+// After the setup PR merges: the local branch goes only while it points at the commit setup made,
+// the remote branch only while it points at the merged head. Anything kept is a warning.
+async function removeMergedBranch(
+  git: GitRunner, root: string, branchName: string, merged: { local: string; head: string; kit: Kit }, st: RunState,
+): Promise<void> {
+  const local = git(root, ["update-ref", "-d", `refs/heads/${branchName}`, merged.local]);
+  if (local.exitCode !== 0) st.warnings.push(`WARN local branch ${branchName} kept: ${firstLine(local.stderr)}`);
+  const remote = await merged.kit.deleteBranch(branchName, merged.head);
+  if (remote.outcome !== "deleted" && remote.outcome !== "absent") st.warnings.push(`WARN remote branch ${branchName} kept (${remote.outcome})`);
+}
+
 // Step 4. Dry-run and an up-to-date checkout stop after planning. Otherwise: a new wf/setup-<s>
 // branch in a worktree, one commit with the changed paths, a push (no force), an ls-remote check,
 // the PR, and the merge. The worktree is removed afterwards (no force).
@@ -1181,6 +1195,8 @@ async function publishFiles(
   const branchName = `wf/setup-${stamp}`;
   const worktree = join(opts.root, ".zflow", "worktrees", `setup-${stamp}`);
   gitOk(deps.git, opts.root, ["worktree", "add", "-b", branchName, worktree, `${ORIGIN}${branch}`], "git worktree add");
+  // Set once the PR merges: the local commit and the merged head, so the branch can be cleaned up.
+  let mergedBranch: { local: string; head: string; kit: Kit } | null = null;
   try {
     for (const file of changed) {
       const target = join(worktree, file.path);
@@ -1226,8 +1242,10 @@ async function publishFiles(
       throw new SetupFailure(`setup PR #${pr.number} not merged (${train.outcome}): ${train.reason}`, 1);
     }
     st.merged = true;
+    mergedBranch = { local: sha, head: train.pinnedSha, kit: mergeKit };
   } finally {
     removeWorktree(deps.git, opts.root, worktree, st);
+    if (mergedBranch !== null) await removeMergedBranch(deps.git, opts.root, branchName, mergedBranch, st);
   }
 }
 

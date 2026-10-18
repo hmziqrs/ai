@@ -84,6 +84,20 @@ check("end-to-end dispatch can plan the next milestone; implementation runs exis
   assert.equal(result.action, "task-cycles");
   assert.deepEqual(result.issues, [110]);
 });
+check("new reports are triaged before review or task work, in either mode", () => {
+  const triage = decide({ ...ready, untriaged: [41, 7] });
+  assert.equal(triage.action, "triage");
+  assert.deepEqual(triage.issues, [7, 41]);
+  assert.equal(decide({ ...ready, mode: "implement", untriaged: [7] }).action, "triage");
+  assert.equal(decide({ ...ready, untriaged: [7], stopTheLine: [9] }).action, "fix-main");
+});
+check("a queued bug is dispatched first, even outside the current milestone", () => {
+  const later = ready.milestones[ready.milestones.length - 1].name;
+  const bug = { issue: 500, id: "BUG-500", kind: "bug", milestone: later, area: ["zz-bug-only/"], prio: "p2", createdAt: "2099-01-01T00:00:00Z", criticalPath: 1 };
+  const picked = decide({ ...ready, ready: [...ready.ready, bug] });
+  assert.equal(picked.action, "task-cycles");
+  assert.equal(picked.issues[0], 500);
+});
 check("implementation never starts kickoff", () => {
   assert.equal(decide({ ...ready, mode: "implement", kickoffStage: "S2" }).action, "needs-plan");
   assert.equal(decide({ ...ready, mode: "dispatch", kickoffStage: "S2" }).action, "kickoff");

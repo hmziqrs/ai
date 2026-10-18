@@ -94,6 +94,7 @@ Paths are relative to the installed folder, `.zcode/skills/shipflow/` in the pro
 | `scripts/setup.ts` | Owner-invoked setup (Mode: setup); `--sync-checkout` updates the owner's checkout after a merged setup |
 | `scripts/snapshot.ts` | Dispatcher JSON of ids and counts, plus the `decide()` decision |
 | `scripts/fill-cycle.ts` | Fills the task-cycle template for chosen issues; `--verify` detects drift |
+| `scripts/cleanup.ts` | Sweeps finished work: removes a run-owned worktree and `wf/` branches only when their pull request is merged or closed and the branch still points at its head; keeps the rest with a reason |
 | `scripts/run-gate.ts` | Runs charter gates in CI and locally; `--gate protected` checks protected paths |
 | `scripts/preview.ts` | Starts and stops one lane's preview server |
 | `scripts/post-review.ts` | Optional: posts `ai-review` as a check run when a reviewer App is configured; the default is a commit status posted through the kit |
@@ -111,7 +112,7 @@ The main thread is the composer-coordinator (z-workflow Pillar 9). It holds only
 paths, exit codes and run results. It never mutates GitHub and never reads issue bodies, PRD
 text or code. Its one exception is the owner's setup run (Mode: setup).
 
-- It runs only `bun scripts/snapshot.ts`, `bun scripts/fill-cycle.ts` and its `--verify`, the
+- It runs only `bun scripts/snapshot.ts`, `bun scripts/cleanup.ts`, `bun scripts/fill-cycle.ts` and its `--verify`, the
   drift checks in `references/dispatch.md`, read-only `gh` queries that print numbers or label
   names, `CreateWorkflow`, and Agent dispatch of `workflow-planner` or `workflow-author` for a
   bespoke run. It runs `bun scripts/setup.ts` only for an explicit setup prompt, as in Mode: setup.
@@ -189,10 +190,25 @@ turn with `--mode implement`; the helper defaults to that mode. Each turn:
 | `kickoff` | The stage in `decision.stage`; `S0` stops with "install incomplete" |
 | `decompose` | A PLAN run by `z-product-owner` for `decision.milestone`; reconcile syncs the new tasks |
 | `fix-main` | A bespoke fix run for the stop-the-line issues; merges stay paused until `main` is green |
+| `triage` | A bespoke triage run on new issues with no `kind:*` label (see Bugs below) |
 | `advance` | A bespoke run on the `state:review` issues: rebase, fix findings, re-run checks |
 | `unblock` | A bespoke run that splits, spikes or proposes a PRD change for the blocked tasks |
 | `audit`, `finish` | Audit mode, below |
 | `busy`, `paused`, `wait-approval`, `needs-plan`, `idle` | No launch; end the turn with a one-line status |
+
+**Bugs.** A defect becomes a `kind:bug` issue in the queue, and bugs are dispatched before tasks,
+even outside the milestone window. Three sources feed the queue:
+
+- A cycle whose gate is red on the base branch before any edit files `BUG-<n>` in the failing lane's
+  own area (`fileBug`, same signature twice means one issue and a comment). Bug lanes never file
+  further bugs.
+- The owner or anyone else opens an issue. The `triage` run reads it as data. A report from `OWNER`,
+  `MEMBER` or `COLLABORATOR` becomes a ready bug (`acceptBug`); from anyone else it gets `kind:bug`,
+  no state, and a comment asking the owner to confirm (`labelIssue`).
+- The audit (`audit` decision) opens `kind:bug` issues for regressions it finds.
+
+A bug lane is a task cycle with the bug report as its spec and `BUG-<n>.AC1` as its one criterion.
+Its fix merges through the same checks as any task, and its issue closes with the merge.
 
 - **Approval.** The owner reports that allowing workflow creation once for the session suppresses later workflow dialogs. Reuse that allowance within the requested phases and charter; a new session may need its own allowance. S1 records installed-version behavior and chaining. PRD approval and per-cycle review are separate choices. The optional AXTree fallback is documented in `references/dispatch.md`; no helper is shipped.
 - **Drift checks** run before every launch: `fill-cycle.ts --verify`, and `diff` of the persona-kit and GitHub-kit copies against their canonical files.

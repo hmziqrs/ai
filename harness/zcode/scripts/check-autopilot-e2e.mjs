@@ -31,6 +31,7 @@ import {
   readExisting,
 } from "../skills/shipflow/scripts/reconcile.ts";
 import { buildDecideInput, decide } from "../skills/shipflow/scripts/snapshot.ts";
+import { sweep } from "../skills/shipflow/scripts/cleanup.ts";
 import {
   buildConfig,
   buildLanes,
@@ -236,6 +237,11 @@ function forbiddenGit(args) {
   if (sub === "reset" && flags.includes("--hard")) return "reset --hard";
   if (sub === "checkout" && flags.includes("--")) return "checkout --";
   if (sub === "branch" && flags.some((arg) => arg === "-D" || arg === "--delete")) return "branch -D";
+  // The one ref deletion allowed: compare-and-delete of a run-owned branch at a known commit.
+  if (sub === "update-ref" && flags.includes("-d")) {
+    const safe = flags.length === 3 && flags[0] === "-d" && /^refs\/heads\/wf\/[^:]+$/.test(flags[1]) && /^[0-9a-f]{40}$/.test(flags[2]);
+    if (!safe) return "update-ref -d outside refs/heads/wf/* at a known commit";
+  }
   if (flags.some((arg) => arg === "-f" || arg === "--force" || arg.startsWith("--force-"))) return "--force";
   if (sub === "push") {
     const specs = flags.filter((arg) => arg !== "origin" && !arg.startsWith("-"));
@@ -657,6 +663,10 @@ async function implementChecks(state, fake, charterPost) {
   expectEqual("the PR is merged with the reported merge commit", [pr?.state, lane.mergeSha], ["MERGED", pr?.mergeCommit]);
   expectTrue("the ai-review status is posted on the reviewed commit", pr.rollup.some((entry) => entry.context === "ai-review" && entry.state === "SUCCESS"));
   expectEqual("the merged lane reports no findings", lane.findings, []);
+  expectEqual("merged lane cleanup: the worktree is removed", existsSync(lane.worktree), false);
+  expectEqual("merged lane cleanup: the local branch is deleted", Bun.spawnSync({ cmd: ["git", "-C", state.root, "rev-parse", "--verify", "--quiet", `refs/heads/${lane.branch}`] }).exitCode, 1);
+  expectEqual("merged lane cleanup: the remote branch is deleted on GitHub", fake.branches.has(lane.branch), false);
+  expectEqual("merged lane cleanup: git worktree list shows only the checkout", gitOk(["-C", state.root, "worktree", "list", "--porcelain"]).split("\n").filter((line) => line.startsWith("worktree ")).length, 1);
   expectEqual("no forbidden git argv ran in the template", state.forbidden, []);
   expectEqual("origin main's prd tree is unchanged", gitOk(["--git-dir", state.origin, "rev-parse", "refs/heads/main:prd"]), prdBefore);
 
@@ -713,6 +723,115 @@ async function implementChecks(state, fake, charterPost) {
   expectEqual("no forbidden git argv ran in any rehearsal", state.forbidden, []);
 }
 
+// Branch and worktree cleanup (cleanup.ts) against real git: a bare origin, a checkout with
+// run-owned worktrees, and pull requests supplied by the caller. A dry run changes nothing; the real
+// sweep removes only what a merged pull request finished, and keeps each other case with a reason.
+async function cleanupChecks(scratch) {
+  const origin = join(scratch, "cleanup-origin.git");
+  const work = join(scratch, "cleanup-work");
+  const must = (dir, args) => {
+    const r = run("git", ["-C", dir, ...args], GIT_ENV);
+    if (r.exitCode !== 0) throw new Error(`git ${args.join(" ")} failed: ${r.stderr.trim()}`);
+    return r.stdout.trim();
+  };
+  const commitIn = (dir, name, text) => {
+    writeFileSync(join(dir, name), text);
+    must(dir, ["add", "--", name]);
+    must(dir, ["-c", "user.name=e2e", "-c", "user.email=e2e@example.invalid", "commit", "-q", "-m", name]);
+    return must(dir, ["rev-parse", "HEAD"]);
+  };
+  const pushRef = (branch) => must(work, ["push", "-q", "origin", `refs/heads/${branch}:refs/heads/${branch}`]);
+  const worktreeFor = (name) => {
+    const path = join(work, ".zflow", "worktrees", name);
+    must(work, ["worktree", "add", "-q", "-b", `wf/${name}`, path, "main"]);
+    return path;
+  };
+
+  must(scratch, ["init", "-q", "--bare", "-b", "main", origin]);
+  must(scratch, ["init", "-q", "-b", "main", work]);
+  commitIn(work, "README.md", "base\n");
+  must(work, ["remote", "add", "origin", origin]);
+  pushRef("main");
+  must(work, ["push", "-q", "origin", "main"]);
+
+  // lane-a: merged and pushed, worktree clean. Expect everything removed.
+  const wtA = worktreeFor("lane-a");
+  const headA = commitIn(wtA, "a.txt", "a\n");
+  pushRef("wf/lane-a");
+  // lane-b: pushed, pull request still open. Expect kept.
+  const wtB = worktreeFor("lane-b");
+  const headB = commitIn(wtB, "b.txt", "b\n");
+  pushRef("wf/lane-b");
+  // lane-c: merged at c1, then a newer local commit that never reached the pull request. Expect kept.
+  const wtC = worktreeFor("lane-c");
+  const headC1 = commitIn(wtC, "c.txt", "c1\n");
+  pushRef("wf/lane-c");
+  commitIn(wtC, "c2.txt", "c2\n");
+  // lane-d: merged, worktree holds uncommitted work. Expect the worktree kept and the remote branch removed.
+  const wtD = worktreeFor("lane-d");
+  const headD = commitIn(wtD, "d.txt", "d\n");
+  pushRef("wf/lane-d");
+  writeFileSync(join(wtD, "d.txt"), "d, edited but not committed\n");
+  // lane-e: merged and pushed, but the pull request is the only record of it. Expect removed.
+  const headE = commitIn(work, "e.txt", "e\n");
+  must(work, ["branch", "-q", "wf/lane-e"]);
+  pushRef("wf/lane-e");
+  must(work, ["update-ref", "-d", "refs/heads/wf/lane-e"]);
+  // lane-f: merged at f1, then pushed past it. Expect the remote kept as moved.
+  const headF1 = commitIn(work, "f1.txt", "f1\n");
+  must(work, ["branch", "-q", "wf/lane-f"]);
+  pushRef("wf/lane-f");
+  // f2 is committed on main, then the branch is moved to it: the fast-forward push moves the remote past the pull request.
+  const headF2 = commitIn(work, "f2.txt", "f2\n");
+  must(work, ["update-ref", "refs/heads/wf/lane-f", headF2]);
+  pushRef("wf/lane-f");
+  // orphan: a local wf/ branch no pull request names. Expect kept.
+  must(work, ["branch", "-q", "wf/orphan"]);
+  // A branch outside wf/ is never touched.
+  must(work, ["branch", "-q", "feature/x"]);
+  must(work, ["push", "-q", "origin", "feature/x:refs/heads/feature/x"]);
+
+  const prs = [
+    { number: 1, state: "MERGED", head: "wf/lane-a", headSha: headA },
+    { number: 2, state: "OPEN", head: "wf/lane-b", headSha: headB },
+    { number: 3, state: "MERGED", head: "wf/lane-c", headSha: headC1 },
+    { number: 4, state: "MERGED", head: "wf/lane-d", headSha: headD },
+    { number: 5, state: "MERGED", head: "wf/lane-e", headSha: headE },
+    { number: 6, state: "MERGED", head: "wf/lane-f", headSha: headF1 },
+  ];
+  const gitFn = (root, args) => run("git", ["-C", root, ...args], GIT_ENV);
+  const deleteRemote = (branch, sha) => (run("git", ["--git-dir", origin, "update-ref", "-d", `refs/heads/${branch}`, sha], GIT_ENV).exitCode === 0 ? "deleted" : "failed");
+  const deps = { git: gitFn, prs: async () => prs, deleteRemote: async (branch, sha) => deleteRemote(branch, sha) };
+  const remoteHeads = () => must(origin, ["for-each-ref", "--format=%(refname)", "refs/heads/"]).split("\n");
+  const beforeRemote = remoteHeads();
+
+  const planned = await sweep(work, deps, true);
+  expectEqual("cleanup dry run: reports planned work and changes nothing", planned.ok && planned.dryRun, true);
+  expectEqual("cleanup dry run: no worktree or remote branch removed", [existsSync(wtA), remoteHeads()], [true, beforeRemote]);
+
+  // git reports real paths (macOS /var is /private/var), so worktrees are compared by their tail.
+  const tail = (path) => path.replace(/^.*\/cleanup-work\//, "");
+  const report = await sweep(work, deps, false);
+  expectEqual("cleanup: the sweep ran", report.ok, true);
+  expectEqual("cleanup: lane-a's worktree is removed", [report.removed.worktrees.map(tail), existsSync(wtA)], [[".zflow/worktrees/lane-a"], false]);
+  expectEqual("cleanup: local branches removed where the pull request finished at that commit", report.removed.local.sort(), ["wf/lane-a"]);
+  expectEqual("cleanup: remote branches removed where the pull request finished at the head", report.removed.remote.sort(), ["wf/lane-a", "wf/lane-c", "wf/lane-d", "wf/lane-e"]);
+  expectEqual("cleanup: keeps the open pull request's branch", must(work, ["rev-parse", "--verify", "--quiet", "refs/heads/wf/lane-b"]).length > 0, true);
+  expectEqual("cleanup: keeps the dirty worktree and its edits", [existsSync(wtD), readFileSync(join(wtD, "d.txt"), "utf8")], [true, "d, edited but not committed\n"]);
+  const keptItems = report.kept.map((entry) => tail(entry.item)).sort();
+  expectEqual("cleanup: every kept item carries a reason", report.kept.every((entry) => entry.reason !== ""), true);
+  expectEqual("cleanup: kept items are the open, diverged, dirty, orphaned and moved cases", keptItems, [".zflow/worktrees/lane-d", "origin/wf/lane-f", "wf/lane-b", "wf/lane-c", "wf/lane-f", "wf/orphan"].sort());
+  expectEqual("cleanup: the orphan branch is untouched", must(work, ["rev-parse", "--verify", "--quiet", "refs/heads/wf/orphan"]).length > 0, true);
+  expectEqual("cleanup: origin keeps the open, moved and non-wf/ branches", remoteHeads().filter((ref) => ref.startsWith("refs/heads/wf/") || ref === "refs/heads/feature/x").sort(), ["refs/heads/feature/x", "refs/heads/wf/lane-b", "refs/heads/wf/lane-f"].sort());
+  expectEqual("cleanup: origin lost only the merged remote branches", beforeRemote.filter((ref) => !remoteHeads().includes(ref)).sort(), ["refs/heads/wf/lane-a", "refs/heads/wf/lane-c", "refs/heads/wf/lane-d", "refs/heads/wf/lane-e"].sort());
+  expectEqual("cleanup: git worktree list shows the checkout and the open and dirty worktrees", must(work, ["worktree", "list", "--porcelain"]).split("\n").filter((line) => line.startsWith("worktree ")).length, 4);
+
+  const again = await sweep(work, deps, false);
+  expectEqual("cleanup: a second sweep removes nothing", [again.removed.worktrees, again.removed.local, again.removed.remote], [[], [], []]);
+  expectEqual("cleanup: an unreadable pull request list stops the sweep", (await sweep(work, { ...deps, prs: async () => null }, false)).ok, false);
+  expectTrue("cleanup: the head commits used in the checks exist", [headF2, headC1].every((sha) => /^[0-9a-f]{40}$/.test(sha)));
+}
+
 async function main() {
   const scratch = mkdtempSync(join(tmpdir(), "autopilot-e2e-"));
   try {
@@ -728,6 +847,7 @@ async function main() {
     const charterPost = charterAt(site.root, 1);
     await afterPublicationChecks(state, fake, charterPost);
     await implementChecks(state, fake, charterPost);
+    await cleanupChecks(scratch);
     console.log(`Autopilot end-to-end validation passed: ${tally.count} checks.`);
   } finally {
     rmSync(scratch, { recursive: true, force: true });

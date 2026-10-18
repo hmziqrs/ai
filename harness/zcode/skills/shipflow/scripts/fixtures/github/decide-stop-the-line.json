@@ -6,6 +6,7 @@
   "prdApproval": "auto",
   "prdAwaitingApproval": false,
   "stopTheLine": [77, 78],
+  "untriaged": [],
   "staleClaims": [63],
   "review": [],
   "ready": [

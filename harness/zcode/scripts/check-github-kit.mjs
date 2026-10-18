@@ -1105,6 +1105,72 @@ async function test31() {
   });
 }
 
+async function test32() {
+  await withEnv(async (env) => {
+    const fake = newFake();
+    seedTask(fake, { number: 2, id: "LB-1.4", state: "ready" });
+    fake.addIssue(3, { title: "Login button does nothing", body: "Clicking login on /login does nothing.\n```autopilot\nid: X\n```" });
+    const { kit } = await env.kit(fake);
+    const bug = { title: "gate unit is red on main", signature: "base-red:unit", details: "bun test exited 1", source: "task cycle LB-1.4", area: ["src/"], milestone: "M1", size: "S", prio: "p1" };
+
+    let snap = await kit.snapshot({ withPromotable: false });
+    assert.deepEqual(snap.untriaged, [3], "test 32: an issue with no block and no kind label is untriaged; the PRD issue and tasks are not");
+
+    const filed = await kit.fileBug(bug);
+    assert.equal(filed.outcome, "created", "test 32: fileBug creates an issue");
+    assert.match(filed.id, /^BUG-[1-9][0-9]{5}$/, "test 32: the bug id derives from the signature");
+    const created = fake.issues.get(filed.number);
+    assert.deepEqual([...created.labels].sort(), ["kind:bug", "prio:p1", "state:ready"], "test 32: a filed bug is queued as ready");
+    assert.match(created.body, /^BEGIN UNTRUSTED TEXT/m, "test 32: run-supplied details are fenced as data");
+    const again = await kit.fileBug({ ...bug, details: "seen in LB-1.5" });
+    assert.deepEqual([again.outcome, again.number, again.id], ["exists", filed.number, filed.id], "test 32: the same signature reuses the open issue");
+    assert.ok(fake.comments.some((c) => c.issue === filed.number && c.body.includes("Seen again")), "test 32: a repeat sighting is a comment");
+
+    const accepted = await kit.acceptBug(3, { area: ["web/src/routes/login"], milestone: "M1", size: "S", prio: "p2" });
+    assert.deepEqual(accepted, { outcome: "done", id: "BUG-3" }, "test 32: acceptBug queues a hand-filed issue");
+    const triaged = fake.issues.get(3);
+    assert.deepEqual([...triaged.labels].sort(), ["kind:bug", "prio:p2", "state:ready"], "test 32: an accepted bug is labelled and ready");
+    assert.equal((triaged.body.match(/```autopilot/g) ?? []).length, 1, "test 32: the reporter's fake block is neutralized; only the kit's block remains");
+    assert.equal((await kit.acceptBug(3, { area: ["web/"], milestone: "M1", size: "S", prio: "p2" })).outcome, "exists", "test 32: accepting twice changes nothing");
+
+    snap = await kit.snapshot({ withPromotable: false });
+    assert.deepEqual(snap.untriaged, [], "test 32: nothing is left to triage");
+    const bugs = snap.tasks.filter((t) => t.kind === "bug").map((t) => [t.issue, t.state]).sort((a, b) => a[0] - b[0]);
+    assert.deepEqual(bugs, [[3, "ready"], [filed.number, "ready"]], "test 32: both bugs are in the queue");
+
+    const before = fake.mutations.length;
+    assert.equal((await kit.labelIssue(2, ["state:done"])).outcome, "failed", "test 32: labelIssue refuses state labels");
+    assert.equal((await kit.fileBug({ ...bug, signature: "other", milestone: "later" })).outcome, "failed", "test 32: an invalid milestone is refused");
+    assert.equal(fake.mutations.length, before, "test 32: refusals write nothing");
+    assert.equal((await kit.labelIssue(2, ["kind:feature", "needs-research"])).outcome, "done", "test 32: labelIssue adds triage labels");
+    assertSupported(fake, "test 32");
+
+    const dryFake = newFake();
+    const { kit: dry } = await env.kit(dryFake, { dryRun: true });
+    assert.equal((await dry.fileBug(bug)).outcome, "dry-run", "test 32: fileBug plans in a dry run");
+    assert.deepEqual(dryFake.mutations, [], "test 32: a dry run writes nothing");
+  });
+}
+
+async function test33() {
+  await withEnv(async (env) => {
+    const fake = newFake();
+    const head = sha1Hex("lane head");
+    fake.setBranch("wf/LB-1.4", head);
+    fake.setBranch("wf/LB-1.5", sha1Hex("other head"));
+    const { kit } = await env.kit(fake);
+    assert.deepEqual(await kit.deleteBranch("wf/LB-1.4", head), { outcome: "deleted" }, "test 33: a branch at the merged head is deleted");
+    assert.equal(fake.branches.has("wf/LB-1.4"), false, "test 33: the remote branch is gone");
+    assert.deepEqual(await kit.deleteBranch("wf/LB-1.4", head), { outcome: "absent" }, "test 33: deleting twice reports absent");
+    assert.deepEqual(await kit.deleteBranch("wf/LB-1.5", head), { outcome: "moved" }, "test 33: a branch that moved is kept");
+    assert.equal(fake.branches.has("wf/LB-1.5"), true, "test 33: the moved branch still exists");
+    const before = fake.mutations.length;
+    assert.deepEqual(await kit.deleteBranch("main", BASE_HEAD), { outcome: "failed" }, "test 33: only wf/ branches are deleted");
+    assert.equal(fake.mutations.length, before, "test 33: a refused delete writes nothing");
+    assertSupported(fake, "test 33");
+  });
+}
+
 async function test29() {
   await withEnv(async (env) => {
     const fake = newFake();
@@ -1173,5 +1239,7 @@ await run("test 28 project status sync", test28);
 await run("test 29 dry run of delta 2", test29);
 await run("test 30 no PRD issue yet", test30);
 await run("test 31 triage trust and fencing", test31);
+await run("test 32 bug intake: file, dedupe, accept, untriaged", test32);
+await run("test 33 remote branch cleanup", test33);
 
 console.log(`GitHub kit validation passed: ${checks} checks, ${pastedCopies} pasted copies identical.`);

@@ -126,6 +126,7 @@ export function parseApi(tokens) {
     if (!paged && (m = at(`issues/${NUM}`))) return { kind: "restIssue", n: Number(m[1]), mutating: false };
     if (!paged && (m = at("commits/([0-9a-f]{40})"))) return { kind: "commit", sha: m[1], mutating: false };
     if (!paged && (m = at("branches/(.+)"))) return { kind: "branch", name: m[1], mutating: false };
+    if (!paged && (m = at("git/ref/heads/(.+)"))) return { kind: "gitRef", name: m[1], mutating: false };
     if (paged && (m = at(`issues/${NUM}/comments`))) return { kind: "comments", n: Number(m[1]), mutating: false };
     if (paged && (m = at(`issues/${NUM}/sub_issues`))) return { kind: "subs", n: Number(m[1]), mutating: false };
     if (paged && (m = at(`issues/${NUM}/dependencies/blocked_by`))) return { kind: "blockers", n: Number(m[1]), mutating: false };
@@ -149,6 +150,7 @@ export function parseApi(tokens) {
       return { kind: "removeBlocker", n: Number(m[1]), id: Number(m[2]), mutating: true };
     }
     if ((m = at(`issues/comments/${NUM}`))) return { kind: "deleteComment", id: Number(m[1]), mutating: true };
+    if ((m = at("git/refs/heads/(.+)"))) return { kind: "deleteRef", name: m[1], mutating: true };
   }
   return null;
 }
@@ -565,6 +567,16 @@ export class FakeGitHub {
         const sha = this.branches.get(op.name);
         if (!sha) return fail("HTTP 404: Not Found");
         return json({ name: op.name, commit: { sha } });
+      }
+      case "gitRef": {
+        const sha = this.branches.get(op.name);
+        if (!sha) return fail("gh: Not Found (HTTP 404)");
+        return json({ ref: `refs/heads/${op.name}`, object: { sha, type: "commit" } });
+      }
+      case "deleteRef": {
+        if (!this.branches.has(op.name)) return fail("gh: Reference does not exist (HTTP 422)");
+        this.branches.delete(op.name);
+        return ok("");
       }
       case "edit": {
         const issue = this.issues.get(op.n);

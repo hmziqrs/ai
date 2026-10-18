@@ -6,6 +6,8 @@ import { naturalCompare, parsePrd, readProject, type PrdModel } from "./lib/prd.
 export interface DecideItem {
   issue: number;
   id: string;
+  /** Machine block kind; a bug is dispatched ahead of tasks and outside the milestone window. */
+  kind?: string;
   milestone: string;
   area: string[];
   prio: string;
@@ -28,6 +30,7 @@ export interface DecideInput {
   prdApproval: "auto" | "window" | "human";
   prdAwaitingApproval: boolean;
   stopTheLine: number[];
+  untriaged: number[];
   staleClaims: number[];
   review: number[];
   ready: DecideItem[];
@@ -50,6 +53,7 @@ export interface Decision {
     | "wait-approval"
     | "needs-plan"
     | "fix-main"
+    | "triage"
     | "advance"
     | "decompose"
     | "task-cycles"
@@ -93,6 +97,8 @@ export interface KitSnapshot {
   promotable: number[];
   openPrs: { pr: number; head: string; isDraft: boolean }[];
   invalid: { issue: number; errors: string[] }[];
+  /** New reports with no machine block and no kind label; absent in snapshots from older kits. */
+  untriaged?: number[];
   kickoffStage: string;
   prdIssueOpen: boolean;
 }
@@ -194,6 +200,10 @@ export function decide(input: DecideInput): Decision {
     return decision("fix-main", "stop-the-line issues are open", { issues: ascending(input.stopTheLine) });
   }
   const release = ascending(input.staleClaims);
+  // New reports, bugs above all, enter the queue before more work is claimed.
+  if (input.untriaged.length > 0) {
+    return decision("triage", "new issues need triage", { issues: ascending(input.untriaged), release });
+  }
   if (input.review.length > 0) {
     return decision("advance", "PRs in review need advancing", { issues: ascending(input.review), release });
   }
@@ -203,6 +213,7 @@ export function decide(input: DecideInput): Decision {
   }
   const curIdx = currentIndex(input.milestones);
   const scoped = candidatesOf(input).filter((c) => {
+    if (c.kind === "bug") return true;
     const rank = input.milestones.findIndex((m) => m.name === c.milestone);
     return rank >= 0 && rank <= curIdx;
   });
@@ -245,8 +256,11 @@ export function pickNonOverlapping(candidates: DecideItem[], k: number): DecideI
   return picked;
 }
 
+const isBug = (c: DecideItem): number => (c.kind === "bug" ? 0 : 1);
+
 function byDispatchOrder(a: DecideItem, b: DecideItem): number {
   return (
+    isBug(a) - isBug(b) ||
     naturalCompare(a.milestone, b.milestone) ||
     b.criticalPath - a.criticalPath ||
     prioRank(a.prio) - prioRank(b.prio) ||
@@ -328,6 +342,7 @@ export function buildDecideInput(
   const item = (t: SnapshotTask): DecideItem => ({
     issue: t.issue,
     id: t.id,
+    kind: t.kind,
     milestone: t.milestone,
     area: [...t.area],
     prio: prioName(t),
@@ -357,6 +372,7 @@ export function buildDecideInput(
     prdApproval: charter.prd_approval,
     prdAwaitingApproval: snap.openPrs.some((p) => PRD_BRANCH.test(p.head)),
     stopTheLine: [...snap.stopTheLine],
+    untriaged: [...(snap.untriaged ?? [])],
     staleClaims: [...snap.staleClaims],
     review: withState("review").map((t) => t.issue),
     ready: withState("ready").map((t) => item(t)),
@@ -365,7 +381,7 @@ export function buildDecideInput(
     openTasks: open.length,
     milestones,
     auditDue: flags.auditDue,
-    projectDone: open.length === 0 && kickoffStage === "done",
+    projectDone: open.length === 0 && (snap.untriaged ?? []).length === 0 && kickoffStage === "done",
     lanes: charter.limits.max_parallel_lanes,
     taskBreakdown: charter.task_breakdown,
   };
@@ -507,6 +523,7 @@ function summarize(snap: KitSnapshot, input: DecideInput) {
     prdAwaitingApproval: input.prdAwaitingApproval,
     openTasks: input.openTasks,
     stopTheLine: ascending(input.stopTheLine),
+    untriaged: ascending(input.untriaged),
     staleClaims: ascending(input.staleClaims),
     promotable: ascending(snap.promotable),
     invalid: snap.invalid.map((i) => i.issue),

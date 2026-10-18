@@ -212,6 +212,8 @@ interface KitSnapshot {
   promotable: number[];
   openPrs: { pr: number; head: string; isDraft: boolean }[];
   invalid: { issue: number; errors: string[] }[];
+  /** Open issues with no machine block and no kind:* label: new reports that need triage. */
+  untriaged: number[];
   kickoffStage: string;
   prdIssueOpen: boolean;
 }
@@ -1415,6 +1417,93 @@ function makeGithubKit(cfg: KitConfig) {
     return { outcome: run.exitCode === 0 ? "done" : "failed" };
   }
 
+  // Bug intake. fileBug opens a queued kind:bug issue for a defect a run found. Its id derives
+  // from the signature, so the same defect found twice gets one issue and a comment. acceptBug
+  // queues an issue someone opened by hand once triage has judged it a bug.
+  function bugBlock(id: string, opts: { area: string[]; milestone: string; size: string }): string {
+    return kitRenderMachineBlock({
+      id, kind: "bug", parent: "", prd: "", prd_hash: "", area: opts.area, depends_on: [], satisfies: [id + ".AC1"], tests: [],
+      size: opts.size, milestone: opts.milestone, budget: null,
+    });
+  }
+
+  function bugFieldsValid(opts: { area: string[]; milestone: string; size: string; prio: string }): boolean {
+    return opts.area.every((path) => kitValidPath(path)) && /^M[0-9]+$/.test(opts.milestone)
+      && (opts.size === "S" || opts.size === "M") && /^p[0-3]$/.test(opts.prio);
+  }
+
+  async function fileBug(opts: {
+    title: string; signature: string; details: string; source: string;
+    area: string[]; milestone: string; size: string; prio: string;
+  }): Promise<{ outcome: "created" | "exists" | "failed" | "dry-run"; number: number; id: string }> {
+    const id = "BUG-" + String((parseInt(kitSha256(opts.signature).slice(0, 8), 16) % 900000) + 100000);
+    if (opts.title.trim() === "" || opts.signature.trim() === "" || !bugFieldsValid(opts)) return { outcome: "failed", number: 0, id };
+    const listed = await listIssues("open");
+    if (!listed.ok) return { outcome: "failed", number: 0, id };
+    const existing = listed.issues.find((issue) => kitParseMachineBlock(issue.body).block?.id === id);
+    if (existing !== undefined) {
+      const noted = await comment(existing.number, "bug-seen", "Seen again by " + kitPlain(opts.source) + ".\n\n" + kitUntrusted(opts.details, 4000) + "\n");
+      return { outcome: noted.outcome === "failed" ? "failed" : "exists", number: existing.number, id };
+    }
+    const body = [
+      "Found by " + kitPlain(opts.source) + ". Signature: " + kitPlain(opts.signature) + ".",
+      "",
+      kitUntrusted(opts.details, 6000),
+      "",
+      bugBlock(id, opts),
+    ].join("\n");
+    const created = await createIssue({
+      title: "[Bug] " + kitPlain(opts.title), body, labels: ["kind:bug", "state:ready", "prio:" + opts.prio],
+      milestone: opts.milestone, parent: 0, blockedBy: [],
+    });
+    if (created.outcome === "dry-run") return { outcome: "dry-run", number: 0, id };
+    if (created.outcome !== "created") return { outcome: "failed", number: 0, id };
+    return { outcome: "created", number: created.number, id };
+  }
+
+  async function acceptBug(n: number, opts: { area: string[]; milestone: string; size: string; prio: string }): Promise<{ outcome: "done" | "exists" | "failed" | "dry-run"; id: string }> {
+    if (!kitValidNumber(n) || !bugFieldsValid(opts)) return { outcome: "failed", id: "" };
+    const id = "BUG-" + String(n);
+    const view = await viewIssue(n);
+    if (!view.ok) return { outcome: "failed", id };
+    if (kitParseMachineBlock(view.body).block !== null) return { outcome: "exists", id };
+    const body = ["Triaged as " + id + ". The original report follows as data.", "", kitUntrusted(view.body, 8000), "", bugBlock(id, opts)].join("\n");
+    const updated = await updateBody(n, body);
+    if (updated.outcome !== "done") return { outcome: updated.outcome === "dry-run" ? "dry-run" : "failed", id };
+    const argv = ["issue", "edit", String(n), "-R", cfg.repo, "--add-label", "kind:bug", "--add-label", "state:ready", "--add-label", "prio:" + opts.prio];
+    for (const name of view.labels) {
+      if ((name.startsWith("state:") && name !== "state:ready") || (name.startsWith("prio:") && name !== "prio:" + opts.prio)) argv.push("--remove-label", name);
+    }
+    const run = await gh(argv, true);
+    if (run.planned) return { outcome: "dry-run", id };
+    return { outcome: run.exitCode === 0 ? "done" : "failed", id };
+  }
+
+  // Triage labels only: kind, priority and needs-* flags. State labels move through transition().
+  async function labelIssue(n: number, add: string[]): Promise<{ outcome: "done" | "failed" | "dry-run" }> {
+    const allowed = (name: string): boolean => kitValidLabel(name) && /^(kind:|prio:|needs-)/.test(name);
+    if (!kitValidNumber(n) || add.length === 0 || !add.every(allowed)) return { outcome: "failed" };
+    const argv = ["issue", "edit", String(n), "-R", cfg.repo];
+    for (const name of add) argv.push("--add-label", name);
+    const run = await gh(argv, true);
+    if (run.planned) return { outcome: "dry-run" };
+    return { outcome: run.exitCode === 0 ? "done" : "failed" };
+  }
+
+  // Deletes a remote wf/ branch only while it still points at expectedSha, the head a merged PR
+  // was merged at; a branch that moved is kept.
+  async function deleteBranch(branch: string, expectedSha: string): Promise<{ outcome: "deleted" | "absent" | "moved" | "failed" | "dry-run" }> {
+    if (!kitValidBranch(branch) || !kitValidSha(expectedSha)) return { outcome: "failed" };
+    const read = await gh(["api", "repos/" + cfg.repo + "/git/ref/heads/" + branch], false);
+    if (read.exitCode !== 0) return { outcome: /HTTP 404|Not Found/.test(read.stderr) ? "absent" : "failed" };
+    const data = kitParseJson(read.stdout);
+    const sha = kitIsRecord(data) && kitIsRecord(data.object) ? kitStr(data.object.sha) : "";
+    if (sha !== expectedSha) return { outcome: "moved" };
+    const run = await gh(["api", "-X", "DELETE", "repos/" + cfg.repo + "/git/refs/heads/" + branch], true);
+    if (run.planned) return { outcome: "dry-run" };
+    return { outcome: run.exitCode === 0 ? "deleted" : "failed" };
+  }
+
   async function addSubIssue(parent: number, child: number): Promise<{ outcome: "linked" | "exists" | "failed" | "dry-run" }> {
     if (!kitValidNumber(parent) || !kitValidNumber(child)) return { outcome: "failed" };
     const subs = await listSubIssues(parent);
@@ -1787,7 +1876,7 @@ function makeGithubKit(cfg: KitConfig) {
   async function snapshot(opts: { withPromotable: boolean }): Promise<KitSnapshot> {
     const base: KitSnapshot = {
       ok: false, error: "", repo: cfg.repo, now: 0, paused: false, counts: {}, tasks: [], stopTheLine: [],
-      staleClaims: [], promotable: [], openPrs: [], invalid: [], kickoffStage: "S0", prdIssueOpen: false,
+      staleClaims: [], promotable: [], openPrs: [], invalid: [], untriaged: [], kickoffStage: "S0", prdIssueOpen: false,
     };
     const stamp = await now();
     if (!Number.isFinite(stamp)) return { ...base, error: "clock unreadable" };
@@ -1807,6 +1896,7 @@ function makeGithubKit(cfg: KitConfig) {
     for (const name of KIT_STATES) counts[name] = 0;
     const tasks: KitSnapshot["tasks"] = [];
     const invalid: { issue: number; errors: string[] }[] = [];
+    const untriaged: number[] = [];
     const stopTheLine: number[] = [];
     const promotable: number[] = [];
     for (const issue of listed.issues) {
@@ -1818,6 +1908,7 @@ function makeGithubKit(cfg: KitConfig) {
       const block = parsed.block;
       if (block === null) {
         if (st.count >= 1) invalid.push({ issue: issue.number, errors: parsed.errors });
+        if (issue.number !== cfg.prdIssue && !issue.labels.some((name) => name.startsWith("kind:"))) untriaged.push(issue.number);
         continue;
       }
       const prio = issue.labels.find((name) => name.startsWith("prio:"));
@@ -1856,6 +1947,7 @@ function makeGithubKit(cfg: KitConfig) {
       promotable,
       openPrs,
       invalid,
+      untriaged,
       kickoffStage: kick.length > 0 ? kick[0].slice("kickoff:".length) : "S0",
       prdIssueOpen: prd.state === "OPEN",
     };
@@ -1865,7 +1957,7 @@ function makeGithubKit(cfg: KitConfig) {
     ops, findings, caps, now, writeBody, viewIssue, stateOf, attemptOf, comments, issueId, paused,
     listIssues, listSubIssues, listBlockedBy, transition, claim, release, staleClaims, promoteReady,
     ensureLabels, ensureMilestones, setKickoffStage, pinIssue, createIssue, updateBody, comment, journal,
-    readJournal, triageComments, closeNotPlanned, addSubIssue, addBlockedBy, removeBlockedBy, openPr, prFacts, mergeTrain,
+    readJournal, triageComments, closeNotPlanned, fileBug, acceptBug, labelIssue, deleteBranch, addSubIssue, addBlockedBy, removeBlockedBy, openPr, prFacts, mergeTrain,
     snapshot, postStatus, repoInfo, ensureRuleset, whoami, projectEnsure, projectItems, projectAdd,
     projectVerify, projectSyncStatus,
   };
