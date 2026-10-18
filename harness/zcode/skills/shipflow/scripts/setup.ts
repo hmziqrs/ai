@@ -10,7 +10,7 @@ import { createHash } from "node:crypto";
 import {
   existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync,
 } from "node:fs";
-import { hostname } from "node:os";
+import { hostname, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { expandHome, parseCharter, type Charter } from "./lib/charter.ts";
 import { loadKit, realWorld, type KitModule, type World } from "./lib/kit.ts";
@@ -935,7 +935,8 @@ function makeKit(
     claimTtlSeconds: 7200,
     attemptCap: 4,
     requiredChecks,
-    writeRoot: resolve(opts.root, ".zflow", "kit"),
+    // A dry run writes nothing in the checkout: the kit's request bodies go to a temporary folder.
+    writeRoot: opts.dryRun ? join(tmpdir(), "shipflow-setup-dry-run") : resolve(opts.root, ".zflow", "kit"),
     pollSeconds: 15,
     maxPolls: 120,
     assignee: "",
