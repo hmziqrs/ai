@@ -1393,6 +1393,21 @@ function makeGithubKit(cfg: KitConfig) {
     return { ok: true, entries: kitParseJournal(listing.comments, cfg.login) };
   }
 
+  async function triageComments(n: number, maxChars: number): Promise<{
+    ok: boolean;
+    comments: { id: number; login: string; association: string; trusted: boolean; text: string }[];
+  }> {
+    const listing = await comments(n);
+    if (!listing.ok) return { ok: false, comments: [] };
+    const rows = listing.comments
+      .filter((c) => c.login !== cfg.login)
+      .map((c) => {
+        const trusted = kitTrustedAssociation(c.association);
+        return { id: c.id, login: c.login, association: c.association, trusted, text: kitUntrusted(c.body, maxChars) };
+      });
+    return { ok: true, comments: rows };
+  }
+
   async function closeNotPlanned(n: number): Promise<{ outcome: "done" | "failed" | "dry-run" }> {
     if (!kitValidNumber(n)) return { outcome: "failed" };
     const run = await gh(["issue", "close", String(n), "-R", cfg.repo, "--reason", "not planned"], true);
@@ -1850,7 +1865,7 @@ function makeGithubKit(cfg: KitConfig) {
     ops, findings, caps, now, writeBody, viewIssue, stateOf, attemptOf, comments, issueId, paused,
     listIssues, listSubIssues, listBlockedBy, transition, claim, release, staleClaims, promoteReady,
     ensureLabels, ensureMilestones, setKickoffStage, pinIssue, createIssue, updateBody, comment, journal,
-    readJournal, closeNotPlanned, addSubIssue, addBlockedBy, removeBlockedBy, openPr, prFacts, mergeTrain,
+    readJournal, triageComments, closeNotPlanned, addSubIssue, addBlockedBy, removeBlockedBy, openPr, prFacts, mergeTrain,
     snapshot, postStatus, repoInfo, ensureRuleset, whoami, projectEnsure, projectItems, projectAdd,
     projectVerify, projectSyncStatus,
   };
