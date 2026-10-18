@@ -41,8 +41,8 @@ protected:
   - {prefix: "tests/acceptance/", agents: "^test-author-", branches: "^wf/test-"}
   - {prefix: "tests/parity/", agents: "^test-author-", branches: "^wf/test-"}
   - {prefix: "discovery/", agents: "^recon-", branches: "^wf/recon-"}
-  - {prefix: ".github/", agents: "^$", branches: "^$"}
-  - {prefix: "autopilot.yaml", agents: "^$", branches: "^$"}
+  - {prefix: ".github/", agents: "^$", branches: "^wf/setup-[0-9]+$"}
+  - {prefix: "autopilot.yaml", agents: "^$", branches: "^wf/setup-[0-9]+$"}
 hooks:
   log: .shipflow/policy.log
   deny_agent_gh_writes: true

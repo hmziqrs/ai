@@ -1,151 +1,204 @@
-# Shipflow - per-project install
+# Shipflow (autopilot) - per-project install
 
-Shipflow installs into one project at a time through `z-project-init`
-(`harness/zcode/skills/z-project-init/SKILL.md`). Real files, never symlinks: ZCode silently
-skips symlinked agent definitions. Nothing installs globally beyond the Global Core that
-`install.md` already covers. There is no workflow file to install: every cycle script is
-written fresh by the planner and author chain.
+The owner prompts; the harness writes everything: the charter, PRD, tasks, labels, milestones,
+Project, ruleset, CI workflow and hook configuration. No step has you write JSON, YAML,
+credentials, a GitHub App or a key. The only prerequisite outside a prompt is a `gh` login on this
+machine as the repository owner, with admin on the repository and the `repo` and `project`
+scopes (`gh auth status` shows them). The commands shown are what the coordinator runs for you.
 
-## 1. Files (via z-project-init with Shipflow selected)
+## 1. Planning only
 
-| Source in `hmziqrs/ai` | Destination |
-|---|---|
-| `harness/zcode/skills/shipflow/` (whole folder) | `<project>/.zcode/skills/shipflow/` |
-| `harness/zcode/skills/z-workflow/` (whole folder, pins `persona-kit.dwf.ts` and `references/specialists.md`) | `<project>/.zcode/skills/z-workflow/` |
-| `harness/zcode/agents/z-product-owner.md`, `z-security-auditor.md`, `z-qa-evaluator.md` | `<project>/.zcode/agents/` |
-| The `z-*` specialists the project's manifests call for (per `harness/zcode/skills/z-workflow/references/specialists.md`), plus `z-native-device-verifier.md` when the project ships a desktop or mobile surface | `<project>/.zcode/agents/` |
-| Stack skills those specialists name, from their approved sources | `<project>/.agents/skills/` |
+Planning needs no GitHub access. It needs the `prd-authoring` skill (and `site-recon` for a
+reference site) in `.agents/skills/`, plus the harness files from section 2, because the PRD
+linter runs from `.zcode/skills/shipflow/scripts/prd-lint.ts`.
 
-Never copy the 7 core agents into the project, never create `<project>/.zcode/workflows/`,
-and never copy role checklists into `docs/agents/`; the checklists live in
-`shipflow/references/review-checklists.md` and are read from there. `z-project-init` records
-the source commit, `personaKitVersion`, `personaKitSha256` and every file's sha256 in
-`<project>/.zcode/hmziqrs-ai-snapshot.json`.
+> Write a detailed PRD for <idea>
 
-## 2. Project config
+Planning ends at the local PRD and tasks. Publishing them to GitHub and building them need their
+own prompts: approving a plan does not authorize building it (D14).
 
-Create `<project>/.zcode/shipflow.json` (committed, so the queue's policy is reviewable):
+## 2. Install the harness files (prompt)
 
-```json
-{
-  "repo": "OWNER/NAME",
-  "pinIssue": 1,
-  "tier": "pro",
-  "dryRun": false,
-  "commit": true,
-  "sizeBudget": { "maxLines": 400, "maxFiles": 10 },
-  "mergeMethods": ["squash", "merge", "rebase"]
-}
-```
+> Initialize this project for Shipflow autopilot
 
-`tier` is `pro` or `flash` (flash selects `workflow-planner-flash` and the z-flashflow
-profile). `mergeMethods` is a preference order; the planner intersects it with what the repo
-allows. Start a new project with `"dryRun": true` for the first cycles.
+ZCode runs `z-project-init` with the Shipflow row selected, shows the plan and writes real files
+(never symlinks, which ZCode silently skips for agents) after you confirm.
 
-Add to `<project>/.gitignore`:
-
-```
-.shipflow/
-.zflow/
-```
-
-Check with `git -C <project> check-ignore -q .shipflow/x .zflow/x` (exit 0).
-
-## 3. Labels and pin issue
-
-Create each label once (one `gh label create` per label; `--force` is not used, so an
-existing label is left as it is and the command's "already exists" error is fine):
-
-```bash
-for l in backlog ready claimed done failed paused watchdog; do
-  gh label create "pipeline:$l" -R OWNER/NAME || true
-done
-gh label list -R OWNER/NAME --search pipeline: --json name -q '.[].name' | sort
-```
-
-The list must print all seven names. Then create the pin issue and record its number as
-`pinIssue`:
-
-```bash
-gh issue create -R OWNER/NAME -t "Shipflow control" \
-  -b "Add the pipeline:paused label to this issue to stop the Shipflow loop before its next cycle. Remove it to allow cycles again."
-gh issue pin <number> -R OWNER/NAME
-```
-
-## 4. Watchdog (notify only)
-
-The watchdog notices a stalled queue and opens one issue. It never launches, resumes or
-relabels anything. It runs from the user's crontab and installs nothing globally; the entry
-is per project (`cd <project>`). Save as `<project>/.shipflow/watchdog.sh` (git-ignored,
-`chmod 700`):
-
-```bash
-#!/bin/sh
-# Shipflow watchdog: notify-only. Opens one pipeline:watchdog issue when ready work exists,
-# the queue is not paused, and no cycle report was written in the last 30 minutes.
-set -eu
-cd "$1"; R="$2"; PIN="$3"
-gh issue view "$PIN" -R "$R" --json labels -q '.labels[].name' | grep -qx 'pipeline:paused' && exit 0
-gh issue list -R "$R" -l pipeline:ready --state open -L 1 --json number -q '.[].number' | grep -q . || exit 0
-find .shipflow -name 'cycle-*.md' -mmin -30 2>/dev/null | grep -q . && exit 0
-gh issue list -R "$R" -l pipeline:watchdog --state open -L 1 --json number -q '.[].number' | grep -q . && exit 0
-gh issue create -R "$R" -l pipeline:watchdog -t "shipflow stalled" \
-  -b "Ready issues exist, the queue is not paused, and no .shipflow/cycle-*.md was written in 30 minutes. Check the coordinator session."
-```
-
-Crontab entry (`crontab -e`):
-
-```
-*/15 * * * * /bin/sh <project>/.shipflow/watchdog.sh <project> OWNER/NAME <pinIssue>
-```
-
-The duplicate check keeps one open watchdog issue at a time. The coordinator stops when it
-sees one open; the user closes it after looking.
-
-## 5. Verification (all must pass before the first cycle)
-
-A failure stops the install and is reported with its command; nothing is skipped.
-
-| Check | Command | Must show |
+| Installed to | What lands there | When |
 |---|---|---|
-| Real files | `find <project>/.zcode/agents <project>/.zcode/skills -type l` | empty output |
-| Agent discovery | start a new ZCode session in `<project>` (agents load at session start) and list agents | `z-product-owner`, `z-security-auditor`, `z-qa-evaluator` and each selected specialist, read from `<project>/.zcode/agents/` |
-| Kit identity | from the `hmziqrs/ai` checkout: `bun harness/zcode/scripts/check-personas.mjs`; then `shasum -a 256 <project>/.zcode/skills/z-workflow/persona-kit.dwf.ts` | the checker exits 0; the hash equals `personaKitSha256` in the snapshot |
-| gh auth | `gh auth status` and `gh api repos/OWNER/NAME -q '.permissions.push'` | logged in with the `repo` scope; `true` |
-| Merge methods | `gh api repos/OWNER/NAME -q '[.allow_squash_merge,.allow_merge_commit,.allow_rebase_merge]'` | at least one `true` that is also in `mergeMethods` |
-| Labels and pin | the label list above; `gh issue view <pinIssue> -R OWNER/NAME --json state -q .state` | seven labels; `OPEN` |
-| Ignored paths | `git -C <project> check-ignore -q .shipflow/x .zflow/x` | exit 0 |
-| Capture probe, `V` = web | `agent-browser --session shipflow-probe open about:blank`, then `screenshot <project>/.zflow/evidence/probe.png`, then `close`; `test -s <project>/.zflow/evidence/probe.png` | exit 0 for each; non-empty PNG |
-| Capture probe, `V` = desktop or mobile | one `z-native-device-verifier` probe dispatch against the project's app or simulator | an AX dump and a PNG under `.zflow/evidence/` |
-| Gate discovery dry check | dispatch `workflow-planner` with the task "list the Shipflow gates for this repo per shipflow/references/gates.md; no author dispatch" | every gate has a `source`, none is refused, no `mutatingBody` left unexplained |
-| Bun and Git present | `bun --version`; `git --version` | both print a version (the persona guard needs them) |
+| `.zcode/skills/shipflow/` | the harness: scripts, hooks, references, templates | always |
+| `.zcode/skills/z-workflow/` | the workflow skill, with its pinned `persona-kit.dwf.ts` | always |
+| `.zcode/agents/` | `z-product-owner`, `z-security-auditor` | always |
+| `.zcode/agents/` | `z-qa-evaluator`, `z-accessibility-auditor` | the project has a UI |
+| `.zcode/agents/` | `z-native-device-verifier` | the project ships a desktop or mobile app |
+| `.zcode/agents/` | stack specialists named in `z-workflow/references/specialists.md` | per the manifests |
+| `.agents/skills/` | `prd-authoring`, `site-recon`, `parity-testing`, and the stack skills the specialists name | kickoff is used |
+| `.zcode/hmziqrs-ai-snapshot.json` | source commit and sha256 of every installed file | always |
 
-Run the capture probe only for the surfaces the project has; record "not applicable" for
-the others. Close any probe session even when a step fails.
+Restart the ZCode session afterwards, or open a new one. ZCode loads agents only at session start.
 
-## 6. Update and uninstall
+## 3. Set up the repository (prompt)
 
-Update by running `z-project-init` in the project; it compares the snapshot, asks before
-overwriting local edits, and rewrites the snapshot. Uninstall by deleting the copied
-`shipflow/` folder, the three autopilot agents, `.zcode/shipflow.json`, the crontab line and
-`.shipflow/watchdog.sh`, then rerunning `z-project-init` to rewrite the snapshot. Labels and
-the pin issue stay on GitHub unless the user deletes them.
+> Set up Shipflow autopilot for this repository
 
-## Migrating from the old queue
+Add options to the same prompt in plain words: a reference site given by its https address, the
+review mode ("human review", or "auto approval" for a small project), lanes ("5 lanes"), the task
+breakdown ("detailed task list upfront" or "rolling"), and the Project title.
 
-Projects installed before the no-engine migration carry files this repo no longer ships.
-Remove them (after `git -C <project> status --porcelain` shows they hold no local edits the
-user wants), then rerun `z-project-init`:
+The coordinator runs setup twice: first as a plan, then for real.
 
-| Remove | Why |
+```
+bun .zcode/skills/shipflow/scripts/setup.ts --repo <root> --dry-run
+bun .zcode/skills/shipflow/scripts/setup.ts --repo <root>
+```
+
+The dry run reads GitHub and writes nothing (`dryRun: true`, `files.status: "planned"`); the
+coordinator shows it before applying. Setup is idempotent: `files.status: "up to date"` means a
+re-run changed nothing.
+
+| Step | Result |
 |---|---|
-| `<project>/.zcode/workflows/shipflow-queue.dwf.ts` (and `zflow-engine.dwf.ts` if present) | saved engines are retired; cycles are written fresh |
-| `<project>/.zcode/agents/shipflow-*.md` (all 20 roles) | replaced by the role map in `shipflow/SKILL.md` |
-| `<project>/.zcode/agents/z-gh-operator.md`, `z-pr-merge-steward.md`, `z-queue-sentinel.md`, `z-github-project-manager.md` | GitHub mechanics moved into the GitHub kit and project judgement into `z-product-owner` |
-| `<project>/docs/agents/*.md` copies the old installer created (`browser-vision.md`, `implementer-rust.md`, `implementer-svelte.md`, `pipeline-ops.md`, `qa-writer.md`, `queue-monitoring.md`, `reviewer.md`, `security-audit.md`) | checklists now live in `shipflow/references/review-checklists.md`; delete only files whose content matches the old copies, and keep any the project edited |
-| `<project>/.zcode/skills/shipflow/references/knowledge/` | retired with the agents |
-| Snapshot entries for every removed path in `<project>/.zcode/hmziqrs-ai-snapshot.json` | `z-project-init` rewrites them; a stale entry fails drift checks |
+| Identity | checks the `gh` login and admin access; that login becomes the builder identity |
+| Charter | `autopilot.yaml` at the root, generated from the prompt and the repository; values already on the default branch are kept |
+| Labels, milestones | the kit's label set (`state:*`, `kind:*`, `prio:*` and the rest) and the charter's milestones |
+| PRD issue | `[PRD]` plus the project slug, labelled `kind:prd` and `kickoff:S1`, pinned; its number goes to `dispatcher.prd_issue` |
+| Project | a GitHub Project titled as you asked (default: the project slug), with the PRD issue added |
+| Setup PR | `[Setup] autopilot`, merged through the kit. It adds `autopilot.yaml`, `.github/workflows/autopilot-ci.yml`, the `.shipflow/` and `.zflow/` lines in `.gitignore`, the hook block in `.zcode/config.json`, and the harness files from section 2 |
+| Ruleset | `autopilot-main` on the default branch, applied after the merge, requiring `ci`, `acceptance`, `parity` and `ai-review` |
 
-Then add `.zcode/shipflow.json`, the `.gitignore` lines, and rerun every verification check.
-Old branches named `shipflow/issue-<N>` are left in place; the new retry lane only looks for
-`wf/shipflow-<N>`. Issues left `pipeline:claimed` by the old queue are relabelled by a human.
+Setup exits 0 when it finishes, 1 when a required step fails (the report's `error` names it), and
+2 when the environment cannot work: no `gh` login, no admin access, or no GitHub origin. In the
+last case the coordinator asks you for the repository name and passes it as `--gh-repo`.
+
+Warnings do not stop setup. They appear in the report's `warnings` list as `WARN` lines:
+
+- `project ...; publication will report partial`: no Project was created, usually because the
+  `gh` login lacks the `project` scope. The coordinator names the one-line `gh` refresh; GitHub's
+  browser prompt grants the scope. Then re-run the prompt.
+- `ruleset` failed, or rulesets not readable: no server-side ruleset. A private personal
+  repository on a free plan gets this. Merge safety then falls back to the kit's merge predicate
+  (required checks before every merge) and the policy hook.
+- `builder login X kept; gh login is Y`: the default branch already names builder X, and setup
+  keeps it, so the dispatcher must run as X.
+- `labels not created`, `milestones not created`, `PRD issue #N not pinned`, `project item for #N
+  not added`: re-run the prompt.
+- `skipped symbolic link`: a harness file is a symlink and was not committed. Reinstall it (section 2).
+
+Setup does not change repository settings. If squash merging is off (Settings > General > Pull
+Requests), the setup PR cannot merge: setup exits 1 and names the step. Turn the setting on and
+re-run the prompt.
+
+After the setup PR merges, the coordinator brings your checkout up to date:
+
+```
+bun .zcode/skills/shipflow/scripts/setup.ts --repo <root> --sync-checkout
+```
+
+The checkout must be on the default branch. Untracked files the merge would overwrite are moved
+to `.zflow/setup-backup/` (never deleted), and only when they match the merged version or
+regenerate to it (`.gitignore`, `.zcode/config.json`). Any other difference stops the sync and
+names the file.
+
+## 4. Verify (prompt)
+
+> Verify the Shipflow install
+
+The coordinator runs the checks and reports each result. These must show:
+
+| Check | Must show |
+|---|---|
+| Setup | the last setup report has `ok: true` |
+| Charter | `autopilot.yaml` parses; an invalid charter makes the policy hook deny every agent action |
+| PRD issue | open and pinned, labelled `kind:prd`; its number equals `dispatcher.prd_issue` |
+| Labels | the kit's label set exists in the repository |
+| Project | a `project.url` in the setup report, or the `project` warning |
+| Ruleset | `autopilot-main` is listed with `ruleset: created` or `updated`, or the `ruleset` warning |
+| CI | `.github/workflows/autopilot-ci.yml` is on the default branch; its `ci`, `acceptance` and `parity` jobs run on the next pull request or push |
+| Policy | the coordinator asks an agent to run `git push --force origin wf/probe`; the push is refused and `.shipflow/policy.log` gets a line with `"decision":"deny"` and `"rule":"force-push"` |
+| Agents | a new ZCode session in the project lists the Shipflow agents |
+
+## 5. Change settings (prompt)
+
+Settings change by prompt too. The coordinator re-runs setup with the new options, which opens
+and merges one setup PR as the first run did. Options the prompt does not name keep their values.
+
+> Switch PRD approval to auto for this small project
+> Use 5 lanes
+> Use the detailed task breakdown upfront
+
+These map to `--approval auto`, `--lanes 5` and `--breakdown upfront`.
+
+The build gate is not a setup option, and setup keeps the `gates` block already on the default
+branch. This prompt makes the coordinator set the `gates.l1` build gate in `autopilot.yaml`
+through a setup PR:
+
+> Pin the build gate to bun run build
+
+## 6. Supervised mode only
+
+Supervised mode works issues you write, one approved cycle at a time, with no charter edits. It
+needs the labels and PRD issue from section 3. Adding `autopilot:paused` to the PRD issue stops
+the loop before its next cycle.
+
+1. Open a GitHub issue for one piece of work and give it the `state:ready` label.
+2. Prompt: "Work the Shipflow queue with per-cycle review".
+3. Approve each cycle's command set in ZCode when it appears. A session-wide allowance (D16)
+   stops repeat dialogs.
+4. Review each cycle's pull request. With one identity you are its author, so GitHub cannot take
+   your approval; merge it on GitHub, or prompt "Merge the reviewed PR #<n>" and the harness
+   merges it through the kit, pinned to the reviewed commit. Teams with a second reviewer can
+   require an approving review instead.
+
+## 7. Optional hardening (only when you ask)
+
+Neither option is needed for a working install. Ask for one by name in a prompt: "Add the
+reviewer App to Shipflow" or "Add a separate builder account to Shipflow".
+
+Reviewer App, in GitHub (Settings > Developer settings > GitHub Apps):
+
+1. New GitHub App named after the project slug plus `-ai-review`. Uncheck Webhook > Active.
+2. Permissions: Checks read and write; Contents and Pull requests read-only. Install it only on this account.
+3. Generate a private key. The browser downloads a `.pem` file.
+4. Install the App on this repository only.
+5. Tell the coordinator the App ID, the installation ID and where the `.pem` file is.
+
+The coordinator moves the key to `~/.config/autopilot/` with mode 0600, records the IDs in the
+charter and re-runs setup. The ruleset then requires `ai-review` from the App, and
+`post-review.ts` posts it as a check run.
+
+Separate builder: invite a dedicated account with Write access (Settings > Collaborators), sign
+the dispatcher's `gh` in as that account through GitHub's browser login, and tell the coordinator
+its login. The coordinator records it in the charter and re-runs setup.
+
+Setup does not install the stall watchdog (`templates/watchdog.yml`).
+
+## 8. Update and uninstall
+
+- Update: prompt "Update Shipflow in this project". ZCode runs `z-project-init`, which updates
+  only the Shipflow files that differ from the snapshot. Then re-run the section 3 prompt so the
+  committed files and the ruleset match the new kit.
+- Uninstall: prompt "Remove Shipflow from this project". The coordinator deletes the files listed
+  in the snapshot after you confirm. GitHub objects (PRD issue, labels, Project, ruleset) stay
+  until you ask for each one.
+
+## 9. Migrating from the old queue
+
+Section 2's prompt also removes retired files. ZCode lists them, deletes them after you confirm,
+and updates the snapshot.
+
+| Retired | Replaced by |
+|---|---|
+| `.zcode/workflows/shipflow-queue.dwf.ts`, `.zcode/workflows/zflow-engine.dwf.ts` | a fresh script per run; saved engines are not used |
+| `.zcode/agents/z-gh-operator.md`, `z-pr-merge-steward.md`, `z-queue-sentinel.md`, `z-github-project-manager.md` | the GitHub kit (`github-kit.dwf.ts`); project judgement moved to `z-product-owner` |
+| `.zcode/agents/shipflow-*.md` | none; the review checklists stay in `.zcode/skills/shipflow/references/review-checklists.md` |
+| `.zcode/workflows/` | removed when empty |
+| `docs/agents/*.md` copies the old installer created (`browser-vision.md`, `implementer-rust.md`, `implementer-svelte.md`, `pipeline-ops.md`, `qa-writer.md`, `queue-monitoring.md`, `reviewer.md`, `security-audit.md`) | the checklists in `.zcode/skills/shipflow/references/review-checklists.md`; only files whose content matches the old copies are removed, edited ones are kept |
+| `.zcode/skills/shipflow/references/knowledge/` | retired with the old role agents |
+| `.zcode/shipflow.json` | the generated `autopilot.yaml` (D17) |
+| Snapshot entries for every removed path in `.zcode/hmziqrs-ai-snapshot.json` | rewritten by `z-project-init`; a stale entry fails its drift check |
+| Niche copies in `~/.zcode/agents/` and `~/.zcode/skills/`; legacy saved workflows in `~/.zcode/workflows/` | removed from the global folders after you confirm; niche files live per project |
+
+Open issues with `pipeline:*` labels: prompt "Relabel the open pipeline issues to state labels".
+The coordinator lists them, shows each old and new label, and applies the change after you
+confirm, so every issue ends with exactly one `state:*` label. Run section 3 first so the
+`state:*` labels exist.

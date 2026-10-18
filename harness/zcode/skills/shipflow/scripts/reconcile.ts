@@ -593,7 +593,10 @@ async function applyOp(a: Applier, op: ReconcileOp): Promise<ApplyResult> {
     case "kickoff-done": {
       const prd = a.numbers.get(op.id) ?? 0;
       if (prd === 0) return result("failed", "PRD issue not resolved");
-      if (prd !== a.kitPrd && a.kitFor !== undefined) {
+      if (prd !== a.kitPrd) {
+        if (a.kitFor === undefined) {
+          return result("failed", `#${prd} kickoff:done needs opts.kitFor: the kit was built for PRD issue ${a.kitPrd}`);
+        }
         a.kit = a.kitFor(prd);
         a.kitPrd = prd;
       }

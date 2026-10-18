@@ -3,46 +3,77 @@
 Every cycle script the `workflow-author` writes for Shipflow meets this contract. REVIEW and
 the coordinator's pre-flight check it. Names in `<angle brackets>` come from the brief.
 
+Supervised mode asks for product review per cycle when the user chooses that policy.
+Session-wide workflow permission can suppress repeated tool dialogs; it does not replace
+that requested product review. This contract adds no GitHub write outside authorized scope. Every GitHub mutation goes through
+the pasted GitHub kit (`github-kit.dwf.ts`, `// github-kit:start v1`); the cycle writes no
+hand-built `gh` mutation.
+
 ## Label state machine
+
+Every transition is a GitHub kit call: `transition`, or the label edit inside `claim` and
+`release`. An issue carries exactly one `state:*` label, and the kit refuses a transition from
+a state the issue does not show.
 
 | From | Event | To | Actor |
 |---|---|---|---|
-| (new issue) | human triage | `pipeline:backlog` or `pipeline:ready` | human |
-| `pipeline:ready` | planner verdict not actionable | `pipeline:backlog` + exact question comment | coordinator via the GitHub kit argv |
-| `pipeline:ready` | claim won (re-read shows sole assignee @me) | `pipeline:claimed` | script via the GitHub kit |
-| `pipeline:ready` | claim lost | unchanged; own assignee removed, no comment | script via the GitHub kit |
-| `pipeline:claimed` | issue `updatedAt` or body hash differs from the brief | `pipeline:ready` + comment "issue changed during planning" | script |
-| `pipeline:claimed` | merge confirmed | `pipeline:done` + comment with merge SHA | script |
-| `pipeline:claimed` | PR open, merge blocked or awaiting review | stays `pipeline:claimed` + comment with PR URL and itemized reasons | script |
-| `pipeline:claimed` | `commit=false` | stays `pipeline:claimed` + comment with worktree paths | script |
-| `pipeline:claimed` | dry run finished | `pipeline:ready`, own assignee removed + comment | script |
-| `pipeline:claimed` | cycle failed | `pipeline:failed` + comment with reason | script |
-| `pipeline:failed` or `pipeline:claimed` | human relabels | `pipeline:ready` (next cycle takes the retry lane) | human |
+| (new issue) | human triage | `state:backlog` or `state:ready` | human |
+| `state:ready` | planner verdict not actionable | `state:blocked` + exact question comment | coordinator via the GitHub kit |
+| `state:ready` | claim won (kit `claim` returns `won`) | `state:claimed` | script via the GitHub kit |
+| `state:ready` | claim lost | unchanged; the loser deletes its own claim comment, no comment on the issue | script via the GitHub kit |
+| `state:claimed` | issue `updatedAt` or body hash differs from the brief | `state:ready` via kit `release` (no attempt bump) + comment "issue changed during planning" | script |
+| `state:claimed` | PR opened | `state:review` | script via the GitHub kit |
+| `state:review` | merge confirmed | `state:done` + comment with merge SHA | script via the GitHub kit |
+| `state:review` | PR open, merge blocked or awaiting the owner's merge | stays `state:review` + comment with PR URL and itemized reasons | script |
+| `state:claimed` | `commit=false` | stays `state:claimed` + comment with worktree paths | script |
+| `state:claimed` | dry run finished | `state:ready` via kit `release` + comment | script |
+| `state:claimed` or `state:review` | cycle failed | `state:failed` + comment with reason | script via the GitHub kit |
+| `state:failed` (or `state:claimed` left by a stopped cycle) | human relabels | `state:ready` (next cycle takes the retry lane) | human |
 
-`pipeline:paused` lives only on the pin issue. `pipeline:watchdog` lives only on issues the
-watchdog opens. No other labels are created or removed.
+`autopilot:paused` lives only on the PRD issue (`dispatcher.prd_issue`), and a cycle only reads
+it. The watchdog's record is a GitHub issue titled `autopilot stalled` (see Watchdog), not a
+label. A cycle touches only its own issue's `state:*` label.
 
 ## Claim and release protocol
 
-1. Re-read the pin issue labels (`gh issue view <pin> --json labels`). Paused: return
-   `refused`; nothing was claimed.
-2. Re-read the issue (`gh issue view <N> --json labels,assignees,updatedAt,state`). Not open,
-   not `pipeline:ready`, or already assigned to someone else: return `refused`.
-3. GitHub kit ops, in order: `assign @me`, `label-add pipeline:claimed`,
-   `label-remove pipeline:ready`.
-4. Script re-read of labels and assignees. Won only when `pipeline:claimed` is present,
-   `pipeline:ready` is absent, and the assignees are exactly the authenticated login
-   (`gh api user -q .login`). Lost: the GitHub kit runs `unassign @me` only, the script
-   returns `released` with no comment and no further mutation.
-5. Compare the re-read `updatedAt` and the body sha256 (from a script-run
-   `gh issue view <N> --json body -q .body | shasum -a 256`) against the brief. A mismatch
-   releases the claim back to `pipeline:ready` with outcome `released`.
+A claim is a kit record, not an assignee. It is a comment by the builder login that carries a
+nonce, and the winner is decided by comment order. Several dispatchers can share one builder
+login and GitHub Apps cannot be assignees, so assignees are not the claim primitive. Supervised
+cycles call the kit with `requireBlock: false`, because human-written issues carry no machine
+block.
+
+1. Pause check: the kit reads `autopilot:paused` on the PRD issue (`dispatcher.prd_issue`).
+   Paused, or unreadable: return `refused`; nothing was claimed.
+2. Issue check (kit `claim`, step 2): the issue must be OPEN and carry exactly one `state:*`
+   label, which must be `state:ready`. A machine block is optional; a block that is present
+   must parse and have kind `task`, `spike`, `chore` or `bug`. Any failure returns `refused`
+   with no mutation.
+3. Claim comment: the kit posts a `<!-- autopilot:claim -->` comment with an `autopilot-claim`
+   record (nonce `<instance>-<unix seconds>-issue-<N>`, `bodySha` = `kitSha256` of the body,
+   attempt), then sets `state:claimed` and removes `state:ready`. An assignee may be added after
+   a won claim for visibility only (kit `assignee`; empty for none).
+4. Winner check (kit `claim`, steps 6-7): the kit re-reads the comments and counts only those by
+   the builder login. The epoch is the id of the last release comment; claims posted before it
+   do not count. A claim older than `claimTtlSeconds` (twice the task timeout) is stale and does
+   not count. The lowest live claim comment id wins. When our nonce wins the kit returns `won`.
+   Otherwise it returns `lost`: the kit deletes our claim comment and touches no label, and the
+   cycle returns `released` with no comment on the issue.
+5. Freshness: the script re-reads `updatedAt` (kit `viewIssue`) and compares it, and the claim's
+   `bodySha`, with the brief's `issue.updatedAt` and `issue.bodySha256`. A mismatch releases the
+   claim through kit `release` (reason "issue changed during planning", no attempt bump) and
+   returns `released`.
+6. Kit outcome `error` returns `failed` with the reason. Kit `dry-run` continues the cycle with
+   no GitHub write.
+
+A stopped cycle leaves its claim live until the TTL passes. A failed cycle does the same,
+because kit `release` cannot target `failed`. A relabel to `state:ready` before the TTL passes
+therefore cannot be claimed: each attempt returns `released` until the old claim goes stale.
 
 ## Required phases, in order
 
 Phase names are string literals; the pre-flight greps for each.
 
-1. `Refuse or claim` - argument checks, pause check, claim protocol above.
+1. `Refuse or claim` - argument checks, PRD issue pause check, kit claim (protocol above).
 2. `Prepare worktrees` - retry lane: when `wf/shipflow-<N>` exists locally, `git worktree add
    <wt> wf/shipflow-<N>` (reuse an existing registered worktree as-is and record its
    porcelain status); otherwise `git worktree add -b wf/shipflow-<N> <wt> <defaultHead>`,
@@ -64,51 +95,76 @@ Phase names are string literals; the pre-flight greps for each.
    file. Confirmed findings route to the owning lane by path (pattern 12, counted close),
    re-gate, re-merge, re-review, under the stop rule.
 7. `Publish` - skipped when `dryRun` or `commit=false`. Record `reviewedSha`
-   (`git rev-parse HEAD` in the integration worktree), push with the D5 refspec, then
-   `git ls-remote origin refs/heads/wf/shipflow-<N>` must equal `reviewedSha`.
-8. `Pull request` - reuse the open PR for head `wf/shipflow-<N>` when one exists; otherwise
-   the GitHub kit `pr-create` op with `--body-file .shipflow/pr-body-<N>.md`, `--draft` when the
-   local predicate rows are already false. Then wait on required checks with
-   `gh pr checks <pr> --required --watch` under a timeout.
-9. `Merge decision` - GitHub kit `prFacts`, the predicate below in script code, then GitHub
-   kit `mergeTrain` only when every row holds.
-10. `Close out` - labels and comment per the state machine, through the GitHub kit, each
-    verified by a script re-read.
+   (`git rev-parse HEAD` in the integration worktree), push once per cycle with the D5 refspec,
+   then `git ls-remote origin refs/heads/wf/shipflow-<N>` must equal `reviewedSha`.
+8. `Pull request` - kit `openPr({ head: wf/shipflow-<N>, base, title, body, draft })`. The body
+   text is read from `.shipflow/pr-body-<N>.md`; `draft` is set when the local predicate rows are
+   already false. `openPr` returns `exists` for an open PR on that head, so no second PR is made.
+   A `created` or `exists` result moves the issue from `state:claimed` to `state:review` (kit
+   `transition`) and comments the PR URL. Required checks are read later, by the merge run in phase 9,
+   not by a separate `gh pr checks` call.
+9. `Merge decision` - the run-level rows of the predicate below are checked in script code, using
+   kit `prFacts` for the kit rows. When every run-level row holds, the script posts `ai-review`
+   with state `success` on `reviewedSha` through kit `postStatus`. A failing row posts nothing, so
+   the ruleset keeps the PR unmergeable, and every failing row is itemized. The cycle does not call
+   `mergeTrain`: it ends `open` with the PR awaiting the owner, who merges in GitHub or prompts the
+   merge run below (SKILL.md, Mode: supervised, Merge). That bounded merge run starts only after the
+   owner's explicit merge prompt and calls kit `mergeTrain(pr, { reviewedSha, base, maxUpdates,
+   requireApproval: false, onRepin })`, with `reviewedSha` read from `.shipflow/cycle-<N>.md`. On
+   each poll the kit applies `kitMergePredicate` with `requireApproval: false`: `update-branch`
+   (up to `maxUpdates`, then re-pinned to GitHub's base merge), `wait` (poll again), `merge` (the
+   merge argv below), or `blocked` (stop and itemize the failing rows). `onRepin` re-posts
+   `ai-review` on the re-pinned head through kit `postStatus`, so the required context follows the
+   head. `requireApproval: true` is for a team where another person reviews; it is not the default.
+10. `Close out` - labels and comment per the state machine, through the GitHub kit. On `merged` (reported by the merge run),
+    `transition(n, "review", "done")` plus a comment with the merge SHA. On `open`, the issue stays
+    `state:review`. On `failed`, the transition to `state:failed`. The kit returns `done` only
+    when exactly one `state:*` label shows the target, which is the script re-read.
 11. `Cleanup` - stop every preview server and close every browser or device session this
     cycle started (verify the port no longer answers); remove area worktrees whose lanes
     reported `merged`, without `--force`; keep the integration worktree unless the outcome
     is `merged`. Runs on every path, including failures.
 12. `Report` - write `.shipflow/cycle-<N>.md` and return the CycleReport.
 
-## Merge predicate (script code)
+## Merge predicate (script code and kit)
 
-| Row | Holds when |
-|---|---|
-| Gates | every non-baseline-red gate exited 0 on the integration head |
-| No gateless area | every area has at least one gate that was green on base |
-| Size | every area within budget by the script's numstat |
-| Audit attached | the security audit and every fresh judge returned a result |
-| Findings | zero open high or medium findings, counting unconfirmed ones |
-| Guards | no read-only guard failure in `personaFindings` |
-| Head, local | integration `HEAD` equals `reviewedSha` |
-| Head, remote | `headRefOid` from the GitHub kit's `prFacts` and `ls-remote` both equal `reviewedSha` |
-| Draft | `isDraft` is false |
-| Review | `reviewDecision` is `APPROVED` and the approver is not the PR author |
-| Checks | every required check concluded `SUCCESS` on `reviewedSha` |
-| Method | the chosen method is allowed by the repo (brief `mergeMethods`) |
+The run-level rows are checked in script code before `ai-review` is posted (phase 9). The kit rows
+are the rows of `kitMergePredicate`, which the merge run's `mergeTrain` applies on every poll with
+that run's `requireApproval` value (`false` by default); the script reads the same facts through
+`prFacts` for the report.
 
-Merge argv: `gh pr merge <pr> --<method> --match-head-commit <reviewedSha>`; never `--admin`,
-`--auto`, or `--delete-branch`. Merged only when `gh pr view <pr> --json state,mergeCommit`
-shows `MERGED` and a non-empty merge commit. A failing row leaves the PR open; every failing
-row is itemized in the comment and the report.
+| Row | Source | Holds when |
+|---|---|---|
+| Gates | run | every non-baseline-red gate exited 0 on the integration head |
+| Gateless area | run | every area has at least one gate that was green on base |
+| Size | run | every area within budget by the script's numstat |
+| Audit attached | run | the security audit and every fresh judge returned a result |
+| Findings | run | zero open high or medium findings, counting unconfirmed ones |
+| Guards | run | no read-only guard failure in `personaFindings` |
+| Head, local | run | integration `HEAD` equals `reviewedSha` |
+| Head, remote | run | `git ls-remote origin refs/heads/wf/shipflow-<N>` equals `reviewedSha` |
+| Method | run | squash is in the brief's `mergeMethods`; the kit merges only with `--squash` |
+| `open` | kit | `prFacts.state` is `OPEN` |
+| `not-draft` | kit | `isDraft` is false |
+| `base` | kit | `baseRefName` is the brief's `defaultBranch` |
+| `head` | kit | `headRefOid` equals `reviewedSha` |
+| `checks` | kit | every name in the brief's `requiredChecks` concluded `success` on `reviewedSha` |
+| `mergeable` | kit | `mergeable` is `MERGEABLE` |
+| `merge-state` | kit | `mergeStateStatus` is `CLEAN`, `HAS_HOOKS` or `UNSTABLE` |
+| `review` | kit | Checked only when the merge run's `mergeTrain` has `requireApproval: true` (a team where another person reviews): `reviewDecision` is `APPROVED`. With the default `requireApproval: false` the row is not applied; the owner's explicit merge prompt is the human gate, and `reviewDecision` is reported only |
+
+Merge argv (kit): `gh pr merge <pr> -R <repo> --squash --match-head-commit <reviewedSha>`; never
+`--admin`, `--auto`, or `--delete-branch`. Merged only when the kit's merge-state read shows
+`MERGED` with a non-empty merge commit. A failing row leaves the PR open; every failing row is
+itemized in the comment and the report.
 
 ## dryRun and commit
 
 | Setting | Claims | Edits and gates | Commits | Push, PR, merge | Final label | Outcome |
 |---|---|---|---|---|---|---|
 | default | yes | yes | yes | per predicate | per state machine | merged, open, failed |
-| `dryRun: true` | yes | yes | yes, on `wf/*` only | no | `pipeline:ready` | `dry-run` |
-| `commit: false` | yes | yes | no | no | `pipeline:claimed` | `open` |
+| `dryRun: true` | yes (kit records the claim as planned) | yes | yes, on `wf/*` only | no | `state:ready` (no GitHub write) | `dry-run` |
+| `commit: false` | yes | yes | no | no | `state:claimed` | `open` |
 
 ## CycleReport
 
@@ -150,8 +206,20 @@ interface CycleReport {
 
 ## Report path and format
 
-`<repoRoot>/.shipflow/cycle-<N>.md`, rewritten every cycle for that issue; its mtime is the
-watchdog heartbeat. Format: a `# Shipflow cycle - issue #<N>` title; a summary table (outcome,
-PR, reviewedSha, mergeSha, dryRun, commit); the predicate table; gates; areas; findings
+`<repoRoot>/.shipflow/cycle-<N>.md`, rewritten every cycle for that issue. Its mtime is a local
+heartbeat only; the watchdog reads GitHub activity instead (see Watchdog). Format: a
+`# Shipflow cycle - issue #<N>` title; a summary table (outcome, PR, reviewedSha, mergeSha,
+dryRun, commit); the predicate table; gates; areas; findings
 grouped by label; evidence paths; personas; GitHub ops; notCovered; branches and worktrees
 left. Issue text never appears in the report except as the issue number and title hash.
+
+## Watchdog
+
+`templates/watchdog.yml` is a GitHub Actions scheduled workflow: every 30 minutes, permissions
+`contents: read` and `issues: write`, notify-only. It is optional and reads `dispatcher.prd_issue`
+from `autopilot.yaml`, so it is installed only in a project that has a charter. It opens at most
+one `kind:bug` issue titled `autopilot stalled`, and only when the PRD issue is not paused,
+`state:ready` issues exist, and no issue or pull request in the repository was updated in the
+last 2 hours. An open `autopilot stalled` issue suppresses a second one. It never relaunches,
+labels or edits anything else. The local report mtime is not visible to it, so the cycle's
+GitHub comments and label edits are what count as activity.

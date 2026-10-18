@@ -86,6 +86,16 @@ const extract = (text) => {
 };
 
 assert.equal(extract(liteflow), extract(canonical), "Liteflow persona-kit copy differs from canonical");
+for (const skill of await readdir(resolve(root, "skills"))) {
+  const dir = resolve(root, "skills", skill);
+  for (const file of await readdir(dir).catch(() => [])) {
+    const path = resolve(dir, file);
+    if (!file.endsWith(".dwf.ts") || path === canonicalPath) continue;
+    const text = await readFile(path, "utf8");
+    if (!text.includes(start)) continue;
+    assert.equal(extract(text), extract(canonical), `${skill}/${file}: persona-kit copy differs from canonical`);
+  }
+}
 assert.ok(liteflow.includes('loadPersona(IMPLEMENTER_PERSONA, { tier: "pro", access: "write" })'));
 assert.ok(liteflow.includes('loadPersona(JUDGE_PERSONA, { tier: "pro", access: "read-only" })'));
 

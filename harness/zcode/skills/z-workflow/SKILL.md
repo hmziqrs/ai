@@ -41,7 +41,7 @@ workflow code is the persona kit and z-liteflow's pre-tested template.
 6. **Bounded and honest.** Every loop uses the one stop rule below. Only command-backed
    results are labelled verified.
 7. **Never destroy, never surprise.** Scripts never run destructive git and never touch the
-   user's checkout; runs launch only through the approval dialog. The coordinator merges a
+   user's checkout; runs launch with workflow permission for the session or that run. The coordinator merges a
    clean eligible result by fast-forward under Step 6; high risk and review-first need approval.
 8. **Proportionate.** The run's machinery matches the task, not the rule set. The dials set a
    complexity budget (Step 0). Going over it needs a written reason in the plan. The smallest
@@ -342,10 +342,17 @@ Shape rules for every plan:
 - **Forbidden git**: `checkout --` or `restore` on any path, `reset --hard`, `clean`,
   `worktree remove --force`, `branch -D`, `push`, `rebase`, `stash`, `add -A`, `--no-verify`,
   and any mutation of the user's checkout or current branch.
-- **One publication exception (Shipflow only).** A Shipflow cycle script may run exactly one
+- **Supervised Shipflow publication exception.** A Shipflow cycle script may run exactly one
   non-force `git push origin refs/heads/wf/shipflow-<N>:refs/heads/wf/shipflow-<N>` of its own
   run-owned branch (no `-f`, no `--force*`, no other refspec), listed as its own group in the
-  Step 5 command-set approval. See the `shipflow` skill; every other profile never pushes.
+  Step 5 command-set approval. See the `shipflow` skill.
+- **Shipflow autopilot publication exception.** A Shipflow autopilot cycle or kickoff script
+  may run non-force pushes of its own run-owned branches under `refs/heads/wf/*`, one per lane
+  (`wf/<task-id>`, `wf/test-<task-id>`, `wf/prd-v<n>`, `wf/recon-<n>`). Each is
+  `git push origin refs/heads/<b>:refs/heads/<b>` with no `-f`, no `--force*` and no other
+  refspec, verified by `ls-remote`. The default branch is protected server-side by the ruleset.
+  Remote merges happen only through the GitHub kit's merge train (`github-kit.dwf.ts`). Every
+  other profile never pushes.
 - **Every git call checks its exit code.** A nonzero exit is recorded in findings and stops
   that lane's git chain. A merge with a nonzero exit runs `git merge --abort` in that
   worktree and records the conflict; it never retries with a strategy flag.
@@ -388,11 +395,14 @@ Shape rules for every plan:
 - **Show the command set first.** Before CreateWorkflow, list for the user every command the
   script can run (tool and args template), grouped as gates, read-only git, and git
   mutations, plus the signals, dials, band, and model per role.
-- **Approval is the gate.** Every workflow launches through the approval dialog. The dialog
-  appears in every permission mode, including Full access, unless "Always allow in this
-  session" was chosen earlier in the session. Never pick that option, or "always allow", for
-  a workflow that runs any git mutation; choose "Allow only this time". If an earlier
-  workflow in this session was always-allowed, stop and ask the user before launching.
+- **Session permission.** The owner reports that choosing "Always allow in this session"
+  for workflow creation suppresses later workflow dialogs in that session. Reuse an existing
+  allowance for the authorized task; do not stop merely because it was granted. A fresh
+  session or expanded permission scope may need a new allowance. Keep inspecting each run's
+  command set before launch. Workflow permission does not expand the user-authorized task
+  or replace product/PRD approval. Shipflow's phase and review boundaries are in its skill's
+  `references/dispatch.md` (owner decision D16, autopilot design section 0.1, 2026-10-18).
+
 - ONE CreateWorkflow call with the inline `script` and `name: "zflow-<task-slug>"`. Add
   `max_concurrency` or `subagent_model` only when the user asks for them.
 - Do not poll. Completion arrives as a notification.
@@ -407,7 +417,8 @@ Shape rules for every plan:
 
 The coordinator owns checkout delivery; workflow scripts merge only into run-owned
 worktrees. This step applies to successful local writing runs, including profiles and
-opt-in Rustflow implementation. Read-only work has no checkout merge. A run with committing
+opt-in Rustflow implementation. Shipflow runs (supervised and autopilot) skip it: their
+delivery is the remote PR. Read-only work has no checkout merge. A run with committing
 or delivery disabled leaves its result for review. An explicit "don't merge" also leaves
 the destination branch untouched; do not ask to override it.
 
@@ -436,7 +447,7 @@ also require approval before merging, after the result and evidence are ready. A
 not permit force, resets, bypassed gates or an unreviewed conflict resolution.
 
 If post-merge gates fail, report that delivery occurred, old/new HEAD and failing commands.
-Do not merge again or automatically undo it. Never push (outside the Shipflow exception in
+Do not merge again or automatically undo it. Never push (outside the Shipflow exceptions in
 the git rules), delete run branches, or copy files into the checkout by hand. Report the destination branch, result branch, old/new HEAD,
 diff stat, gate results and whether delivery happened, was declined or was blocked.
 

@@ -1,0 +1,46 @@
+{
+  "hooks": {
+    "enabled": true,
+    "events": {
+      "PreToolUse": [
+        {
+          "matcher": "Bash|Write|Edit|ApplyPatch|NotebookEdit|WebFetch",
+          "hooks": [
+            {
+              "type": "process",
+              "command": "bun",
+              "args": [
+                "--no-env-file",
+                "--config=/dev/null",
+                "${ZCODE_PROJECT_DIR}/.zcode/skills/shipflow/hooks/policy.ts",
+                "--project",
+                "${ZCODE_PROJECT_DIR}"
+              ],
+              "timeoutMs": 10000,
+              "statusMessage": "autopilot policy"
+            }
+          ]
+        }
+      ],
+      "PermissionRequest": [
+        {
+          "hooks": [
+            {
+              "type": "process",
+              "command": "bun",
+              "args": [
+                "--no-env-file",
+                "--config=/dev/null",
+                "${ZCODE_PROJECT_DIR}/.zcode/skills/shipflow/hooks/policy.ts",
+                "--project",
+                "${ZCODE_PROJECT_DIR}"
+              ],
+              "timeoutMs": 10000,
+              "statusMessage": "autopilot policy"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -5,11 +5,11 @@ description: Use when writing or amending a product requirements document that a
 
 # PRD Authoring for Agent-Built Products
 
-Grow a requirements document top-down, from a one-line goal to tasks an agent can finish in one cycle. Expand one level per stage, gate each stage before the next, and keep status out of the spec.
+Grow a requirements document top-down, from a one-line goal to tasks an agent can finish in one cycle. Planning, tracker publication and implementation can run separately or together, as the prompt requests. Expand one level per stage and keep delivery status out of the spec.
 
 ## When to Use
 
-Use this skill when you write or amend a PRD that agents will build from: a new product from a goal, a product copied from a reference site, or a PRD change during a running build. Do not use it for a brief that one person builds by hand.
+Use this skill to draft a PRD from an idea, expand one section or feature, decompose selected tasks, or amend a plan during delivery. Local planning needs no tracker credentials, execution configuration, scaffold or executable tests. A request for a plan does not authorize publication or implementation.
 
 ## 1. The Staged Pipeline
 
@@ -17,23 +17,42 @@ Each stage expands exactly one level. When a gate fails, rerun only that stage.
 
 | Stage | Input | Output | Owner | Gate before the next stage |
 |---|---|---|---|---|
-| S0 Charter | Goal, reference URLs | Run charter: budget, authority, approval mode, milestones | Human owner | Owner accepts the charter |
-| S1 Evidence | Reference site, or topic research for an original product | Discovery pack with ids (`arch:`, `journey:`, `int:`) | Recon agents per route cluster, or research agents | Every archetype captured; every recorded journey replays on the reference |
-| S2 Overview (level 0) | Goal, discovery pack | `prd/prd.md` | Product owner agent | Lint `s2`; critics: every archetype and journey maps to a section; scope matches the parity target |
-| S3 Sections (levels 1-2) | Overview plus one section's slice of discovery | `prd/sections/<CODE>.md` | One product owner agent per section | Lint `s3` and critics per section, then one cross-section pass for data model, shared components and dependencies. PRD v1 is complete here |
-| S4 Acceptance tests | Criteria and recorded journeys | Protected acceptance and parity specs | Area specialist, one per feature | Every test fails on the empty scaffold; a test of read-only reference behavior passes against the reference |
-| S5 Tasks (level 3) | Next milestone's features and the live code | Task rows | Product owner agent, reading the code | Lint `s5`: acyclic, every task S or M, every criterion covered |
-| S6 Publish | `prd/` and `index.json` | Tracker items and dependencies | Sync script | A second sync changes nothing |
+| S0 Scope | Prompt and existing files | Requested phases, scope, detail level, approval preference and milestones | User direction | Work matches the request |
+| S1 Evidence | Reference site or domain requirements | Discovery pack or sourced research and assumptions | Recon/research specialists | Requested behaviors are covered |
+| S2 Overview (level 0) | Goal and evidence | `prd/prd.md` | Product owner | Overview lint and critics |
+| S3 Sections (levels 1-2) | Overview and section evidence | Sections, features, criteria and data contracts | Product owner per requested section | Section lint and cross-section consistency |
+| S4 Executable tests | Approved criteria and runnable scaffold | Acceptance and parity specs | Independent test author | Verified against scaffold/reference where possible; implementation preparation only |
+| S5 Task planning (level 3) | Selected features, code or architecture assumptions | Fine-grained tasks, dependencies, criteria and check paths | Product owner | DAG, size and coverage lint for the selected scope |
+| S6 Publish | Reviewed plan and publication authorization | Tracker items, dependencies and Project view | Sync code | Repeated sync changes nothing; verify membership and links |
+
+Stage identifiers describe outputs. They do not force S4 before S5: writing a plan names
+checks without implementing them. An overview-only request stops at S2; a detailed PRD can
+run S1-S3-S5 and stop before tracker publication or any product code.
+
+Select scope (project, section, feature or milestone) and depth (overview, sections, features
+or tasks) from the prompt. Read parent context and dependencies but expand only the selected
+scope. Return paths, ids, hashes or a commit, a readable overview, task/dependency summary,
+assumptions and decisions for review. Reuse this handoff in a later session. If the owner
+asks to confirm first, only their reply authorizes the next requested phase.
+
 
 **Why errors are cheap at the top.** An error caught at the overview costs one revision; the same error found after task breakdown costs dozens. Later stages see only what they need: a section writer reads the overview and its own discovery slice, and a task writer reads one feature and the code it touches.
 
-## 2. Rolling-Wave Tasks
+## 2. Task planning depth
 
-- **Now, whole product:** the overview, every section, and every feature with its criteria, UI states, data contract and edge cases.
-- **Now, first two milestones only:** task rows.
-- **Later:** decompose each next milestone once the milestone before it is at least 70% done, reading the code that exists by then.
+- **Upfront:** when asked for a detailed whole-product PRD and task list, decompose every
+  requested feature now. Include goals, areas, dependencies, criteria, named checks and size.
+  In an empty project, mark candidate paths and architecture as assumptions. Recheck those
+  assumptions against current code before later implementation.
+- **Rolling:** when the user chooses progressive delivery, plan the first two milestones,
+  then decompose each next milestone when its predecessor is about 70% done.
+- **Selected scope:** a section or feature can be decomposed independently of its siblings.
+  Keep stable ids, explicit dependency references and criterion coverage. Split a feature
+  that needs more than eight tasks rather than dropping necessary detail.
 
-Task rows written weeks ahead describe code that does not exist yet, so they go stale. Criteria describe behavior and survive the build.
+A short prompt does not imply a small product. Complex or niche requirements call for human
+review of the plan and unresolved intent questions. An explicit small-project end-to-end
+request can authorize planning, publication and implementation with automatic approval.
 
 ## 3. Levels and Size Rules
 
@@ -44,7 +63,7 @@ Task rows written weeks ahead describe code that does not exist yet, so they go 
 | 2 | Feature | One user-observable behavior you can demo | 3-10 acceptance criteria; 2-8 tasks | Sub-item of its section |
 | 3 | Task | One agent cycle: one area, one PR | At most about 10 files and 300 changed lines; names its tests | Sub-item of its feature |
 
-A fourth level is a smell: the feature should be a section, or the tasks should be cut differently. Lint rejects any id deeper than a task.
+A fourth level is a smell: the feature should be a section, or the tasks should be cut differently. Lint rejects any id deeper than a task. Section/feature counts are recommendations; do not invent scope to pad a small project.
 
 ## 4. Identifiers
 
@@ -210,7 +229,7 @@ The bad row has implementation steps, a vague area, a dependency on a task in M3
 
 ## 9. Lint Checklist
 
-Each gate runs the rows of its stage and every row above it (`s5` runs all 23). Each problem prints as `ERROR <id> <rule> <reason>`; WARN lines do not block. With no lint script, check each row by hand.
+Each gate runs the rows of its stage and every row above it (`s5` includes task rules). Each problem prints as `ERROR <id> <rule> <reason>`; WARN lines do not block. With no lint script, check each row by hand.
 
 | Rule | Stage | Check |
 |---|---|---|
@@ -232,11 +251,12 @@ Each gate runs the rows of its stage and every row above it (`s5` runs all 23). 
 | `section-size` | s3 | WARN: 4 to 10 sections; 2 to 8 features per section |
 | `stale-index` | s3 | WARN: `prd/index.json` differs from a fresh build |
 | `dep-forward-milestone` | s5 | No task depends on a task in a later milestone; no feature depends on a later feature |
+| `task-scope` | s5 | An explicitly selected feature exists and is active |
 | `task-fields` | s5 | Each active task has Goal, at least one Area path, Satisfies and Tests; paths are valid relative paths |
 | `task-size` | s5 | Size is `S` or `M`; `L` or empty is an error |
 | `task-satisfies` | s5 | Every Satisfies id is a criterion of the task's own feature |
-| `task-count` | s5 | In each decomposed milestone, each active feature has 2 to 8 active tasks |
-| `ac-uncovered` | s5 | In each decomposed milestone, every criterion of an active feature appears in some active task's Satisfies |
+| `task-count` | s5 | In each selected feature or decomposed milestone, each active feature has 2 to 8 active tasks |
+| `ac-uncovered` | s5 | In each selected feature or decomposed milestone, every criterion of an active feature appears in some active task's Satisfies |
 
 ## 10. Critic Rubrics
 
@@ -258,24 +278,27 @@ Each finding uses this format; severity is `high` (the build would ship the wron
 
 ## 11. Assumption Logging
 
-- Every gap becomes `A-<nnn>` with a confidence (`low`, `medium` or `high`), its evidence, and the ids it affects. It is never a blocking question. Log it and continue; the approver can overturn it. Never renumber: an assumption proven wrong gets a new id that cites the old one.
+- Every gap becomes `A-<nnn>` with confidence (`low`, `medium` or `high`), evidence and affected ids. In an authorized automatic build, log ordinary assumptions and continue. For complex/niche requirements or a requested review, bring questions that change product intent to the owner before publication or implementation. Never renumber: an assumption proven wrong gets a new id citing the old one.
 
 ## 12. Approval Modes and PRD Changes
 
 | Mode | What happens | Default for |
 |---|---|---|
-| `auto` | The PR merges once lint and critics pass; the owner is notified | Lights-out runs and re-runs of a proven setup |
-| `window` | Work continues while the PR is open (acceptance tests, first tasks, M0). The PR merges after the window (default 24 hours) unless the owner requests changes; the owner may approve early | Projects with a reference site |
-| `human` | Building waits for the owner to approve the PR | Projects without a reference site |
+| `auto` | Continue through the phases already authorized after lint and critics pass | Explicit small-project end-to-end builds or a proven setup the user wants unattended |
+| `window` | Allow only the agreed work during an asynchronous review window | Explicitly chosen asynchronous review within an authorized build |
+| `human` | Present the local PRD and requested task list; await confirmation for the next requested phase | Plan-only requests, complex/niche requirements or "confirm first" |
 
-**Recommendation: put a human on the PRD whenever one is available, and nowhere else.** With a reference site, use `window`: the reference defines intent well enough for critics to check coverage, and the window never blocks. Without one, use `human`, because only the owner can judge intent. PRD v1 lands as a PR to `prd/` carrying the lint and critic checks; on approval or merge, tag it `prd-v1`.
+A reference URL informs evidence, not authority. Local planning does not open a PR or require
+a remote approval. User confirmation can authorize publishing that reviewed version;
+publication alone does not authorize implementation. After publication, repository review
+rules still apply. A session's tool permission is separate from product approval.
 
 **PRD changes** are change PRs written by the product owner agent and gated by the same lint and critics. Raise one for an uncovered parity gap, a task split that changes scope, repeated failures that expose an ambiguity, or comments from the owner or collaborators. The default approval is `auto`, except that a change adding more than 10% new features, or touching the overview (vision, scope, stack), uses the approval mode set at kickoff. Each merge increments the tag: `prd-v2`, `prd-v3`, and so on.
 
 ## 13. The No-Reference Variant
 
 - S1 becomes research: comparable products from web search, plus domain conventions, each with its source link. Each gap becomes an assumption. Set `reference: []` and every `parity_target` key to `false`; the evidence and coverage rules are then skipped.
-- S4 writes journey tests derived from the acceptance criteria, in place of parity specs. The scope critic measures against the goal. Approval mode is `human`.
+- S4 writes journey tests derived from the acceptance criteria, in place of parity specs. The scope critic measures against the goal. Prefer `human` for uncertain or niche requirements. An explicit small end-to-end request can still use `auto`.
 
 ## 14. Worked Example: LLM Benchmark Site
 
@@ -318,7 +341,7 @@ Evidence: arch:leaderboard, int:leaderboard-sort, journey:sort-by-score
 | LB-1.5 | Performance pass to the LCP budget | components/leaderboard | LB-1.4 | LB-1.AC4 | tests/acceptance/lb/leaderboard-perf.spec.ts | S | Runs lighthouse:leaderboard-lcp |
 ```
 
-UI states, data contract, edge cases and out of scope follow section 5.2 and are omitted here. Tasks exist only for M0 and M1; AUTH and CMP (M2) keep their criteria until M1 is at least 70% done.
+UI states, data contract, edge cases and out of scope follow section 5.2 and are omitted here. In rolling mode, tasks exist initially for M0 and M1; AUTH and CMP (M2) keep their criteria until M1 is at least 70% done. In upfront mode, decompose those features now as well.
 
 ## Grounded in
 
