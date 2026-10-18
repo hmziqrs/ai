@@ -687,6 +687,7 @@ async function test15() {
       id: "LB-1.4", kind: "task", state: "ready", milestone: "M1", area: ["src/routes/leaderboard"],
       prio: "p1", attempt: 1, size: "S", flags: [],
     }, "test 15: task fields");
+    assert.match(t2.createdAt, /^\d{4}-\d{2}-\d{2}T/, "test 15: task rows carry createdAt");
     assert.deepEqual(snap.tasks.find((t) => t.issue === 5).flags, ["stop-the-line"], "test 15: stop-the-line flag");
     assert.deepEqual(snap.tasks.find((t) => t.issue === 6).flags, ["flaky"], "test 15: flaky flag");
     assert.deepEqual(snap.promotable, [], "test 15: promotable is empty without withPromotable");

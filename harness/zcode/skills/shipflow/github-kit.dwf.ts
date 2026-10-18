@@ -204,6 +204,7 @@ interface KitSnapshot {
     attempt: number;
     size: string;
     flags: string[];
+    createdAt: string;
   }[];
   stopTheLine: number[];
   staleClaims: number[];
@@ -1816,6 +1817,7 @@ function makeGithubKit(cfg: KitConfig) {
         attempt: attemptOf(issue.labels),
         size: block.size,
         flags: ["stop-the-line", "flaky", "needs-capability", "needs-research"].filter((name) => issue.labels.includes(name)),
+        createdAt: issue.createdAt,
       });
       if (opts.withPromotable && st.count === 1 && st.state === "backlog" && ["task", "spike", "chore", "bug"].includes(block.kind)) {
         const blockers = await listBlockedBy(issue.number);
