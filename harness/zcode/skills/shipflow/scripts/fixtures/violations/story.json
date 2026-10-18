@@ -1,0 +1,12 @@
+{
+  "rule": "story",
+  "stage": "s3",
+  "edits": [
+    {
+      "file": "prd/sections/FRM.md",
+      "find": "Story: As a visitor, I browse forum categories and the threads in each one.",
+      "replace": "Story:"
+    }
+  ],
+  "expect": "ERROR FRM-1 story"
+}

@@ -1,0 +1,26 @@
+{
+  "activeRun": false,
+  "paused": true,
+  "mode": "dispatch",
+  "kickoffStage": "done",
+  "prdApproval": "auto",
+  "prdAwaitingApproval": false,
+  "stopTheLine": [],
+  "staleClaims": [],
+  "review": [],
+  "ready": [
+    { "issue": 201, "id": "LB-1.1", "milestone": "M1", "area": ["server/api/leaderboard"], "prio": "p1", "createdAt": "2026-10-02T09:00:00Z", "criticalPath": 4 }
+  ],
+  "promotable": [],
+  "blocked": [],
+  "openTasks": 33,
+  "milestones": [
+    { "name": "M0", "total": 18, "done": 18, "hasTasks": true },
+    { "name": "M1", "total": 33, "done": 0, "hasTasks": true },
+    { "name": "M2", "total": 0, "done": 0, "hasTasks": false }
+  ],
+  "auditDue": false,
+  "projectDone": false,
+  "taskBreakdown": "rolling",
+  "lanes": 3
+}

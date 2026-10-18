@@ -1,0 +1,5 @@
+{
+  "id": "journey:post-reply",
+  "archetype": "arch:forum-thread",
+  "steps": ["open a thread", "submit a reply"]
+}

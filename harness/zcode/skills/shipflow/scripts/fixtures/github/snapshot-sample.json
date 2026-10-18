@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "error": "",
+  "repo": "acme/site",
+  "now": 1792324800,
+  "paused": false,
+  "counts": { "unlabelled": 0, "backlog": 6, "ready": 2, "claimed": 1, "review": 1, "blocked": 0, "done": 0, "failed": 0 },
+  "tasks": [
+    { "issue": 21, "id": "FND-1.2", "kind": "task", "state": "review", "milestone": "M0", "area": ["src/tooling"], "prio": "p1", "attempt": 1, "size": "S", "flags": [] },
+    { "issue": 22, "id": "FND-1.3", "kind": "task", "state": "ready", "milestone": "M0", "area": ["src/tooling"], "prio": "p1", "attempt": 1, "size": "S", "flags": [] },
+    { "issue": 23, "id": "FND-2.2", "kind": "task", "state": "ready", "milestone": "M0", "area": ["src/theme"], "prio": "p1", "attempt": 1, "size": "S", "flags": [] },
+    { "issue": 24, "id": "FND-2.3", "kind": "task", "state": "backlog", "milestone": "M0", "area": ["components/ui"], "prio": "p1", "attempt": 1, "size": "M", "flags": [] },
+    { "issue": 25, "id": "FND-3.1", "kind": "task", "state": "backlog", "milestone": "M0", "area": ["components/shell"], "prio": "p0", "attempt": 1, "size": "M", "flags": [] },
+    { "issue": 26, "id": "FND-4.1", "kind": "task", "state": "claimed", "milestone": "M0", "area": ["server/db"], "prio": "p1", "attempt": 2, "size": "M", "flags": [] },
+    { "issue": 27, "id": "LB-1.1", "kind": "task", "state": "backlog", "milestone": "M1", "area": ["server/api/leaderboard"], "prio": "p1", "attempt": 1, "size": "S", "flags": [] },
+    { "issue": 28, "id": "LB-1.3", "kind": "task", "state": "backlog", "milestone": "M1", "area": ["components/leaderboard"], "prio": "p0", "attempt": 1, "size": "M", "flags": ["needs-research"] },
+    { "issue": 29, "id": "INFO-1.1", "kind": "task", "state": "backlog", "milestone": "M1", "area": ["routes/about"], "prio": "p2", "attempt": 1, "size": "S", "flags": [] },
+    { "issue": 30, "id": "MDL-1.2", "kind": "task", "state": "backlog", "milestone": "M1", "area": ["components/models"], "prio": "p2", "attempt": 1, "size": "S", "flags": [] }
+  ],
+  "stopTheLine": [],
+  "staleClaims": [26],
+  "promotable": [24],
+  "openPrs": [{ "pr": 40, "head": "wf/FND-1.2", "isDraft": false }],
+  "invalid": [],
+  "kickoffStage": "done",
+  "prdIssueOpen": true
+}

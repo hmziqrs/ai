@@ -1,0 +1,5 @@
+{
+  "id": "journey:sort-by-score",
+  "archetype": "arch:leaderboard",
+  "steps": ["open /leaderboard", "activate the score column header"]
+}

@@ -1,0 +1,12 @@
+{
+  "rule": "milestone-unknown",
+  "stage": "s2",
+  "edits": [
+    {
+      "file": "prd/prd.md",
+      "find": "| LB | Leaderboards | M1 |",
+      "replace": "| LB | Leaderboards | M9 |"
+    }
+  ],
+  "expect": "ERROR LB milestone-unknown"
+}

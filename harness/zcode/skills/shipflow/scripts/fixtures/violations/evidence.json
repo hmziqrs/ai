@@ -1,0 +1,12 @@
+{
+  "rule": "evidence",
+  "stage": "s3",
+  "edits": [
+    {
+      "file": "prd/sections/FRM.md",
+      "find": "Evidence: arch:forum-index\n",
+      "replace": ""
+    }
+  ],
+  "expect": "ERROR FRM-1 evidence"
+}

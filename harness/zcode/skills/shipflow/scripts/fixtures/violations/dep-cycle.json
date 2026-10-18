@@ -1,0 +1,12 @@
+{
+  "rule": "dep-cycle",
+  "stage": "s3",
+  "edits": [
+    {
+      "file": "prd/sections/FND.md",
+      "find": "depends_on: []",
+      "replace": "depends_on: [INFO]"
+    }
+  ],
+  "expect": "ERROR FND dep-cycle"
+}

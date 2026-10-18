@@ -1,0 +1,12 @@
+{
+  "rule": "id-duplicate",
+  "stage": "s2",
+  "edits": [
+    {
+      "file": "prd/prd.md",
+      "find": "| J2 ",
+      "replace": "| J1 "
+    }
+  ],
+  "expect": "ERROR J1 id-duplicate"
+}

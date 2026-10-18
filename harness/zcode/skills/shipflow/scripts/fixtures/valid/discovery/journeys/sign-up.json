@@ -1,0 +1,5 @@
+{
+  "id": "journey:sign-up",
+  "archetype": "arch:sign-in",
+  "steps": ["open /sign-in", "submit the sign-up form"]
+}

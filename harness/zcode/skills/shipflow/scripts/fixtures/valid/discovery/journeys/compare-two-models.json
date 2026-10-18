@@ -1,0 +1,5 @@
+{
+  "id": "journey:compare-two-models",
+  "archetype": "arch:compare",
+  "steps": ["open /compare", "add two models from the picker", "read the table"]
+}

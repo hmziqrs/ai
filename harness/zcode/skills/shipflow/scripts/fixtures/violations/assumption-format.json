@@ -1,0 +1,12 @@
+{
+  "rule": "assumption-format",
+  "stage": "s3",
+  "edits": [
+    {
+      "file": "prd/assumptions.md",
+      "find": "| medium | login page shows an email form",
+      "replace": "| certain | login page shows an email form"
+    }
+  ],
+  "expect": "ERROR A-001 assumption-format"
+}

@@ -1,0 +1,12 @@
+{
+  "rule": "task-count",
+  "stage": "s5",
+  "edits": [
+    {
+      "file": "prd/sections/LB.md",
+      "find": "| LB-5.2 | Methodology link to the about page anchor | routes/leaderboard | LB-5.1, INFO-1.2 | LB-5.AC2 | tests/acceptance/lb/methodology-link.spec.ts | S | |\n",
+      "replace": ""
+    }
+  ],
+  "expect": "ERROR LB-5 task-count"
+}

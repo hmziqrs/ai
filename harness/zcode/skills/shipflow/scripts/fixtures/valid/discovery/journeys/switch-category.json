@@ -1,0 +1,5 @@
+{
+  "id": "journey:switch-category",
+  "archetype": "arch:category-leaderboard",
+  "steps": ["open /leaderboard", "select the coding tab"]
+}

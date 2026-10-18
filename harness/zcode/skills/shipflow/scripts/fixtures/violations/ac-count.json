@@ -1,0 +1,12 @@
+{
+  "rule": "ac-count",
+  "stage": "s3",
+  "edits": [
+    {
+      "file": "prd/sections/AUTH.md",
+      "find": "| AUTH-2.AC2 | Given no session, when a visitor opens a protected route, then they are sent to sign-in and returned to the original path after sign-in. | tests/acceptance/auth/redirect-return.spec.ts |\n| AUTH-2.AC3 | Given a sign-out, when the session is revoked, then the old cookie no longer opens protected routes. | tests/acceptance/auth/sign-out.spec.ts |\n",
+      "replace": ""
+    }
+  ],
+  "expect": "ERROR AUTH-2 ac-count"
+}

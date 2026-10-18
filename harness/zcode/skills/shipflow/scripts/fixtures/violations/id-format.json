@@ -1,0 +1,12 @@
+{
+  "rule": "id-format",
+  "stage": "s3",
+  "edits": [
+    {
+      "file": "prd/sections/FRM.md",
+      "find": "| FRM-1.AC1 |",
+      "replace": "| FRM-1.C1 |"
+    }
+  ],
+  "expect": "ERROR FRM-1.C1 id-format"
+}

@@ -1,0 +1,5 @@
+{
+  "id": "journey:admin-import-scores",
+  "archetype": "arch:admin-models",
+  "steps": ["open /admin/models", "upload a CSV file", "review the import result"]
+}

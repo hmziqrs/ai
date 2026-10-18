@@ -1,0 +1,12 @@
+{
+  "rule": "depth",
+  "stage": "s5",
+  "edits": [
+    {
+      "file": "prd/sections/LB.md",
+      "find": "| LB-1.1 | Leaderboard API endpoint and query |",
+      "replace": "| LB-1.1.1 | Leaderboard API endpoint and query |"
+    }
+  ],
+  "expect": "ERROR LB-1.1.1 depth"
+}

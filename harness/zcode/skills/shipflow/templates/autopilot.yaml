@@ -1,0 +1,51 @@
+# Autopilot charter: an example of what `shipflow setup` generates. Setup writes the real file from
+# the owner's prompt and repository inspection; the owner never edits it by hand. A change is a new
+# prompt that re-runs setup. gates, preview and areas stay empty ({}, null, []) unless the owner asks
+# to pin them; otherwise they are detected at run time.
+# It lives at the project root and is committed. It is a protected path: no agent and no workflow
+# branch may change it, so it changes only through a PR that the project owner merges.
+version: 1
+project: llm-board                       # [a-z0-9-]+
+repo: acme/llm-board                     # OWNER/NAME
+base_branch: main
+reference: ["https://bench.example"]     # [] for a product with no reference site
+parity_target: {structure: true, layout: true, interactions: true, brand: false, content: false}
+stack: auto                              # or a pinned stack sentence
+milestones: [M0, M1, M2, M3]
+prd_approval: human
+review_window_hours: 24
+task_breakdown: upfront
+limits:
+  max_parallel_lanes: 3                  # K
+  task_attempts: 4
+  task_timeout_minutes: 90               # claim TTL is twice this
+  wall_clock_days: 14
+  page_cap: 400                          # recon crawl cap
+tiers:
+  first_attempt: pro                     # pro | flash; attempt 2+ is always pro (design 9)
+authority:
+  push: ["refs/heads/wf/*"]
+  merge: {method: squash, via: [merge_queue, merge_train], requires: [ci, acceptance, parity, ai-review]}
+  github: [issues, sub_issues, dependencies, labels, pull_requests, checks]
+  deploy: preview_only
+  network_allow: [github.com, api.github.com, registry.npmjs.org, bench.example, api.z.ai]
+identities: {builder: {login: llm-board-bot}, reviewer: null}   # builder: the login gh is authenticated as on the dispatcher; reviewer: null = ai-review commit status
+dispatcher: {instance: mac-1, prd_issue: 1}
+capabilities: {}
+gates: {}                                # argv per gate; {} = detected at run time from package.json and manifests
+preview: null                            # null = detected at run time
+areas: []                                # [] = detected at run time from dependencies and top-level directories
+security_paths: ["server/auth/", "server/api/", "package.json", "bun.lock"]
+protected:
+  - {prefix: "prd/", agents: "^(prd|plan)-", branches: "^wf/prd-v[0-9]+$"}
+  - {prefix: "tests/acceptance/", agents: "^test-author-", branches: "^wf/test-"}
+  - {prefix: "tests/parity/", agents: "^test-author-", branches: "^wf/test-"}
+  - {prefix: "discovery/", agents: "^recon-", branches: "^wf/recon-"}
+  - {prefix: ".github/", agents: "^$", branches: "^$"}
+  - {prefix: "autopilot.yaml", agents: "^$", branches: "^$"}
+hooks:
+  log: .shipflow/policy.log
+  deny_agent_gh_writes: true
+  auto_approve_tools: []
+pause: "label autopilot:paused on the PRD issue"
+notify: [github-issue]

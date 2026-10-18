@@ -1,0 +1,12 @@
+{
+  "rule": "task-size",
+  "stage": "s5",
+  "edits": [
+    {
+      "file": "prd/sections/LB.md",
+      "find": "| tests/parity/leaderboard.spec.ts | S |",
+      "replace": "| tests/parity/leaderboard.spec.ts | L |"
+    }
+  ],
+  "expect": "ERROR LB-1.4 task-size"
+}
