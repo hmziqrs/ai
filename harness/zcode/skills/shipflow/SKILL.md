@@ -156,7 +156,7 @@ Each requested stage is a bounded run with its own gate. The same stages can run
 | S2 Overview | `prd/prd.md` | `z-product-owner` in PRD mode | `prd-lint.ts --stage s2`; critics |
 | S3 Sections | Sections, features, Given/When/Then criteria | Scoped PRD writers and cross-section review | `prd-lint.ts --stage s3`; critics |
 | S5 Tasks | Fine-grained task rows for the requested scope | `z-product-owner` in PLAN mode | `--stage s5 --decomposed <milestones>` or `--stage s5 --features <ids>` |
-| S6 Publish | Approved plan on GitHub plus Project view | Reconciler and Project-sync run | Repeated sync changes nothing; verify links and membership |
+| S6 Publish | Approved plan on GitHub plus Project view | Reconciler and Project-sync run | Membership of every issue in the Project is verified and a repeated plan changes no body, link or state; `kickoff:done` is set last, only after both hold, and a partial apply stays at S6 |
 | S4 Acceptance preparation | Executable acceptance/parity tests against a scaffold | Independent test authors | Runs only with implementation authorization; checks assert the criteria |
 
 Stage identifiers are stable names, not mandatory numerical order. A planning request can do
