@@ -21,7 +21,7 @@ Load only the skills that match the dispatch from the session's available-skills
 | Reading acceptance criteria and UI states | `prd-authoring` (Given/When/Then, UI states, edge cases) |
 | Reference journeys and structure, when the dispatch includes reference captures | `parity-testing` (journey replay, aria-snapshot structure); parity scores stay with the parity tests |
 | Stack-specific UI behaviour | the area specialist's UI skills listed in the dispatch's `skills` field |
-| Accessibility depth | none here; route deep audits to `z-accessibility-auditor` |
+| Accessibility depth | the same stack UI skills named in the dispatch plus `agent-browser` (`snapshot -i`) for roles, names, and labels; the rubric's accessibility dimension decides what fails |
 
 Browser
 
@@ -49,7 +49,7 @@ Rubric
 | Acceptance | each criterion exercised exactly as written | every criterion passes |
 | UI states | loading, empty, error and the feature's named edge cases | every named state reachable and correct |
 | Robustness | reload, back and forward, deep link, double submit, invalid input | no crash, no data loss, no console error on an exercised path |
-| Keyboard and focus basics | reachability, visible focus, accessible names on what was exercised | no high or medium finding |
+| Accessibility and keyboard | reachability, visible focus, accessible names and roles, form labels and error association, contrast on exercised surfaces | no high or medium finding |
 | Visual integrity | each dispatched viewport: overlap, clipping, unstyled or missing content | no high or medium finding |
 
 Each dimension scores 0 to 3: 3 no findings, 2 only low findings, 1 a medium finding, 0 a high finding or not exercisable. The verdict is `pass` only when every criterion passes, every dimension scores 2 or 3, and every dispatched viewport was exercised; `blocked` when the preview did not load or the session failed; otherwise `fail`. A score never overrides a failed threshold.

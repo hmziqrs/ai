@@ -99,7 +99,7 @@ several lanes and light review.
 | Changed files `F` | one command over the declared files, for example `git -C <repoRoot> ls-files -- <files...> \| wc -l`, plus the new files the task names | 1, 2, 3, ... |
 | Risk `R` | the task text and the touched paths | `low`, `medium`, `high` |
 | Uncertainty `U` | whether the task fixes the behaviour and the API | `low` (spec given), `high` (shape to be discovered) |
-| Visible surface `V` | whether a changed file renders on screen (HTML, CSS, a UI component, a desktop or mobile view) or the task states something visible | `none`, `web`, `desktop`, `mobile` |
+| Visible surface `V` | whether a changed file renders on screen (HTML, CSS, a UI component, a desktop or mobile view, a terminal UI) or the task states something visible | `none`, `web`, `desktop`, `mobile`, `tui` |
 
 Risk levels:
 - `low`: new code behind a stated spec; nothing existing changes behaviour.
@@ -276,8 +276,8 @@ Shape rules for every plan:
   each area works in its own run-owned worktree on a `wf/<slug>/<area>` branch, and merges go
   through one serialized git lane into a run-owned `wf/<slug>/integration` worktree. Areas
   that never write concurrently may share one run-owned worktree.
-- **Exclusive resources serialize.** A desktop or mobile capture uses one single-worker lane.
-  Web areas run in parallel, each with its own dev-server port and browser session.
+- **Exclusive resources serialize.** A desktop, mobile, or TUI capture uses one single-worker
+  lane. Web areas run in parallel, each with its own dev-server port and browser session.
 - **Dependencies are per edge.** An area that `dependsOn` another awaits only that area's
   merge or plan, never the whole run.
 - **Whole-set steps are not streamed per item.** A dedupe, ranking, or consistency check
@@ -452,9 +452,11 @@ inside the lane after the gate, every round, and uses all three model tiers on p
    `finally`. Do not use synchronous subprocesses while that server needs its event loop.
    The capture records the HTTP status of the page and its scripts, and a capture whose page
    loaded no scripts or rendered no content is a finding. Only when capture needs a
-   long-running dev server, a desktop app, or a device does a flash capture driver do it,
-   and desktop and mobile captures go through one single-worker lane. A capture that
-   wrote no file is a finding, never a pass.
+   long-running dev server, a desktop app, a device, or a terminal program does a flash
+   capture driver do it: web uses `agent-browser`, desktop uses `open-computer-use` (`ocu`),
+   mobile devices and simulators use `mobilecli` (or the `mobile_*` MCP tools where they are
+   exposed), and in-terminal TUI programs use `tui-use`; desktop, mobile, and TUI captures
+   go through one single-worker lane. A capture that wrote no file is a finding, never a pass.
 2. **Vision audit (flash).** A fresh `vision-audit-<lane>-r<round>` agent reads the PNGs and
    returns one row per visible requirement stated in the task: the requirement, what the
    screenshot shows, the evidence path, and `met`, `not met`, or `cannot tell`. It never

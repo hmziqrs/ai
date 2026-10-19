@@ -15,6 +15,14 @@ versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
   `z-queue-sentinel`, `z-github-project-manager`) are removed too. Kept: `z-workflow`,
   `z-proflow`, `z-flashflow`, `z-liteflow`, `z-project-init`, the niche specialists, and
   the planning skills `prd-authoring`, `site-recon` and `parity-testing`.
+- **Support-specialist routing pruned from eight agents to three.** `z-api-contract-engineer`,
+  `z-database-migration-engineer`, `z-product-flow-analyst`, `z-accessibility-auditor`, and
+  `z-ci-diagnostician` are removed. Contract compatibility folds into the matching stack
+  specialists, migration and durability rules into the `drizzle-orm-d1` / `rust-embedded-storage`
+  skills, and accessibility depth into `z-qa-evaluator`. `z-security-auditor` becomes the base
+  project pin so every project carries the read-only diff audit, and `z-qa-evaluator` joins the
+  web-rendering stack rows. Existing projects remove the five files on their next
+  `z-project-init` update.
 
 ### Changed
 - **No saved engines: every z-flow run executes a script written for its
@@ -44,6 +52,13 @@ versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
   (README, llms.txt, AGENTS.md, install docs) follow.
 
 ### Added
+- **Mobile and terminal capture lanes.** The vendored global skills `mobile-automation`
+  (mobile-mcp `mobile_*` MCP tools), `mobilecli` (iOS/Android device and simulator CLI),
+  and `tui-use` (in-terminal TUI automation) join `agent-browser` and `open-computer-use`
+  as capture tooling: z-workflow names the tool per visible surface (`web`, `desktop`,
+  `mobile`, `tui`) and serializes mobile and TUI captures through the single-worker device
+  lane, z-tauri-workflow names `mobilecli` for its `V = mobile` lane, and z-project-init
+  installs them for Tauri mobile, Flutter, and Rust TUI projects.
 - `workflow-planner` and `workflow-planner-flash` core agents (Global
   Core is now seven agents).
 - Four per-project niche agents for Shipflow-style GitHub work, usable by

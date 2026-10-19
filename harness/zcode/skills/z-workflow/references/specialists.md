@@ -30,14 +30,10 @@ inferring a framework from `hasUI` or file extensions alone.
 | Rust SIMD crate swaps, autovectorization, portable SIMD, intrinsics, and runtime dispatch | `z-rust-simd-engineer` | `rust-simd-crates`, `rust-simd-kernels`, `rust-superopt` |
 | Rust futures, cancellation safety, `LocalSet`/Tokio contention, and channel/wire backpressure | `z-rust-async-engineer` | `rust-async-patterns`, `rust-fast-architecture`, `rust-parallel-cache`, `rust-service-comms` |
 | Read-only Rust `unsafe`, pointer/layout, `#[target_feature]`, and FFI soundness audit | `z-unsafe-ffi-auditor` | `rust-best-practices`, `code-comments`, `rust-superopt`, `rust-simd-kernels`, `rust-parallel-cache`, `rust-async-patterns` |
-| HTTP, RPC, wire-format, and IPC schema compatibility | `z-api-contract-engineer` | Stack-matched contract skills (`axum-*`, `rust-service-comms`, `calling-rust-from-tauri-frontend`, `elysiajs`, `TanStack *`) |
-| SQL, D1, and embedded storage schema evolution, backfills, and sync durability | `z-database-migration-engineer` | Engine docs + `drizzle-orm-d1`, `cloudflare/references/d1`, `rust-embedded-storage` |
-| Read-only user-journey state/transition matrices and acceptance criteria | `z-product-flow-analyst` | Stack-matched UI/routing skills + `gpui-kit-design-guides` |
-| Read-only keyboard, focus, semantic tree, and contrast accessibility audit | `z-accessibility-auditor` | Stack-matched UI skills + `agent-browser` / `open-computer-use` |
 | Serialized desktop or mobile runtime verification and AX/PNG capture | `z-native-device-verifier` | `open-computer-use`, `gpui-kit`, `tauri-v2`, `tauri`, `flutter-add-integration-test` |
-| Read-only failed build, lint, test, or CI gate classification | `z-ci-diagnostician` | Stack-matched diagnostic skills (`rust-best-practices`, `gpui-kit`, `tauri-v2`, `svelte-code-writer`, `astro`, `react-doctor`, `dart-*`) |
 | Skeptical browser QA of a running preview against a feature's acceptance criteria, calibrated rubric with hard thresholds, findings with reproduction steps | `z-qa-evaluator` | `agent-browser`, `prd-authoring`, `parity-testing` + stack-matched UI skills |
 | Read-only diff security audit: authz, boundary validation, secrets, dependencies, SQL binding, untrusted text reaching shell/eval/SQL/prompts | `z-security-auditor` | Stack-matched security skills (`axum-code-review`, `tauri-v2`, `configuring-tauri-permissions`, `better-auth`, `elysiajs`) |
+| Read-only website specification audit of consumer-facing public sites: foundations, SEO, accessibility, security, well-known URIs, agent readiness, performance, privacy, resilience, and i18n with command-grounded findings | `z-web-spec-auditor` | `web-spec/web-spec-audit` (`references/*.md`, `references/deep/*.md`) and `web-spec/specification-website` |
 
 Use the core explorer, planner and author agents, `z-security-auditor`, and fresh
 `general-pro` / `general-flash` judges for review, visual and copy roles when their actual
