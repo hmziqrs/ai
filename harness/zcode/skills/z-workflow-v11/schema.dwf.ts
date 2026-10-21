@@ -30,8 +30,18 @@ function v11SafePath(path: string): boolean {
   return typeof path === "string" && path !== "" && !path.startsWith("/") && !path.includes("\\") &&
     !/[\x00-\x1f\x7f]/.test(path) && path.split("/").every((p) => p !== "" && p !== "." && p !== ".." && p.toLowerCase() !== ".git");
 }
+// Engine command gates (install/build) regenerate dependency lockfiles; they belong to the
+// owner of the manifest that generates them, so they never trip the ownership guard.
+const LOCKFILES: Record<string, readonly string[]> = {
+  "package.json": ["bun.lock", "bun.lockb", "package-lock.json", "yarn.lock", "pnpm-lock.yaml"],
+  "cargo.toml": ["cargo.lock"], "go.mod": ["go.sum"], "pyproject.toml": ["uv.lock", "poetry.lock"],
+  "gemfile": ["gemfile.lock"], "composer.json": ["composer.lock"], "flake.nix": ["flake.lock"],
+};
 function v11Owns(area: AreaPlan, path: string): boolean {
-  return v11SafePath(path) && area.ownedPaths.some((root) => path === root || path.startsWith(root + "/"));
+  return v11SafePath(path) && (
+    area.ownedPaths.some((root) => path === root || path.startsWith(root + "/")) ||
+    area.ownedPaths.some((root) => LOCKFILES[root.toLowerCase()]?.includes(path) === true)
+  );
 }
 function v11Require(condition: boolean, field: string, message: string): void {
   if (!condition) throw new Error(field + ": " + message);

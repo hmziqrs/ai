@@ -351,6 +351,22 @@ describe("V11 per-area static engine", () => {
     }
   });
 
+  test("engine-generated lockfiles belong to the manifest owner and never block the lane", async () => {
+    const input = await fixture();
+    const runtime = harness(plan([area("api", { ownedPaths: ["package.json", "src"] }), area("ui", { ownedPaths: ["ui"] })]), {
+      implement: async (id, cwd) => {
+        if (id === "api") { await write(cwd, "package.json", "{}\n"); await write(cwd, "bun.lock", "lockfile-by-install\n"); }
+        await write(cwd, id === "api" ? "src/result.txt" : "ui/result.txt");
+        return { status: "implemented", observations: [], changedPaths: [], summary: id, blockers: [] };
+      }
+    });
+    const result = await runtime.runV11(input);
+    expect(result.status).toBe("complete");
+    const tree = git(input.repoRoot, ["ls-tree", "-r", "--name-only", result.candidateBranch]);
+    expect(tree).toContain("bun.lock");
+    expect(tree).toContain("package.json");
+  });
+
   test("parallel-by-default floor: one writer needs an explicit single-lane requirement", async () => {    const single = harness(plan([area("api")]));
     const rejected = await single.runV11({ ...await fixture(), requirements: undefined });
     expect(rejected.status).toBe("incomplete");
