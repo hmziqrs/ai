@@ -6,6 +6,9 @@ versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
 
 ## [Unreleased]
 
+### Added
+- Opt-in `z-workflow-v9` with `workflow-author-v9` (Flash HIGH), deterministic root preflight, prepared-plan execution without a second configurator, real preimplementation plan audit, distinct TUI testing and web vision, explicit finite evidence budgets and recorded command evidence. Previous workflow versions remain unchanged.
+
 ### Removed
 - **The autonomous Shipflow layer is retired.** The `shipflow/` skill (its GitHub
   kit, task-cycle template, reconciler, setup, cleanup, policy hooks, PRD lint and
@@ -25,7 +28,38 @@ versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
   `z-project-init` update.
 
 ### Changed
-- **No saved engines: every z-flow run executes a script written for its
+- **Opt-in `z-workflow-v7` adds early setup and local completion recovery.** Each area
+  prepares its own worktree before implementation without holding unrelated areas. Brief
+  structured results distinguish real blockers from observations; malformed reports receive
+  one local clarification. Command ownership carries into corrections. V6 and older skills
+  remain unchanged, with HIGH defaults and optional product checks retained.
+- **Opt-in `z-workflow-v6` preserves V5 and adds configuration recovery.** Ordinary directory
+  trailing slashes normalize before ownership validation; invalid fields produce precise
+  diagnostics and one correction in the persistent configurator before writers start.
+  Inline smoke scripts cannot be relabeled assembly, and project-wide check dependencies
+  belong at integration rather than delaying independent implementation. Numbered workflow
+  revisions are preserved; subsequent behavior changes receive a new version.
+- **Opt-in `z-workflow-v5` revives the static ZFlow engine approach.** A maintained engine
+  consumes task data inside one run, with independent per-area phase progression and
+  persistent specialists. The attempted native channel/future restoration stalled the harness
+  analyzer and was reverted to the successfully benchmarked flat per-area scheduler. The
+  checker now rejects that channel/future shape before submission; optional checks and HIGH
+  defaults remain.
+  It replaces per-task orchestration authoring only for explicitly
+  selected V5 runs. Original/V2/V3/V4 are retained; audits, QA and vision remain opt-in.
+- **Framework i18n routing added to the stack specialists.** `z-gpui-engineer` routes to the
+  `gpui-kit` i18n guide and Longbridge `rust-i18n` (the crate is `rust-i18n`, not `rust-intl`),
+  `z-svelte-engineer` to Paraglide JS for SvelteKit, `z-flutter-engineer` to the project's
+  `slang` v4 convention with official gen-l10n as the alternative, and `z-astro-engineer` to
+  Astro's built-in `i18n` routing and `astro:i18n` helpers, with a matching i18n lane in
+  `z-gpui-workflow`.
+- **New `i18n/` skill category.** `i18n/rust-i18n`, `i18n/sveltekit-paraglide`,
+  `i18n/flutter-slang`, and `i18n/astro-i18n` are reference skills written from current
+  official sources (as of 2026-10-19); the matching skill is installed per stack by
+  `z-project-init` and referenced from the four stack specialists, `z-gpui-workflow`, and
+  `llms.txt`/`README.md`.
+- **Outside the opt-in V5/V6/V7 experiments, no saved engines: each z-flow run
+  executes a script written for its
   task.** z-workflow writes a fresh script per task through the
   workflow-author; for larger work the new `workflow-planner` /
   `workflow-planner-flash` agents gather every fact into the WorkflowBrief

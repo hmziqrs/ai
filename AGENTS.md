@@ -87,7 +87,8 @@ llms.txt                     entry point for consuming agents
   are domain profiles of z-workflow with scoped framework gates and device evidence.
   z-super-rustflow composes its own main-tier-only runs inline (no
   vision, no flash).
-- No saved engines: every z-flow run executes a script written (or, for
+- No saved engines outside the explicitly selected V5/V6/V7/V8/V9 experiments below:
+  every other z-flow run executes a script written (or, for
   z-liteflow, filled from its template) for that task. Do not add saved
   workflow engines or offer to SaveWorkflow a generated script as a standing
   engine; the only reusable workflow code is the persona kit and z-liteflow's
@@ -126,3 +127,152 @@ Re-run the Global Core procedure in `install.md` for global files, or run
 `<project>/.zcode/hmziqrs-ai-snapshot.json` against disk, update only that
 project's niche agents/workflows/skills, and write the new snapshot.
 The Codex secret file is reused, never rewritten.
+
+## Experimental standalone workflow v2
+
+The user-authorized `harness/zcode/skills/z-workflow-v2/` is an opt-in sixth global
+workflow skill while the original four workflows remain unchanged for comparison.
+Copy the whole folder as regular files to `~/.zcode/skills/z-workflow-v2/`; it owns
+its policies, local orchestration personas, copied references and persona-kit copy.
+Its local persona kit remains byte-identical to the canonical v4 kit; explicit
+HIGH selection and evidence-gated MAX escalation live in its separate model helper.
+No extra global agent definitions are required. Niche domain personas remain per-project.
+
+V2 is an explicit exception to the saved-code rule above: it carries a tested
+preparation template, copied per task, that gathers evidence and authors a fresh
+execution script for the main thread to launch. Never SaveWorkflow it as a standing
+engine. V2 has one preparation path, HIGH defaults, MAX eligibility only after two
+completed unsuccessful HIGH correction attempts on the same reasoning criterion,
+parallel independent work, and no numeric audit/correction round cap. External blockers
+or no viable corrective approach end incomplete. Do not inherit another workflow's
+router, model defaults, round caps, or references. The current platform API contract
+still governs supported syntax/tools. Removing or promoting this experiment requires
+an explicit user decision.
+
+
+## Experimental standalone workflow v3
+
+The user-authorized `harness/zcode/skills/z-workflow-v3/` is a separate opt-in global
+experiment installed as regular files at `~/.zcode/skills/z-workflow-v3/`. Retain original
+and V2 unchanged. It owns local personas, policies/references and a byte-identical v4
+persona-kit copy. Its model helper explicitly defaults Pro/Flash to HIGH, allowing targeted
+Pro MAX only after two completed failed HIGH corrections on the same reasoning criterion.
+This helper is an authorized reusable policy component, not a saved workflow engine.
+V3 writes fresh scripts per task; it has no saved preparation/execution template. One author
+combines fact gathering, compact planning and script writing; optional bounded Flash scouts
+resolve consequential unknowns. It does not inherit the original router/dials or V2's
+mandatory preparation-review chain. Independent implementation, verification and disjoint
+corrections run concurrently; shared Git/devices/writers serialize. One findings ledger
+invalidates only affected evidence, with no numeric audit/correction cap or mandatory extra
+clean rounds. The local V3 policy supersedes original-specific orchestration conventions
+only for explicitly selected V3 runs; current platform API still governs tool/syntax support.
+Niche personas remain project-local. New sessions are required to discover installation.
+Promotion/removal of experiments requires an explicit user decision.
+
+
+## Experimental standalone workflow v4
+
+The user-authorized `harness/zcode/skills/z-workflow-v4/` is an additional opt-in global
+experiment, copied as regular files to `~/.zcode/skills/z-workflow-v4/`. Keep original,
+V2 and V3 unchanged. V4's three priorities are parallel per-area state machines, minimal
+main-thread context through delegation, and speed/completeness over perfection. It uses
+one delegated thin plan/author, no plan audit, fresh task scripts and no saved engines.
+Product audits, QA, tests, screenshots and incidental bug fixes are opt-in; required assembly
+and completion of the explicitly requested feature remain in scope. Add extra workflow
+complexity only when requested, retaining real dependency/ownership and permission boundaries.
+The current V4 contract supersedes original/V2/V3 orchestration and review conventions for
+explicit V4 runs; actual platform API/syntax requirements still apply. Its byte-identical
+canonical v4 persona kit and local model-policy helper are authorized reusable components,
+not an execution engine. Pro defaults HIGH; bounded read-only Flash retrieval may explicitly
+use LOW; MAX requires recorded authorized scope and two failed completed HIGH corrections on
+the same reasoning criterion. No new global agents; niche personas remain project-local.
+No time estimates. Promotion/removal of older experiments requires explicit user direction.
+V4 authors write only a fresh task body. Its source-assembly CLI attaches the existing
+persona/model helpers and runs the checker once; it is tooling, with no saved graph or
+execution engine. The coordinator captures checkout anchors and delegates source discovery
+immediately; it does not duplicate the author's exploration or reproduce launch scripts inline.
+
+## Experimental standalone workflow v5
+
+The user-authorized `harness/zcode/skills/z-workflow-v5/` revives the historical ZFlow
+engine approach as an explicit exception to the no-engine/fresh-script rule. It is a
+separate opt-in global skill, installed as regular files at `~/.zcode/skills/z-workflow-v5/`.
+Keep original/V2/V3/V4 unchanged; do not restore retired legacy workflow install paths.
+The maintained engine lives inside V5. Per-task launch preparation inserts only validated
+JSON data into an unchanged engine/helper copy; no model writes task-specific orchestration.
+One delegated configurator returns compact task data inside the same workflow run. Use one
+awaited async task per area; do not restore native channel/future consumers or cyclic feedback
+queues. That restoration stalled CreateWorkflow analysis before a run could start and was
+reverted to the successfully benchmarked flat V5 scheduler. Every area advances through its
+own states/phases as inputs become ready; it does not wait for
+unrelated areas to finish that phase. Tests/vision/QA/audits are opt-in, and disjoint fixes
+stay concurrent. Keep the canonical persona kit byte-identical. Pro HIGH remains the
+configuration/implementation default, requested vision uses Flash HIGH, and MAX is never
+automatic. Preserve permission, ownership, device and serialized Git boundaries; the
+coordinator alone performs guarded checkout delivery. No time estimates or new global
+agent definitions. Promotion/removal of earlier experiments needs explicit user direction.
+
+## Experimental standalone workflow v6 and version preservation
+
+The user-authorized `harness/zcode/skills/z-workflow-v6/` is a separate global opt-in skill
+installed as regular files at `~/.zcode/skills/z-workflow-v6/`. It carries its own flat per-area
+engine/helpers/personas/references, with the same static-engine exception as V5. Preserve
+V5 and all earlier versions. From this point, behavioral changes to a released numbered
+workflow go into a new numbered skill, not an in-place update of its previous version.
+V6 adds harmless path normalization, precise shape diagnostics and one targeted manifest
+correction before any writers; this is not a plan audit. Implementation dependencies must
+not come from later whole-project checks. Assembly excludes inline programs/shell wrappers
+and direct test runners; HTTP/CRUD/persistence smokes are optional tests, even without files.
+Keep independent work concurrent, Pro HIGH defaults, optional checks and canonical persona
+kit bytes. The user has explicitly authorized a fresh full-access V6 benchmark session.
+
+## Experimental standalone workflow v7
+
+The user-authorized `harness/zcode/skills/z-workflow-v7/` is a separate opt-in global skill
+installed as regular files at `~/.zcode/skills/z-workflow-v7/`. Preserve V6 and all prior
+versions. It retains the flat per-area engine exception, HIGH defaults, opt-in checks and
+canonical persona kit bytes. Per-area setup precedes its implementer without a global
+barrier; candidate setup precedes integrated assembly. Structured completion results keep
+observations separate from concrete blockers, with one local format/classification recovery
+on malformed reports and no extra clean round. Engine commands own setup/install and gates;
+worker/correction prompts preserve that authority. Runtime tools remain shared, not a
+claimed per-agent tool sandbox. Keep reports brief. The user authorized a fresh V7 launch
+with Full access; follow the harness's separate CreateWorkflow approval flow as needed.
+
+## Experimental composable workflow v8
+
+The user-authorized `harness/zcode/skills/z-workflow-v8/` is a separate opt-in global skill,
+installed as regular files at `~/.zcode/skills/z-workflow-v8/`. It extends the maintained-source
+exception to an allowlisted source-piece library and deterministic concatenator. Preserve
+V7 and all earlier versions. Select optional planning/unit-test/audit/browser/native-vision/
+mobile-vision pieces before submission, retaining literal phase names and concrete ask types;
+no runtime imports, saved standing definitions or model-authored orchestration. Keep the
+canonical v4 persona kit unchanged, HIGH defaults, scoped explicit loop/repair authority,
+flat per-area parallelism, serialized shared resources/Git and coordinator-only delivery.
+Read-only verification areas may consume merged implementation outputs without a writer;
+failures there require explicit owner-scoped follow-up. Validate full mixtures with the
+actual ZCode analyzer, not TypeScript alone; do not mask graph crashes by raising stack limits.
+Future reusable behavior changes require a new numbered skill. Installing V8 does not
+promote it over V7 or authorize launching a new application benchmark automatically.
+
+## Experimental composable workflow v9
+
+The user-authorized `harness/zcode/skills/z-workflow-v9/` and
+`harness/zcode/agents/workflow-author-v9.md` are a separate opt-in experiment. Install the
+whole skill as regular files at `~/.zcode/skills/z-workflow-v9/`, and that one author as a
+regular file at `~/.zcode/agents/workflow-author-v9.md`. This explicitly selected author is
+a narrow exception to the seven default global agents; it is not a niche specialist or a
+change to the Global Core install set. Keep V8 and all prior versions unchanged.
+
+V9 keeps the maintained source-piece/flat per-area engine exception. One Flash HIGH author
+reads its compact contract, runs deterministic preflight, fills a typed per-area plan and
+invokes the assembler; the engine consumes that plan without another configurator. The
+coordinator delegates immediately, loads the current platform launch contract and owns
+approval/delivery only. Preserve literal source-selected sections, concrete asks, canonical
+v4 kit bytes, Pro HIGH implementation/review and Flash HIGH image interpretation. Real
+plan audit gates precede writers; TUI behavior and web visual judgment have distinct pieces.
+Requested review counts and repair authority remain explicit; invalidated finite evidence
+requires follow-up rather than silent extra rounds. Successful incremental gates remain
+valid evidence. Validate combinations with the actual analyzer without stack-limit changes.
+A new session is needed to load the new agent; creating/installing V9 does not authorize an
+application benchmark or promote it over older versions. Future behavior changes need V10.

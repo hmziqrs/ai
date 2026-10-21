@@ -1,0 +1,9 @@
+{
+  "source": "ZCode 0.16.9 bundled dynamic-workflows",
+  "copiedOn": "2026-10-19",
+  "files": {
+    "SKILL.md": "25aed2b689b196c99bea9eaf0dbeccd437849094179038e2d89bc932a4f51ca4",
+    "patterns.md": "db83b69470810fcf47c8333f09dc19d102030173103922f7fa9203ef8e1b59bc"
+  },
+  "note": "Local API reference snapshot only. Current installed platform API governs syntax and tool support; V3 owns orchestration and review policy independently."
+}

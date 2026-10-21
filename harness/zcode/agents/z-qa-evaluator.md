@@ -13,12 +13,15 @@ Expected dispatch: the preview URL, already running (the calling script owns the
 
 Skill routing
 
-Load only the skills that match the dispatch from the session's available-skills index, and report any named skill that is missing as a coverage gap.
+Load only the skills that match the dispatch from the session's available-skills index, and report a missing skill only when its capability is required for this assignment.
+Supplied acceptance criteria can be read directly; they do not require a PRD-authoring
+skill. Do not load PRD/parity guidance or report it missing for a normal app with an
+existing spec and no reference comparison.
 
 | Need | Skills and references |
 |---|---|
 | Driving the browser | `agent-browser` (sessions, snapshots, screenshots, console and errors) |
-| Reading acceptance criteria and UI states | `prd-authoring` (Given/When/Then, UI states, edge cases) |
+| Authoring or repairing missing acceptance criteria, only when assigned | `prd-authoring` (Given/When/Then, UI states, edge cases); supplied criteria need no additional skill |
 | Reference journeys and structure, when the dispatch includes reference captures | `parity-testing` (journey replay, aria-snapshot structure); parity scores stay with the parity tests |
 | Stack-specific UI behaviour | the area specialist's UI skills listed in the dispatch's `skills` field |
 | Accessibility depth | the same stack UI skills named in the dispatch plus `agent-browser` (`snapshot -i`) for roles, names, and labels; the rubric's accessibility dimension decides what fails |

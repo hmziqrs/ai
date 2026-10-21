@@ -5,7 +5,7 @@
 > pointed at this repo installs it by following the procedures below.
 
 Layout: harness-specific kits under `harness/` (`zcode/`, `codex/`);
-other top-level directories except `research/` (`copy/`, `coding/`, `languages/rust/`, `product/`, `testing/`)
+other top-level directories except `research/` (`copy/`, `coding/`, `i18n/`, `languages/rust/`, `product/`, `testing/`)
 are cross-harness skill categories. To install, follow [install.md](install.md),
 which enforces a strict **Global Core vs Per-Project Niche** split:
 - **Global Core (`~/.zcode/` and `~/.agents/skills/`)**: only the 7 core agents
@@ -60,6 +60,10 @@ for every harness; research archives never install.
 - [coding/test-quality-guardrails/SKILL.md](coding/test-quality-guardrails/SKILL.md): stop AI agents from generating bloated, low-value unit tests — rules-file policies with copy-paste CLAUDE.md/AGENTS.md/.cursorrules blocks: default-off test generation, read-only failing tests (never modify or delete a failing test to make it pass), targeted runs in the agent loop with the full suite in CI/hooks, and when tests are worth explicitly asking for.
 - [coding/test-quality-tdd-agents/SKILL.md](coding/test-quality-tdd-agents/SKILL.md): tests-first workflows for AI coding agents — the confirm-fail red-green loop with tests frozen during implementation, humans writing or reviewing the tests as the spec, characterization tests for legacy code, and property-based testing as the better agent assignment than hand-written example tests.
 - [coding/test-quality-audit/SKILL.md](coding/test-quality-audit/SKILL.md): audit and prune AI-written test suites — mutation testing as the quality gate, coverage as a vanity metric, implementation-coupling and mirroring smells, the "not too many, mostly integration" mix, risk-based coverage allocation, and a promote/flag/delete triage runbook.
+- [i18n/rust-i18n/SKILL.md](i18n/rust-i18n/SKILL.md): Longbridge `rust-i18n` reference for Rust/GPUI desktop localization — `i18n!`/`t!`, YAML/JSON/TOML locale files, runtime `set_locale`, `gpui_component` string overrides via `rust_i18n::extend!`, and `cargo i18n` extraction.
+- [i18n/sveltekit-paraglide/SKILL.md](i18n/sveltekit-paraglide/SKILL.md): Paraglide JS v2 for SvelteKit — Vite plugin, `messages/<locale>.json`, `m.*` runtime, `paraglideMiddleware` and reroute hooks, locale strategies, and SSR/prerender pitfalls.
+- [i18n/flutter-slang/SKILL.md](i18n/flutter-slang/SKILL.md): slang v4 for Flutter — `slang.yaml`/`build.yaml`, typed JSON sources, `context.t`, `LocaleSettings` switching and persistence, drift checks, with the official gen-l10n/ARB alternative.
+- [i18n/astro-i18n/SKILL.md](i18n/astro-i18n/SKILL.md): Astro built-in i18n routing — `i18n` config, `astro:i18n` helpers, per-locale content collections, the UI-string dictionary recipe, and when to add Paraglide JS.
 - [languages/rust/rust-superopt/SKILL.md](languages/rust/rust-superopt/SKILL.md): entry point for "make this Rust faster" — benchmarks-first triage across compute vs memory vs lock vs IO, release-profile hygiene, measurement discipline, and codegen-inspection/PGO/BOLT tooling; routes to the sibling rust skills.
 - [languages/rust/rust-simd-crates/SKILL.md](languages/rust/rust-simd-crates/SKILL.md): adopt an existing SIMD-accelerated crate (JSON, hashing, compression, UTF-8 validation, base64/hex, CRC, FFT/BLAS, crypto, image codecs, search) instead of hand-writing kernels — selection, runtime-vs-compile-time dispatch caveats, feature-flag swaps, serde_json → simd-json/sonic-rs migration.
 - [languages/rust/rust-simd-kernels/SKILL.md](languages/rust/rust-simd-kernels/SKILL.md): hand-written SIMD/vector kernels when crates and the autovectorizer are not enough — std::simd / core::simd / wide / pulp, C-intrinsic ports, `#[target_feature]` and runtime dispatch, codegen verification with cargo-show-asm / llvm-mca / LLVM remarks.
@@ -88,3 +92,10 @@ authentication reads that file, and the key never enters Git or
 - [install.md](install.md): the ZCode-kit + categories install procedure an AI agent executes.
 - [.zcode-plugin/plugin.json](.zcode-plugin/plugin.json): install as a ZCode plugin (Settings → Plugin Management → Discover → + → this Git URL) — the only plugin route; the ZCode kit's agents and skills are harness-specific and are never published to other harnesses' plugin/marketplace systems.
 - [AGENTS.md](AGENTS.md): orientation for AI agents working IN this repository (layout, conventions, extension rules).
+
+- [harness/zcode/skills/z-workflow-v6/SKILL.md](harness/zcode/skills/z-workflow-v6/SKILL.md): Opt-in flat ZFlow engine with per-area parallelism, HIGH defaults, optional checks, precise configuration validation and targeted recovery; separate from preserved V5.
+
+- [harness/zcode/skills/z-workflow-v7/SKILL.md](harness/zcode/skills/z-workflow-v7/SKILL.md): Opt-in flat engine with independent setup before HIGH specialist work, structured blockers/observations, local completion recovery and brief handoffs; previous versions preserved.
+
+- [harness/zcode/skills/z-workflow-v9/SKILL.md](harness/zcode/skills/z-workflow-v9/SKILL.md): opt-in composable V9; one Flash HIGH author prepares a typed plan, deterministic assembly, real optional plan audit/TUI tests/web vision and flat per-area execution.
+- [harness/zcode/agents/workflow-author-v9.md](harness/zcode/agents/workflow-author-v9.md): V9 preparation author; compact contract and preflight, no engine rewriting or workflow launch.

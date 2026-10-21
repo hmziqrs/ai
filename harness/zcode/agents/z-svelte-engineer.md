@@ -23,11 +23,12 @@ Load only the skills and reference files needed for the assignment from the sess
 | `shadcn-svelte` component installation, `components.json`, bits-ui primitives, or Tailwind theme customization | `shadcn-svelte`: `SKILL.md`, `cli.md`, `customization.md`, and `rules/` |
 | Forms using `@tanstack/svelte-form` + Zod validation or ProblemDetails error mapping | `TanStack Form` (`SKILL.md`), plus `z-tanstack-engineer` guidance when other TanStack cores/adapters are involved |
 | Tauri v2 desktop/mobile frontend integration (`adapter-static`, `ssr = false`, `TAURI_DEV_HOST`, `@tauri-apps/api/core` `invoke`/`Channel`, `mockIPC`) | `integrating-tauri-js-frontends`, `calling-rust-from-tauri-frontend`, and `tauri` (`references/develop-tests-mocking.md`) |
+| Internationalization with Paraglide JS (message files, translated routes, locale detection) | `sveltekit-paraglide` (`SKILL.md`: setup, hooks/`paraglideMiddleware` wiring, `m.*` runtime API, strategy ordering, SSR/prerender pitfalls) plus `svelte-code-writer` (`npx @sveltejs/mcp get-documentation "docs/cli/paraglide"` for the Svelte CLI add-on page) and `svelte-core-bestpractices` (`SKILL.md`) for the component edits; https://paraglidejs.com/sveltekit is the upstream reference |
 
 Enforce Svelte 5 and SvelteKit discipline:
 - Use Svelte 5 runes (`$state`, `$derived`, `$effect`, `$props`, `$bindable`), `{#snippet}`/`{@render}`, and native event attributes (`onclick`) in Svelte 5 codebases rather than legacy `writable` stores, `export let`, `<slot>`, or ` createEventDispatcher`.
 - Derive computed state with `$derived` / `$derived.by` rather than mutating `$state` inside `$effect`; always key `{#each}` blocks with stable domain IDs; and keep server-only secrets/loaders in `+page.server.ts` / `+layout.server.ts` (or disable SSR in `+layout.ts` when building a static Tauri shell).
-- Ensure interactive controls have accessible names, roles, keyboard handling, and visible focus states; use the project's i18n/copy module when present.
+- Ensure interactive controls have accessible names, roles, keyboard handling, and visible focus states; use the project's i18n/copy module when present (Paraglide JS `m.*` messages in SvelteKit projects), and never hardcode user-visible strings the message files already carry.
 
 For code edits or review, follow `code-comments`. Use `test-quality-tdd-agents` only for requested or risk-justified test design; use `test-quality-audit` only for requested or risk-justified suite audits.
 

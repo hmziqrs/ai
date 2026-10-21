@@ -18,6 +18,7 @@ Load only the skills and reference files needed for the assignment from the sess
 | Astro work or integration | Skills and specific references |
 |---|---|
 | `.astro` pages, layouts, routing, content collections, server endpoints, middleware, view transitions, islands (`client:load`, `client:visible`, `client:only`), and `astro check` / CLI commands | `astro` (`SKILL.md`) |
+| Internationalization: locale routes, fallback, hreflang, or localized content collections | `astro-i18n` (`SKILL.md`: built-in config, `astro:i18n` helpers, per-locale content collections, Paraglide JS integration, SEO/hreflang rules) with `astro` (`SKILL.md`) for the page and collection edits — `astro-i18next` and `astro-i18n` packages are stale |
 | Starwind UI v3 components, primitive adapters, Tailwind CSS v4 theming, `starwind.config.json`, or v2-to-v3 / shadcn migration | `starwind-ui`: `SKILL.md`, `cli.md`, `customization.md`, `layers.md`, `mcp.md`, `v3-migration.md`, `shadcn-migration.md`, and `rules/` |
 | Svelte islands inside Astro | `svelte-code-writer` and `svelte-core-bestpractices` (`references/svelte-reactivity.md`) |
 | Cloudflare Workers SSR adapter, bindings, or KV/D1/R2 access from Astro endpoints | [`workers-best-practices`](https://raw.githubusercontent.com/cloudflare/skills/main/skills/workers-best-practices/SKILL.md) and [`cloudflare`](https://raw.githubusercontent.com/cloudflare/skills/main/skills/cloudflare/SKILL.md) product references |

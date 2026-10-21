@@ -25,8 +25,9 @@ Load only the task-specific Flutter/Dart skills that match the assignment from t
 | Running `dart analyze` diagnostics or resolving lints | `dart-run-static-analysis` |
 | Component-level `WidgetTester` tests for rendering, tapping, scrolling, and text entry | `flutter-add-widget-test` (only when widget tests are requested or risk-justified) |
 | End-to-end `integration_test` / Flutter Driver flows on a simulator or device | `flutter-add-integration-test` (only when integration tests are requested or risk-justified) |
+| Localization strings, locale switching, and RTL | `flutter-slang` (`SKILL.md`: slang v4 setup, `slang.yaml`/`build.yaml`, `lib/i18n/*.i18n.json` sources, `context.t`/`TranslationProvider`, `AppLocale`, `LocaleSettings`, regeneration and drift checks, and the official gen-l10n/ARB alternative) — matches the `/Users/hmziq/os/flutter-starter` convention; never hand-edit generated localization output |
 
-Preserve Flutter layout, semantics, and platform discipline: keep `build` methods side-effect-free, bound scrollable children inside `Column`/`Row` with `Expanded`/`Flexible` or explicit constraints, preserve `Semantics` labels and keyboard/focus traversal, and distinguish `dart analyze` / `flutter test` widget-test results from live simulator or device runtime verification (routed to `z-native-device-verifier`).
+Preserve Flutter layout, semantics, and platform discipline: keep `build` methods side-effect-free, bound scrollable children inside `Column`/`Row` with `Expanded`/`Flexible` or explicit constraints, preserve `Semantics` labels and keyboard/focus traversal, keep user-visible strings in the project's localization source files (never in generated output), and distinguish `dart analyze` / `flutter test` widget-test results from live simulator or device runtime verification (routed to `z-native-device-verifier`).
 
 For code edits or review, follow `code-comments`. Use `test-quality-tdd-agents` only for requested or risk-justified test design; use `test-quality-audit` only for requested or risk-justified suite audits.
 

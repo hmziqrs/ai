@@ -55,6 +55,120 @@ Never install `general-pro`, `general-flash`, `explore-flash`, `workflow-author`
    - `coding/test-quality-audit/`
 4. Update Global Core = re-copy the folders/files listed in steps 1–3. Uninstall Global Core = delete those copied folders/files.
 
+## Opt-in experiment — standalone workflow v2
+
+When explicitly requested, copy the entire `harness/zcode/skills/z-workflow-v2/` folder
+as regular files to `~/.zcode/skills/z-workflow-v2/`. This is a sixth global workflow
+skill during the experiment; retain the existing global skills and seven agents.
+It includes local orchestration personas, independent policies/references, a byte-identical
+persona-kit copy, a model policy helper and the preparation template. Never install it
+into a cross-harness skills directory. Domain specialists remain project-local.
+
+Before copying, run these checks from the repo root:
+
+```sh
+bun test ./harness/zcode/skills/z-workflow-v2/scripts/check-behavior.ts
+bun --no-env-file --config=/dev/null harness/zcode/skills/z-workflow-v2/scripts/check-script.ts harness/zcode/skills/z-workflow-v2/preparation-template.dwf.ts
+```
+
+Bun, Git and `bunx` access to TypeScript 5.9.3 are required. The second check validates
+the copied facade and embedded helpers; CreateWorkflow remains the authoritative runtime
+compiler/approval step. Open a new ZCode session after installation. Invoke
+`$z-workflow-v2` explicitly for the experiment; it does not replace `$z-workflow`.
+Uninstall only this experiment by removing its installed folder. Keep comparison prompts,
+timings and results outside the skill installation and outside `research/`.
+
+## Opt-in experiment — standalone workflow v3
+
+When explicitly requested, copy the whole `harness/zcode/skills/z-workflow-v3/` folder as
+regular files to `~/.zcode/skills/z-workflow-v3/`. This is an additional global experiment,
+not a replacement for the five core skills or V2. Do not install it into `~/.agents/skills/`.
+It bundles its own personas, policies, copied API references, unchanged v4 persona kit and
+HIGH model-policy helper. No extra global agents or saved workflow engines are installed.
+Niche specialists and domain skills remain project-local.
+
+Before copying, run `bun install --frozen-lockfile` then `bun test` inside
+`harness/zcode/skills/z-workflow-v3/`. After copying, run `bun install --frozen-lockfile`
+inside `~/.zcode/skills/z-workflow-v3/` once to install its pinned checker dependency.
+`node_modules/` is local tooling, not a source artifact to commit; retain `package.json`
+and `bun.lock` when copying the skill.
+For each authored draft use `bun --no-env-file --config=/dev/null
+harness/zcode/skills/z-workflow-v3/scripts/check-script.ts <draft>`; Bun/Git and the installed
+TypeScript 5.9.3 dependency are required. No bunx/network fetch occurs during checking.
+This checks helper drift and strict facade types; actual
+CreateWorkflow compilation and live task verification remain necessary.
+
+Open a new ZCode session after copying and explicitly invoke `$z-workflow-v3`. Keep original
+and V2 sessions unchanged for comparison. The evaluation procedure is in the skill's
+`references/design-evidence.md`. Remove only its installed folder to uninstall this experiment.
+
+## Opt-in experiment — standalone workflow v4
+
+When requested, copy `harness/zcode/skills/z-workflow-v4/` as a whole folder of regular
+files to `~/.zcode/skills/z-workflow-v4/`, excluding its local `node_modules/` tooling.
+Retain original/V2/V3, do not mirror into `.agents/skills/`, and do not install niche agents
+globally. No extra global agent definitions or saved workflow engines are installed.
+
+Run `bun install --frozen-lockfile` once in the source and installed skill folder to resolve
+the pinned local TypeScript checker. Run `bun test` in the source folder to validate the
+model/authority helper and compiler diagnostics. Those are skill-tooling checks, not a
+mandatory testing stage in V4 product workflows. The author writes only a fresh task body;
+`bun --no-env-file --config=/dev/null <skillRoot>/scripts/assemble-script.ts <body.ts> <workflow.dwf.ts>`
+attaches the existing helpers and invokes the checker once. Submit the result using
+CreateWorkflow's `path` field. The assembler never executes a workflow, and the checker
+never fetches packages during workflow execution. Actual CreateWorkflow analysis remains
+authoritative for the current harness API. Bun and Git are runtime dependencies.
+
+Use a new ZCode session and explicitly invoke `$z-workflow-v4`. V4 does not audit its plan,
+run product tests/QA/audits or start incidental bug-fix loops unless the task requests them;
+assembly and completion of the requested scope still apply. Existing agents load at session
+start. Uninstall only V4 by removing its installed skill folder.
+
+## Opt-in experiment — static ZFlow workflow v5
+
+When requested, copy `harness/zcode/skills/z-workflow-v5/` as regular files to
+`~/.zcode/skills/z-workflow-v5/`, excluding local `node_modules/`. Preserve the other
+workflows. V5 is the explicit static-engine exception: the tested engine is bundled
+inside this skill, not registered with SaveWorkflow or installed at a legacy workflows
+path. No archived research artifact or extra global agent is installed.
+
+Run `bun install --frozen-lockfile` in the source and installed folders to resolve the
+pinned local TypeScript checker, and `bun test ./scripts` to verify the tooling. Ordinary
+tasks provide a small request JSON to
+`bun --no-env-file --config=/dev/null <skillRoot>/scripts/prepare-run.ts <request.json> <run.dwf.ts>`.
+The command inserts data into unchanged engine/helper source and checks it once, without
+running product code or models. Launch the result through CreateWorkflow's `path` field.
+Configuration and per-area implementation happen inside that one run.
+The flat scheduler uses one awaited async task per area. Areas omit unrequested visual/check
+work and advance independently; native channel/future scheduling is rejected before launch.
+
+Open a new ZCode session and explicitly select `$z-workflow-v5`. Niche specialists remain
+project-local. V5 does not add audit/QA phases unless requested, and no benchmark or app
+session is launched by installation itself.
+
+## Opt-in experiment — static ZFlow workflow v6
+
+When requested, copy `harness/zcode/skills/z-workflow-v6/` as regular files to
+`~/.zcode/skills/z-workflow-v6/`, excluding local `node_modules/`. Run
+`bun --no-env-file --config=/dev/null install --frozen-lockfile` inside that installed folder
+to install its pinned TypeScript checker. Keep V5 and all earlier versions unchanged.
+Use a new ZCode session and select `$z-workflow-v6`. It retains the flat per-area engine,
+HIGH defaults and optional audits/QA, and adds path normalization and targeted manifest
+recovery. Later behavioral changes get a new numbered version. Niche specialists remain
+project-local. Launch or monitor benchmarks only when the user requests it.
+
+## Opt-in experiment — static ZFlow workflow v7
+
+When requested, copy `harness/zcode/skills/z-workflow-v7/` as regular files to
+`~/.zcode/skills/z-workflow-v7/`, excluding local `node_modules/`, then run
+`bun --no-env-file --config=/dev/null install --frozen-lockfile` inside that folder.
+Use a new ZCode session and `$z-workflow-v7`; niche personas remain project-local.
+V7 owns its flat engine, persona/model helpers and references. It adds independent early
+setup, structured completion/observations, local report recovery and compact handoffs.
+Run `bun test ./scripts` in its source folder for maintenance verification. Keep V6 and
+older versions unchanged; new behavior gets a new numbered skill. Full access does not
+necessarily bypass ZCode's separate CreateWorkflow approval.
+
 ## Step 2 — Per-Project Niche install (`z-project-init` + snapshot manifest)
 
 When initializing or updating a specific project `<project>`, load and follow [`harness/zcode/skills/z-project-init/SKILL.md`](harness/zcode/skills/z-project-init/SKILL.md):
@@ -103,7 +217,8 @@ ZCode-kit steps above.
     `z-*.md`). `find ~/.zcode/agents -type l` prints nothing.
   - `ls ~/.zcode/skills/` lists **only** the 5 global core ZCode skills
     (`z-workflow`, `z-proflow`, `z-flashflow`, `z-liteflow`, `z-project-init`),
-    each containing `SKILL.md` — and nothing else mirrors them.
+    each containing `SKILL.md`. Explicitly requested `z-workflow-v2` and
+    `z-workflow-v3`, `z-workflow-v4`, `z-workflow-v5`, `z-workflow-v6` and `z-workflow-v7` experiments may additionally be present; nothing else mirrors them.
   - `ls ~/.agents/skills/` lists the 5 universal baseline skills
     (`antislop-copy`, `code-comments`, `test-quality-guardrails`,
     `test-quality-tdd-agents`, `test-quality-audit`) — and no ZCode workflow skills.
@@ -187,3 +302,30 @@ S=$(mktemp -d) && rsync -a --exclude .git --exclude .zcode --exclude .zflow --ex
 
 State which kit(s) you installed, the agents and skills now present,
 and that a restart / new session is required to load the agents.
+
+### Opt-in composable V8 experiment
+
+When explicitly installing `z-workflow-v8`, copy the whole
+`harness/zcode/skills/z-workflow-v8/` folder as regular files to
+`~/.zcode/skills/z-workflow-v8/`, excluding development `node_modules/` and generated `dist/`.
+Run `bun install --frozen-lockfile` in that destination for its pinned checker dependency.
+Keep V7 and every older version. This authorized experimental source library is not a new
+core default or a SaveWorkflow installation. Niche agent/domain files remain project-local.
+Open a new ZCode session to discover the skill; use its selection/authorization contract.
+
+### Opt-in V9 author and composable workflow
+
+When explicitly selecting V9, copy `harness/zcode/skills/z-workflow-v9/` to
+`~/.zcode/skills/z-workflow-v9/` as regular files, excluding development `node_modules/` and
+`dist/`, then run `bun install --frozen-lockfile` in the destination. Copy
+`harness/zcode/agents/workflow-author-v9.md` as the regular file
+`~/.zcode/agents/workflow-author-v9.md`. This is an opt-in exception for one preparation
+author, not an addition to the seven default Global Core agents or an authorization to
+install niche specialists globally. Its skill-local persona copy must match that definition.
+
+V9 is standalone: it carries its own helpers/pieces/references and byte-identical v4 kit.
+The Flash HIGH author prepares one typed plan and invokes the deterministic assembler;
+execution does not repeat configuration. Real plan-audit, TUI-test and web-vision sections
+are available when requested. Current ZCode approval and guarded delivery still apply.
+Preserve V8 and older versions. Open a new ZCode session to discover both V9 artifacts.
+Installing V9 neither promotes it nor authorizes launching an app benchmark.
