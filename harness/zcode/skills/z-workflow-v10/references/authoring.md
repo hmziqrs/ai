@@ -17,6 +17,10 @@ accepts this exact plan, so do not hand off another discovery/planning task afte
 - Audits, tests and vision are opt-in pieces with explicit authorization; nothing is enabled by
   stack detection. Default posture is no plan-audit, no unit tests, no audits — only what the
   user requested.
+- Verification follows the lane by default: attach requested audit/unit-test phases to each
+  implementation area, so each check runs in that area's own worktree immediately after it
+  implements, while siblings still build. Build a merged whole-app verify area only for checks
+  that inherently cross lanes (integrated browser journeys, whole-app visual pass).
 - Split along real inputs, not to inflate agent counts: a justified single lane
   (`requirements.minimumAreas: 1` plus a note) beats a fake split.
 
@@ -157,7 +161,9 @@ contract. Do not make the frontend wait for a backend build merely because the i
 needs both. A helper owner can implement isolated browser/PTY scripts alongside product writers.
 
 A `role:"verify"` area can depend on app owners and helper owner, merge their actual commits and
-run requested checks without a writer. Its ownedPaths cover only evidence/helper namespaces.
+run requested checks without a writer — use it for checks that inherently cross lanes (integrated
+browser journeys, whole-app visual pass); per-lane audits and unit tests belong as phases on the
+implementation areas instead. Its ownedPaths cover only evidence/helper namespaces.
 It reports actionable defects, not unrestricted source fixes. Audit areas and browser/vision
 areas can run independently once their own inputs exist; the same browser/PTY resource serializes
 capture/actions but releases before image interpretation. Helpers must use owned process IDs,

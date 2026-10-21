@@ -70,8 +70,12 @@ budgets require explicit follow-up instead of quietly executing more rounds. No 
 The author defines disjoint source owners and real dependencies. Independent area pipelines
 start concurrently and advance through their own checks; there is no global phase barrier.
 An explicitly requested plan audit is a deliberate preimplementation gate. Shared Git, PTY,
-browser/device and writers serialize only where necessary. Verification areas consume actual
-implementation commits without becoming product writers. Device capture releases its lock
+browser/device and writers serialize only where necessary. Requested audit/unit-test phases
+attach to each implementation area by default and run in that area's own worktree immediately
+after it implements, while siblings still build; merged verification areas consume actual
+implementation commits without becoming product writers, and are built only for checks that
+inherently cross lanes (integrated browser journeys, whole-app visual pass). Device capture
+releases its lock
 before image judgment. The runtime tools remain shared; persona tool lists are intended
 authority, not a claimed sandbox.
 
