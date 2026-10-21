@@ -20,9 +20,12 @@ accepts this exact plan, so do not hand off another discovery/planning task afte
 - Verification follows the lane by default: attach requested audit/unit-test phases to each
   implementation area. Stage A (implement + gates + commit) hands off to dependents immediately;
   the lane's read-only phases stream concurrently in stage B and gate only the final result.
-  Phases with repair authority (fixFindings) gate as one stage. Build a merged whole-app verify
-  area only for checks that inherently cross lanes (integrated browser journeys, whole-app
-  visual pass).
+  Phases with repair authority (fixFindings) gate as one stage. Decompose verification the same
+  way: one verify area per user journey or surface, depending only on the areas that journey
+  touches (e.g. a tickets-list journey needs the tickets API + tickets UI, nothing else), so
+  journeys stream while other lanes still build. A single monolithic verify area depending on
+  everything is a defect; the only permitted whole-app verify is the final visual/design
+  coherence pass, which genuinely needs every surface merged.
 - Split along real inputs, not to inflate agent counts: a justified single lane
   (`requirements.minimumAreas: 1` plus a note) beats a fake split.
 
