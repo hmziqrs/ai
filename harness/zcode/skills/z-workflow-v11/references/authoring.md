@@ -18,9 +18,11 @@ accepts this exact plan, so do not hand off another discovery/planning task afte
   stack detection. Default posture is no unit tests, no audits — only what the
   user requested.
 - Verification follows the lane by default: attach requested audit/unit-test phases to each
-  implementation area, so each check runs in that area's own worktree immediately after it
-  implements, while siblings still build. Build a merged whole-app verify area only for checks
-  that inherently cross lanes (integrated browser journeys, whole-app visual pass).
+  implementation area. Stage A (implement + gates + commit) hands off to dependents immediately;
+  the lane's read-only phases stream concurrently in stage B and gate only the final result.
+  Phases with repair authority (fixFindings) gate as one stage. Build a merged whole-app verify
+  area only for checks that inherently cross lanes (integrated browser journeys, whole-app
+  visual pass).
 - Split along real inputs, not to inflate agent counts: a justified single lane
   (`requirements.minimumAreas: 1` plus a note) beats a fake split.
 

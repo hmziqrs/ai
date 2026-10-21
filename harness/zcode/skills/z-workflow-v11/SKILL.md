@@ -80,6 +80,14 @@ releases its lock
 before image judgment. The runtime tools remain shared; persona tool lists are intended
 authority, not a claimed sandbox.
 
+## Two-stage lanes (early hand-off)
+
+Each area runs in two stages: stage A (implement + build gate + commit) resolves the
+committed promise the moment source lands, so dependent lanes fan out immediately; stage B
+(the area's read-only audit/test phases) runs concurrently via future() and gates only the
+final result. A lane whose phases carry repair authority (fixFindings) gates as one stage,
+because dependents must build against its final source.
+
 ## Worktree hygiene
 
 The engine tears down every worktree it creates — on success, incomplete and mid-run failure
