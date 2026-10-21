@@ -329,3 +329,23 @@ execution does not repeat configuration. Real plan-audit, TUI-test and web-visio
 are available when requested. Current ZCode approval and guarded delivery still apply.
 Preserve V8 and older versions. Open a new ZCode session to discover both V9 artifacts.
 Installing V9 neither promotes it nor authorizes launching an app benchmark.
+
+### Opt-in V12 author and standalone workflow
+
+When explicitly selecting V12, copy `harness/zcode/skills/z-workflow-v12/` to
+`~/.zcode/skills/z-workflow-v12/` as regular files, excluding development `node_modules/` and
+`dist/`, then run `bun install --frozen-lockfile` in the destination. Copy
+`harness/zcode/agents/workflow-author-v12.md` as the regular file
+`~/.zcode/agents/workflow-author-v12.md`. This is an opt-in exception for one preparation
+author (which carries Edit access for the user-authorized pre-workflow bootstrap of
+uninitialized projects), not an addition to the seven default Global Core agents or an
+authorization to install niche specialists globally. Its skill-local persona copy must match
+that definition.
+
+V12 is V11's engine unchanged plus the user-authorized pre-workflow bootstrap: a git baseline
+commit, an ignored workflow-drafts directory, a thin scaffold for empty projects when the
+brief names a stack, and no scaffold lane for bootstrapped projects. It carries its own
+helpers/pieces/references and a byte-identical v4 kit. Current ZCode approval and guarded
+delivery still apply. Preserve V11 and older versions. Open a new ZCode session to discover
+both V12 artifacts. Installing V12 neither promotes it nor authorizes launching an app
+benchmark.
