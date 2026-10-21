@@ -9,7 +9,7 @@ export interface Selection {
   rounds: number;
   fixFindings: boolean;
 }
-export const pieceNames = ["planning", "plan-audit", "unit-tests", "tui-tests", "audit", "browser", "web-vision", "native-vision", "mobile-vision"] as const;
+export const pieceNames = ["planning", "unit-tests", "tui-tests", "audit", "browser", "web-vision", "native-vision", "mobile-vision"] as const;
 export function normalizeSelection(value: unknown): Selection[] {
   if (value === undefined) return [];
   if (!Array.isArray(value)) throw new Error("pieces must be an array of authorized selections");
@@ -27,17 +27,16 @@ export function normalizeSelection(value: unknown): Selection[] {
     const rounds = data.rounds ?? 1;
     if (!Number.isSafeInteger(rounds) || Number(rounds) <= 0 || (mode !== "rounds" && data.rounds !== undefined)) throw new Error("rounds must be a positive integer supplied only with mode rounds");
     if (data.fixFindings !== undefined && typeof data.fixFindings !== "boolean") throw new Error("fixFindings must be boolean");
-    if (!["plan-audit", "audit", "unit-tests"].includes(name) && (mode !== "once" || data.fixFindings)) throw new Error(name + " is a one-pass observation piece; use owner-scoped follow-up for findings");
+    if (!["audit", "unit-tests"].includes(name) && (mode !== "once" || data.fixFindings)) throw new Error(name + " is a one-pass observation piece; use owner-scoped follow-up for findings");
     if (name === "planning" && data.fixFindings) throw new Error("planning does not authorize an audit or correction campaign");
     return { name, authorization: data.authorization, mode: mode as Selection["mode"], rounds: Number(rounds), fixFindings: data.fixFindings === true };
   });
 }
 export async function composeLibrary(root: string, selections: Selection[], mode: "execute" | "plan" = "execute"): Promise<{ source: string; files: { path: string; sha256: string }[] }> {
   const planning = selections.some((piece) => piece.name === "planning");
-  const selected = pieceNames.filter((name) => name !== "planning" && name !== "plan-audit" && selections.some((piece) => piece.name === name));
+  const selected = pieceNames.filter((name) => name !== "planning" && selections.some((piece) => piece.name === name));
   if (mode === "plan" && selected.length) throw new Error("Plan-only mode cannot include implementation checks");
   const paths = ["schema.dwf.ts", "fragments/run-open.dwf.ts", planning || mode === "plan" ? "pieces/planning.dwf.ts" : "pieces/configure.dwf.ts", "fragments/core-before-config.dwf.ts", "fragments/accept-plan.dwf.ts"];
-  if (selections.some((piece) => piece.name === "plan-audit")) paths.push("pieces/plan-audit.dwf.ts");
   if (mode === "plan") paths.push("fragments/planning-finish.dwf.ts");
   else {
     paths.push("fragments/core-before-checks.dwf.ts");

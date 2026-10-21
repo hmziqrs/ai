@@ -21,7 +21,7 @@ authored engines.
   along real ownership seams (parallel-by-default floor of 2 writer areas; typically 3-6 for
   multi-feature briefs) and a thin scaffold owner is the only blocking bootstrap for new apps.
 - Audits, unit tests and vision are opt-in pieces with explicit authorization. Default posture
-  is no plan-audit, no tests, no audits — only what the user requested. Nothing is enabled by
+  is no tests, no audits — only what the user requested. Nothing is enabled by
   stack detection.
 - Never promise speed unmeasured; report elapsed preparation/execution separately.
 
@@ -55,8 +55,9 @@ Optional pieces are selected from user intent before submission. Nothing extra i
 stack detection. [Authoring contract](references/authoring.md) defines exact fields and examples.
 
 - `planning` names the requested thin plan; otherwise the kernel accepts the prepared work data.
-- `plan-audit` is an independent Pro HIGH review BEFORE any implementation/worktree setup.
-  It is distinct from schema validation and implementation review.
+- Plan checking happens at the author level: the author re-reads its finished plan against the
+  brief during preparation and fixes gaps itself. There is no plan-audit workflow round — one
+  workflow round, everything predetermined by the author.
 - `unit-tests`, `tui-tests`, `audit` and `browser` are separate behavior/review pieces.
 - `web-vision`, `native-vision`, `mobile-vision` capture real images and use Flash HIGH judgment.
   Text snapshots, test exits and screenshot existence alone are not visual judgments.
@@ -69,7 +70,7 @@ budgets require explicit follow-up instead of quietly executing more rounds. No 
 
 The author defines disjoint source owners and real dependencies. Independent area pipelines
 start concurrently and advance through their own checks; there is no global phase barrier.
-An explicitly requested plan audit is a deliberate preimplementation gate. Shared Git, PTY,
+The author's preparation is the only pre-implementation step. Shared Git, PTY,
 browser/device and writers serialize only where necessary. Requested audit/unit-test phases
 attach to each implementation area by default and run in that area's own worktree immediately
 after it implements, while siblings still build; merged verification areas consume actual

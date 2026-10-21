@@ -38,7 +38,7 @@ async function prepare() {
   const mode = fields.mode ?? "execute";
   if (!["execute", "plan"].includes(mode as string)) throw new Error("mode must be execute or plan");
   const pieces = normalizeSelection(fields.pieces);
-  if (mode === "plan" && pieces.some((piece) => piece.name !== "planning" && piece.name !== "plan-audit")) throw new Error("Planning-only requests cannot select implementation verification pieces");
+  if (mode === "plan" && pieces.some((piece) => piece.name !== "planning")) throw new Error("Planning-only requests cannot select implementation verification pieces");
   if (mode === "plan" && !pieces.some((piece) => piece.name === "planning")) throw new Error("Planning-only mode must explicitly select the planning piece");
   const paths = fields.instructionPaths === undefined ? [] : fields.instructionPaths;
   if (!Array.isArray(paths) || paths.some((path) => typeof path !== "string" || !isAbsolute(path))) throw new Error("instructionPaths must be an array of absolute paths");

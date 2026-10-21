@@ -15,7 +15,7 @@ accepts this exact plan, so do not hand off another discovery/planning task afte
   Feature areas depend on the scaffold and on nothing else unless code truly cannot start;
   do not make any feature area wait for another feature area's build.
 - Audits, tests and vision are opt-in pieces with explicit authorization; nothing is enabled by
-  stack detection. Default posture is no plan-audit, no unit tests, no audits — only what the
+  stack detection. Default posture is no unit tests, no audits — only what the
   user requested.
 - Verification follows the lane by default: attach requested audit/unit-test phases to each
   implementation area, so each check runs in that area's own worktree immediately after it
@@ -48,7 +48,7 @@ Each selection has nonblank `authorization` quoting the actual request/instructi
 | Intent | Piece | Important boundary |
 |---|---|---|
 | Thin/product plan | `planning` | Same prepared plan, no extra planning agent |
-| Review the plan before coding | `planning` + `plan-audit` | A real pre-writer gate, not `audit` |
+| Review the plan before coding | author self-check | The author re-reads its finished plan against the brief during preparation and fixes gaps itself; no workflow gate, no extra round |
 | Unit/component/domain tests | `unit-tests` | Author actual test files; engine runs them |
 | Interactive terminal / tui-use testing | `tui-tests` | Actual labeled PTY actions, assertions and snapshots; not piped stdin/unit tests |
 | Review implementation | `audit` | Concrete file:line defects, no new plan review |
@@ -60,7 +60,7 @@ Each selection has nonblank `authorization` quoting the actual request/instructi
 Combine pieces when the request combines these intentions. "No tests" removes tests; "audit
 once" means one pass, not until-clean. If a user asks only to assemble/show a workflow, prepare
 execute-mode data without submitting it. If they ask only for the product plan, use mode plan
-with planning and optionally plan-audit; put the compact plan in notes, no areas/setup/assembly.
+with planning; put the compact plan in notes, no areas/setup/assembly.
 Do not invent a missing capability, silently omit a requirement or call screenshots a vision pass.
 
 ## Request JSON
@@ -96,7 +96,7 @@ optional and only accepts an actual supplied request timestamp; otherwise launch
 are absolute existing files. Missing plan is an error. No arbitrary helper/function source fields.
 
 Selection: `{name,authorization,mode?:"once"|"rounds"|"until-clean",rounds?:number,fixFindings?:boolean}`.
-Default once. `rounds` is a positive integer only with mode rounds. `audit`, `plan-audit` and
+Default once. `rounds` is a positive integer only with mode rounds. `audit` and
 `unit-tests` support explicit bounded/until-clean policies. Other pieces are one-pass observations.
 Repairs need explicit user authority and `fixFindings:true` in both selection and local phase;
 read-only verification areas cannot edit product source. Until-clean stops on clean or no changed
@@ -115,7 +115,7 @@ finite evidence is invalidated, rather than expanding rounds. No automatic escal
   ownedPaths are disjoint safe relative files/directories; a trailing slash is normalized.
   `role` is implement (default) or verify. dependsOn names area IDs truly needed BEFORE source work.
 - `AreaPhase`: `{id,kind,commands,personaPath?,instructions,dependsOn?,resource?,fixFindings?,cleanup?}`.
-kind is a selected piece other than planning/plan-audit. Instructions cite actual scope/authority
+kind is a selected piece other than planning. Instructions cite actual scope/authority
 and acceptance criteria. Phase dependencies delay only that check, not its source writer.
 Interactive/vision phases require a persona, exclusive lowercase resource ID and cleanup.
 Unit tests may omit a judgment persona when executable assertions suffice. Other checks need one.

@@ -127,7 +127,7 @@ function v10ValidatePlan(plan: RunPlan, input: RunInput): void {
   checkCommands(plan.setup, "setup", true);
   checkCommands(plan.assembly, "assembly", true);
   if (input.mode !== "plan") for (const selection of input.pieces) {
-    if (selection.name !== "planning" && selection.name !== "plan-audit" && !plan.areas.some((area) => (area.phases ?? []).some((step) => step.kind === selection.name))) throw new Error("Requested piece omitted from configuration: " + selection.name);
+    if (selection.name !== "planning" && !plan.areas.some((area) => (area.phases ?? []).some((step) => step.kind === selection.name))) throw new Error("Requested piece omitted from configuration: " + selection.name);
   }
   if (input.mode === "plan") v10Require(plan.areas.length === 0 && plan.setup.length === 0 && plan.assembly.length === 0, "plan-only", "return the plan in notes without writers or commands");
   if (input.mode === "execute" && !plan.blockers.length) v10Require(plan.areas.some((a) => a.role !== "verify"), "areas", "execution needs an implementation owner or a concrete blocker");

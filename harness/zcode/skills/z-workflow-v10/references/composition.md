@@ -5,7 +5,7 @@ and the CLI; they do not read engine internals. `scripts/compose.ts` selects all
 fragments in canonical order with unchanged bytes. `schema.dwf.ts` is also the deterministic
 prelaunch plan validator. The canonical v4 kit remains unchanged.
 
-Planning/plan-audit precede writers. Area pieces live in the proven flat per-area scheduler.
+Planning precede writers; plan checking is author-level (no workflow gate). Area pieces live in the proven flat per-area scheduler.
 Literal phase names are selected before submission; no runtime imports, callback registries,
 native channel/future feedback or hidden graph generation. Actual ZCode analysis must validate
 new mixtures; TypeScript alone is insufficient. Never mask graph projection failure with a

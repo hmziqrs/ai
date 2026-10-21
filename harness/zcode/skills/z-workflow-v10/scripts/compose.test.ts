@@ -40,15 +40,13 @@ test('planning-only composition has no implementation or assembly section in its
  expect(source).toContain('phase("Plan requested work")');expect(source).not.toContain('phase("Run each ready area');expect(source).not.toContain('phase("Assemble');
 });
 
-test('plan audit is a pre-writer section, separate from implementation audit',async()=>{
- const {source}=await composeLibrary(root,normalizeSelection([{name:'planning',authorization:'user plan'},{name:'plan-audit',authorization:'user plan audit once'},{name:'audit',authorization:'user implementation audit once'}]));
- expect(source.indexOf('phase("Audit the plan before implementation")')).toBeLessThan(source.indexOf('phase("Run each ready area'));
- expect(source).toContain('ask<PhaseWork>');
- expect(source).not.toContain('V10 configurator');
+test('plan-audit is retired: one preparation-time self-check, no workflow gate',()=>{
+ expect(pieceNames).not.toContain('plan-audit');
+ expect(()=>normalizeSelection([{name:'plan-audit',authorization:'user plan review'}])).toThrow();
 });
-test('plan-only review includes no writers, worktrees or implementation sections',async()=>{
- const {source}=await composeLibrary(root,normalizeSelection([{name:'planning',authorization:'user plan'},{name:'plan-audit',authorization:'user plan review'}]),'plan');
- expect(source).toContain('phase("Audit the plan before implementation")');expect(source).not.toContain('"worktree", "add"');expect(source).not.toContain('ask<AreaWork>');
+test('plan-only composition includes no writers, worktrees or implementation sections',async()=>{
+ const {source}=await composeLibrary(root,normalizeSelection([{name:'planning',authorization:'user plan'}]),'plan');
+ expect(source).not.toContain('"worktree", "add"');expect(source).not.toContain('ask<AreaWork>');
 });
 
 test('composed source never passes optional undefined values into report items',async()=>{

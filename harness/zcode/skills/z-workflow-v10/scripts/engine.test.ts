@@ -9,8 +9,6 @@ const selections = normalizeSelection(["unit-tests", "tui-tests", "audit", "brow
 const source = (await composeLibrary(join(import.meta.dir, ".."), selections)).source
   .replace(/const v10Result = await runV10\(INPUT\);[\s\S]*$/, "");
 const executable = new Bun.Transpiler({ loader: "ts" }).transformSync(source);
-const reviewed = (await composeLibrary(join(import.meta.dir,".."), normalizeSelection([...selections.map(({name,authorization})=>({name,authorization})),{name:"plan-audit",authorization:"User requested plan review"}]))).source.replace(/const v10Result = await runV10\(INPUT\);[\s\S]*$/, "");
-const reviewedExecutable = new Bun.Transpiler({loader:"ts"}).transformSync(reviewed);
 const temporary: string[] = [];
 afterEach(async () => { for (const path of temporary.splice(0)) await rm(path, { recursive: true, force: true }); });
 
@@ -51,8 +49,6 @@ function leftoverWorktrees(repoRoot: string): string[] {
   return readdirSync(dirname(repoRoot)).filter((entry) => entry.includes("-zv10-"));
 }
 interface MockOptions {
-  review?: boolean;
-  correctPlan?: (prompt:string) => any;
   configure?: (count: number, prompt: string) => unknown;
   implement?: (id: string, cwd: string, prompt: string, count: number) => Promise<any>;
   probe?: (cwd: string, args: string[]) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
@@ -81,7 +77,6 @@ function harness(manifest: unknown, options: MockOptions = {}) {
   } };
   const v10Agent = (_persona: unknown, name: string, rules: string) => ({ ask: async (prompt: string) => {
     calls.push("ask " + name);
-    if (name === "V10 plan correction") return options.correctPlan?.(prompt);
     if (name === "V10 configurator") { configurationPrompts.push(prompt); return options.configure ? options.configure(configurationPrompts.length, prompt) : manifest; }
     if (!name.startsWith("V10 implementer ")) return options.inspect?.(name, prompt) ?? { summary: "Requested check", blockers: [], findings: [] };
     const id = name.slice("V10 implementer ".length), cwd = rules.match(/^Work only in (.*?)\. Own only/)![1];
@@ -89,7 +84,7 @@ function harness(manifest: unknown, options: MockOptions = {}) {
     if (options.implement) return await options.implement(id, cwd, prompt, count);
     await write(cwd, id + "/result.txt"); return { status: "implemented", observations: [], changedPaths: [id + "/result.txt"], summary: id, blockers: [] };
   } });
-  const runtime = new Function("world", "v10Persona", "v10Agent", "phase", "report", "guardWrites", (options.review ? reviewedExecutable : executable) + "\nreturn { runV10, v10ValidatePlan, v10ValidateWork }; ")(
+  const runtime = new Function("world", "v10Persona", "v10Agent", "phase", "report", "guardWrites", executable + "\nreturn { runV10, v10ValidatePlan, v10ValidateWork }; ")(
     world, async (path: string, tier: string, access: string) => ({ path, tier, access }), v10Agent, () => {}, (event: unknown) => events.push(event), async (_persona: unknown, cwd: string, work: () => Promise<unknown>) => {
       const before = git(cwd, ["diff", "HEAD"]) + git(cwd, ["status", "--porcelain", "--untracked-files=all"]) + git(cwd, ["rev-parse", "HEAD"]);
       const result = await work();
@@ -588,20 +583,6 @@ test('a corrected test failure after the last permitted pass is never reported v
  });const result=await runtime.runV10(input);expect(result.status).toBe('incomplete');expect(result.blockers.join()).toContain('unverified');
 });
 
-test('requested plan audit executes once before any worktree or writer',async()=>{
- const input={...await fixture(),pieces:normalizeSelection([{name:'plan-audit',authorization:'User requested one plan review'}])};let reviews=0;
- const runtime=harness(plan([area('api')]),{review:true,inspect:async(name)=>{expect(name).toBe('V10 plan auditor');reviews++;expect(runtime.calls.some(c=>c.startsWith('git worktree')||c.startsWith('ask V10 implementer'))).toBe(false);return {summary:'Plan meets requested scope',blockers:[],findings:[]};}});
- expect((await runtime.runV10(input)).status).toBe('complete');expect(reviews).toBe(1);expect(runtime.counts.get('api')).toBe(1);
-});
-test('plan findings without explicit repair scope block before product mutation',async()=>{
- const input={...await fixture(),pieces:normalizeSelection([{name:'plan-audit',authorization:'User asked for review, no fixes'}])};
- const runtime=harness(plan([area('api')]),{review:true,inspect:async()=>({summary:'Missing UI',blockers:[],findings:['Task requires UI but plan owns only API']})});
- const r=await runtime.runV10(input);expect(r.status).toBe('incomplete');expect(r.blockers).toContain('Task requires UI but plan owns only API');expect(runtime.calls.some(c=>c.startsWith('git worktree'))).toBe(false);expect(runtime.counts.size).toBe(0);
-});
-test('bounded plan audit honors exactly the requested two rounds',async()=>{
- const input={...await fixture(),pieces:normalizeSelection([{name:'plan-audit',authorization:'User requested two reviews',mode:'rounds',rounds:2}])};let reviews=0;
- const runtime=harness(plan([area('api')]),{review:true,inspect:async()=>{reviews++;return {summary:'Reviewed',blockers:[],findings:[]};}});expect((await runtime.runV10(input)).status).toBe('complete');expect(reviews).toBe(2);
-});
 test('a successful incremental gate is supplied as evidence without repeating it for judgment',async()=>{
  const input={...await fixture(),pieces:normalizeSelection([{name:'unit-tests',authorization:'User tests'}])};let commands=0;
  const runtime=harness(plan([area('api',{phases:[{id:'tests',kind:'unit-tests',commands:[{tool:'probe',args:['test'],owners:['api']}],personaPath:'/fixture/test.md',instructions:'User requested tests'}]})]),{
@@ -619,14 +600,3 @@ test('source correction cannot quietly repeat a once-only earlier check',async()
  const r=await runtime.runV10(input);expect(r.status).toBe('incomplete');expect(r.blockers.join()).toContain('budget exhausted');expect(tests).toBe(1);
 });
 
-test('authorized final plan correction does not invent another audit pass',async()=>{
- const manifest=plan([area('api')]);let reviews=0,repairs=0;
- const input={...await fixture(),pieces:normalizeSelection([{name:'plan-audit',authorization:'User review once and correct findings',mode:'once',fixFindings:true}])};
- const runtime=harness(manifest,{review:true,inspect:async()=>{reviews++;return {summary:'Contract omission',blockers:[],findings:['Clarify storage contract']};},correctPlan:()=>{repairs++;return {...manifest,sharedContract:'Concrete durable storage contract'};}});
- const r=await runtime.runV10(input);expect(r.status).toBe('complete');expect(reviews).toBe(1);expect(repairs).toBe(1);expect(r.notes.join()).toContain('not re-audited');
-});
-test('until-clean plan correction with no changed progress stops before writers',async()=>{
- const manifest=plan([area('api')]);const input={...await fixture(),pieces:normalizeSelection([{name:'plan-audit',authorization:'User review and fix until clean',mode:'until-clean',fixFindings:true}])};
- const runtime=harness(manifest,{review:true,inspect:async()=>({summary:'Missing contract',blockers:[],findings:['Specify contract']}),correctPlan:()=>manifest});
- const r=await runtime.runV10(input);expect(r.status).toBe('incomplete');expect(r.blockers.join()).toContain('No changed progress');expect(runtime.counts.size).toBe(0);
-});
