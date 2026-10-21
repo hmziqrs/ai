@@ -1,0 +1,11 @@
+{
+  "name": "z-workflow-v10-tools",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "test": "bun test ./scripts"
+  },
+  "dependencies": {
+    "typescript": "5.9.3"
+  }
+}
