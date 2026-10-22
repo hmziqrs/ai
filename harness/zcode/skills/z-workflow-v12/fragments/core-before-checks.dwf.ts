@@ -19,25 +19,37 @@
     if (pending.exitCode === 0) await gitAt(cwd, ["merge", "--abort"]);
     throw new Error("Run-owned merge failed; partial work retained: " + (out.stderr + out.stdout).slice(-12000));
   };
+  // Ownership gate: throws only for a changed path that is neither owned nor an engine
+  // artifact; returns owned paths only, so unowned artifacts are never committed by a lane.
+  // An unowned lockfile written outside any engine command is dropped the same way; say so once.
+  const droppedReported = new Set<string>();
+  const noteDroppedWrite = (area: AreaPlan, cwd: string, path: string): void => {
+    if (engineArtifacts.get(cwd)?.has(path) || droppedReported.has(cwd + "\0" + path)) return;
+    droppedReported.add(cwd + "\0" + path); event(area.id, "artifact-write", "dropped", path);
+  };
   const statusPaths = async (area: AreaPlan, cwd: string): Promise<string[]> => {
     const raw = await gitAt(cwd, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
     const chunks = raw.split("\0"); const paths: string[] = [];
     for (let i = 0; i < chunks.length; i++) {
       const entry = chunks[i]; if (!entry) continue;
       const path = entry.slice(3);
-      if (!v12Owns(area, path)) throw new Error("Changed path outside ownership: " + path);
-      paths.push(path);
+      if (!v12Owns(area, path) && !isArtifact(cwd, path)) throw new Error("Changed path outside ownership: " + path);
+      if (v12Owns(area, path)) paths.push(path); else noteDroppedWrite(area, cwd, path);
       if (entry.slice(0, 2).includes("R") || entry.slice(0, 2).includes("C")) {
         const original = chunks[++i];
-        if (!v12Owns(area, original)) throw new Error("Rename source outside ownership: " + original);
-        paths.push(original);
+        if (original !== undefined) {
+          if (!v12Owns(area, original) && !isArtifact(cwd, original)) throw new Error("Rename source outside ownership: " + original);
+          if (v12Owns(area, original)) paths.push(original); else noteDroppedWrite(area, cwd, original);
+        }
       }
     }
     return [...new Set(paths)];
   };
+  // Owned paths only (statusPaths already excludes unowned artifacts); an owned file an engine
+  // command once touched still counts, so an agent's later fix to it is changed progress.
   const fingerprint = async (area: AreaPlan, cwd: string): Promise<string> => {
     const paths = await statusPaths(area, cwd);
-    const diff = await gitAt(cwd, ["diff", "HEAD", "--binary"]);
+    const diff = paths.length ? await gitAt(cwd, ["diff", "HEAD", "--binary", "--", ...paths]) : "";
     const hashes: string[] = [];
     for (const path of paths) {
       const out = await execute(cwd, "git", ["hash-object", "--", path]);
@@ -66,7 +78,16 @@
         "Correct only the completion report from your previous response using facts already available. No tools, file edits, new exploration, rechecks or longer report. Classify deferred engine checks and residual risks as observations; retain genuine unmet requirements as blockers. " + workContract + "\nValidator: " + feedback);
       // Actual write ownership is checked even if the reported result is malformed.
       await statusPaths(area, cwd);
-      if (Array.isArray(work?.changedPaths) && work.changedPaths.some((path) => typeof path === "string" && !v12Owns(area, path))) throw new Error("Actor reported unsafe changed path");
+      // Actual write ownership comes from git status, never the agent's self-report: normalize
+      // reported changedPaths (worktree prefixes, leading ./) and keep only owned ones, so a
+      // sloppily reported path can never kill a lane that wrote nothing wrong.
+      if (Array.isArray(work?.changedPaths)) {
+        const reported = work.changedPaths;
+        const normalized = reported.filter((path): path is string => typeof path === "string")
+          .map((path) => path.startsWith(cwd + "/") ? path.slice(cwd.length + 1) : path.replace(/^\.\//, ""))
+          .filter((path) => v12Owns(area, path));
+        if (normalized.length !== reported.length) { work.changedPaths = normalized; event(area.id, "completion-report", "normalized"); }
+      }
       try { v12ValidateWork(work); }
       catch (error) {
         feedback = error instanceof Error ? error.message : String(error);
@@ -82,7 +103,11 @@
   };
   const runCommandsRaw = async (commands: CommandPlan[], cwd: string, evidenceTag: string): Promise<string> => {
     for (const command of commands) {
+      // Every engine command is snapshotted inline: whatever it regenerates in this worktree
+      // (lockfiles, generated sources) is recorded as an engine artifact.
+      const before = await dirtyEntries(cwd);
       const out = await execute(cwd, "bun", ["--no-env-file", "--config=/dev/null", input.skillRoot + "/scripts/run-command.ts", command.tool, JSON.stringify(command.args), evidenceTag]);
+      recordArtifacts(cwd, before, await dirtyEntries(cwd));
       if (out.exitCode !== 0) return JSON.stringify(command) + "\n" + (out.stderr + out.stdout).slice(-18000);
     }
     return "";

@@ -87,7 +87,7 @@ llms.txt                     entry point for consuming agents
   are domain profiles of z-workflow with scoped framework gates and device evidence.
   z-super-rustflow composes its own main-tier-only runs inline (no
   vision, no flash).
-- No saved engines outside the explicitly selected V5/V6/V7/V8/V9 experiments below:
+- No saved engines outside the explicitly selected V5/V6/V7/V8/V9 and V13 experiments below:
   every other z-flow run executes a script written (or, for
   z-liteflow, filled from its template) for that task. Do not add saved
   workflow engines or offer to SaveWorkflow a generated script as a standing
@@ -282,7 +282,40 @@ application benchmark or promote it over older versions. Future behavior changes
 The user-authorized `harness/zcode/skills/z-workflow-v12/` and `harness/zcode/agents/workflow-author-v12.md` are a separate opt-in experiment: install the whole skill as regular files at `~/.zcode/skills/z-workflow-v12/` and that one author at `~/.zcode/agents/workflow-author-v12.md` — a narrow exception to the seven default global agents, carrying Edit access for its user-authorized pre-workflow bootstrap of UNINITIALIZED projects (a workspace in no Git repository, or a checked-out branch with zero commits): thin scaffold (root manifests, gitignore additions, shared contract/types, entry stubs — never feature implementation) only when the project is empty and the brief names a stack, then deterministic `scripts/bootstrap.ts` (git init honoring `init.defaultBranch` else `-b main`, drafts ignore, baseline commit preserving files exactly).
 Bootstrap never stashes/resets/cleans/checkouts/deletes or forces, never modifies an initialized repository (dirty checkouts and detached HEADs stay coordinator blockers), never invents a Git identity, and refuses baselines sweeping unignored dependency/build directories (add ignore rules and re-run; the partial init resumes) or containing an embedded repository (reported blocker, never deleted).
 Keep V11 and all prior versions unchanged (V10/V11 have no sections here; their `SKILL.md` files are authoritative).
-Beyond V11's engine, V12 user-authorizes: judgment findings never veto finished work (without `fixFindings` they are reported on area results while phase command failures still block), and a final engine phase performs guarded checkout-anchored `git merge --ff-only` delivery (never reset/clean/force/push; refusals retain the candidate branch) plus `refs/heads/z-v12/*`-only branch reclamation — coordinator-only delivery no longer applies to V12.
+Beyond V11's engine, V12 user-authorizes: judgment findings never veto finished work (without `fixFindings` they are reported on area results while phase command failures still block), a final engine phase performs guarded checkout-anchored `git merge --ff-only` delivery (never reset/clean/force/push; refusals retain the candidate branch) plus `refs/heads/z-v12/*`-only branch reclamation — coordinator-only delivery no longer applies to V12 — and files produced by engine-run commands (lockfiles, generated sources) are engine artifacts that never trip lane ownership, are committed only by an owning lane; dependency files (lockfiles and co-rewritten manifests) integrate once at the candidate, other derived files are discarded.
 The canonical v4 persona-kit bytes stay byte-identical; V12 carries its own trimmed HIGH-only model-policy copy.
 Reusable fixes require a new numbered release.
 Installing V12 authorizes no benchmark, does not promote it over older versions, and a new session is needed to load the agent.
+
+## Experimental standalone workflow v13
+
+The user-authorized `harness/zcode/skills/z-workflow-v13/` is a separate opt-in experiment
+reviving the historical zflow v2.2 parallel-chain engine (recovered from this repo's git
+history, final content at `f1397dd^`) with unchanged engine bytes: install the whole skill
+as regular files at `~/.zcode/skills/z-workflow-v13/` plus one `bun install
+--frozen-lockfile` for the pinned checker dependency. No new agent definitions exist, so
+no session restart is needed. Keep V12 and all prior versions unchanged.
+
+The engine runs one launch per chain: every area is its own state machine (plan,
+implement, vision, judge; looping until clean, stagnation, or the round cap) over channels
+with a counted close; `contention` (terminal | web | desktop | mobile) decides topology,
+web captures run concurrently on isolated browser sessions and deterministic ports while
+desktop/mobile serialize through a single-worker device lane, gates run by the script from
+a non-mutating anchored allowlist, and fresh judges with per-finding confirmers gate every
+round. The engine never writes the user's checkout: work integrates on
+`zflow/<runTag>/integration`, every branch is kept, and the coordinator delivers only
+through the skill's Step 6 guarded fast-forward (anchors re-verified, clean checkout,
+ff-only, gates rerun; never reset/clean/force/push). The coordinator classifies areas,
+prepares the launch with `scripts/prepare-run.ts` (validates request and areas, captures
+anchors, refuses stale runTags and unignored `.zflow/` state, checks the engine once,
+prints launch JSON — no model call, no launch file), and makes ONE `CreateWorkflow` call
+with `path`; never relaunch to fix (`AmendWorkflow`/`ResumeWorkflowRun` instead). Models
+pin in-script per `modelProfile` (balanced default: pro judgment, flash capture/audit;
+flash labels verdicts `judged`, never `verified`); pass no `subagent_model` unless the
+user asks. The engine uses inline actors, not the persona kit; domain skill paths travel
+in area `skills[]`. `scripts/check-script.ts` (vendored facade, strict) plus
+`bun test ./scripts` must pass after every engine edit; engine, SKILL and
+`zflow-SPEC.md` change together, and the installed copy stays byte-identical (`diff -q`).
+The no-SaveWorkflow-registration rule applies: launches never register a standing engine.
+Reusable behavior changes require a new numbered release. Installing V13 authorizes no
+benchmark and does not promote it over older versions.

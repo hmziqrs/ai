@@ -347,9 +347,32 @@ changes: judgment findings without repair authority are reported and never veto 
 run; each lane's committed hand-off is an immutable snapshot, so later check outcomes never
 retroactively block dependents; and the engine's final phase performs guarded
 checkout-anchored fast-forward delivery and `z-v12/*`-only branch reclamation (current ZCode
-approval still applies). The bootstrap is a git baseline commit, an ignored workflow-drafts
+approval still applies). Engine-run command outputs (lockfiles, generated sources) are engine
+artifacts that never trip lane ownership; dependency files (lockfiles and co-rewritten manifests) integrate once at the candidate. The bootstrap is a git baseline commit, an ignored workflow-drafts
 directory, a thin scaffold for empty projects when the brief names a stack, and no scaffold
 lane for bootstrapped projects. It carries its own
 helpers/pieces/references and a byte-identical v4 kit. Preserve V11 and older versions. Open
 a new ZCode session to discover both V12 artifacts. Installing V12 neither promotes it nor
 authorizes launching an app benchmark.
+
+### Standalone zflow-chain workflow (V13)
+
+When explicitly selecting V13, copy `harness/zcode/skills/z-workflow-v13/` to
+`~/.zcode/skills/z-workflow-v13/` as regular files, excluding development `node_modules/`
+and `dist/`, then run `bun install --frozen-lockfile` in the destination. V13 defines no
+agent files — nothing is copied to `~/.zcode/agents/`, and no new session is needed to
+load one.
+
+V13 revives the historical zflow v2.2 parallel-chain engine (recovered from this repo's
+git history, engine bytes unchanged from `f1397dd^`) as a maintained opt-in engine: the
+coordinator classifies areas by contention, prepares one launch with
+`scripts/prepare-run.ts` (clean branch anchors, stale-runTag and `.zflow/`-ignore
+refusals, one facade check, printed launch JSON), and makes ONE `CreateWorkflow` call with
+`path` — never a SaveWorkflow registration, never a relaunch to fix. Every area loops
+independently (plan, implement, vision, judge) over channels with a counted close; the
+engine never writes the user's checkout and delivers only through the skill's Step 6
+guarded fast-forward. Validation after any engine edit:
+`bun --no-env-file --config=/dev/null scripts/check-script.ts zflow-engine.dwf.ts` and
+`bun test ./scripts`; the installed engine stays byte-identical to this repo's copy
+(`diff -q`). Preserve V12 and older versions. Installing V13 neither promotes it nor
+authorizes launching a benchmark.

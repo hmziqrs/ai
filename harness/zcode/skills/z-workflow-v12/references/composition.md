@@ -8,6 +8,9 @@ byte-identical; the model-policy helper is V12's trimmed HIGH-only copy (no LOW/
 The engine is V11's flat per-area scheduler with literal phase names and concrete ask types,
 plus V12's changes: findings-don't-veto phase handling and a final "Deliver and clean up"
 phase (guarded ff-only delivery, then `z-v12/*` reclamation) after the catch-based teardown.
+Engine artifacts (whatever an engine command regenerates, plus any lockfile basename) are
+tracked per worktree: they never trip the ownership gate, commit only through an owner (dependency files — lockfiles and co-rewritten manifests — also
+once at the candidate; other derived files are discarded), completion-report changedPaths are normalized against git status instead of vetoing, and teardown never retains a branch for them alone.
 No runtime imports, callback registries or hidden graph generation.
 
 Never wrap the engine tail in a long `try { ... } finally` span: the platform's graph

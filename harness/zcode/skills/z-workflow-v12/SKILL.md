@@ -65,8 +65,10 @@ via future() and gates only the final result. Lanes with repair authority gate a
 ## Worktree hygiene
 
 The engine tears down every worktree it creates (success, incomplete and mid-run failure
-alike), auto-committing dirty ones so blocked work stays recoverable, and records each in
-`<repoRoot>/.zcode/workflow-drafts/worktrees.jsonl` (git-ignored). A stopped or
+alike), auto-committing agent work so it stays recoverable, and records each in
+`<repoRoot>/.zcode/workflow-drafts/worktrees.jsonl` (git-ignored). Files produced by
+engine-run commands (lockfiles, generated sources) are engine artifacts: they never block a
+lane, are committed only by a lane that owns them; dependency files (lockfiles and co-rewritten manifests) integrate once at the candidate, other derived files are discarded. A stopped or
 killed run skips engine teardown — reclaim the registered worktrees with
 `bun <skillRoot>/scripts/cleanup-worktrees.ts <repoRoot>` (`--dry-run`; V12-shaped entries
 only): it commits any uncommitted work to the worktree's branch first and deletes a branch

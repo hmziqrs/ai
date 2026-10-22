@@ -92,20 +92,40 @@
   });
   const areas = await Promise.all(tasks);
   const blockers = areas.flatMap((area) => area.blockers.map((problem) => area.id + ": " + problem));
+  // Settles the candidate's engine artifacts when they are its only dirt: dependency files
+  // (lockfiles and the manifests an engine command rewrote with them) are committed, since
+  // installs depend on them — this is how the merged manifests' correct lockfile lands in
+  // delivery; other derived files (build output, generated sources) are reported and left
+  // uncommitted to vanish with the worktree, as in a developer's clean checkout. Returns the
+  // dirty listing to report when any dirt is not an engine artifact.
+  const settleArtifacts = async (): Promise<string> => await serializeGit(async () => {
+    const dirty = await dirtyEntries(candidate);
+    if (!dirty.size) return "";
+    if ([...dirty.keys()].some((path) => !isArtifact(candidate, path))) return [...dirty.values()].join("\n");
+    const dependencies = [...dirty.keys()].filter((path) => dependencyFile(path));
+    const derived = [...dirty.keys()].filter((path) => !dependencyFile(path));
+    if (derived.length) event("candidate", "derived-artifacts", "uncommitted", derived.join(", "));
+    if (!dependencies.length) return "";
+    await gitAt(candidate, ["add", "--", ...dependencies]);
+    await gitAt(candidate, ["commit", "-m", "V12: integrate engine-generated dependency files"]);
+    return "";
+  });
   phase("Assemble the integration candidate");
   if (!blockers.length) {
     event("candidate", "setup", "running");
     const setupError = await runCommands(plan.setup, candidate);
     if (setupError) blockers.push("Required candidate setup failed: " + setupError);
-    else event("candidate", "setup", "ready");
+    else { event("candidate", "setup", "ready"); await settleArtifacts(); }
     let globalIndex = 0;
     while (!blockers.length && globalIndex < plan.assembly.length) {
       const command = plan.assembly[globalIndex];
       for (;;) {
+        const before = await dirtyEntries(candidate);
         const out = await execute(candidate, command.tool, command.args);
-        if (out.exitCode === 0) break;
-        const candidateDirty = await gitAt(candidate, ["status", "--porcelain=v1", "--untracked-files=all"]);
-        if (candidateDirty) { blockers.push("Integrated assembly changed source before failing; retained for explicit ownership correction: " + candidateDirty); break; }
+        recordArtifacts(candidate, before, await dirtyEntries(candidate));
+        if (out.exitCode === 0) { await settleArtifacts(); break; }
+        const failingDirt = await settleArtifacts();
+        if (failingDirt) { blockers.push("Integrated assembly changed source before failing; retained for explicit ownership correction: " + failingDirt); break; }
         const error = JSON.stringify(command) + "\n" + (out.stderr + out.stdout).slice(-18000);
         const candidateHead = (await gitAt(candidate, ["rev-parse", "HEAD"])).trim();
         const unchangedOwners = new Set<string>();
@@ -128,8 +148,11 @@
         blockers.push(...corrections.filter((problem) => problem !== ""));
         if (blockers.length) break;
         if (unchangedOwners.size === command.owners.length) {
+          const retryBefore = await dirtyEntries(candidate);
           const retry = await execute(candidate, command.tool, command.args);
+          recordArtifacts(candidate, retryBefore, await dirtyEntries(candidate));
           if (retry.exitCode !== 0) blockers.push("No changed progress correcting integrated assembly: " + (retry.stderr + retry.stdout).slice(-18000));
+          else await settleArtifacts();
           break;
         }
         // Changed revisions invalidate only their own and consuming areas' requested evidence.
@@ -172,9 +195,9 @@
       globalIndex += 1;
     }
   }
+  const candidateDirt = await settleArtifacts();
   const candidateCommit = (await gitAt(candidate, ["rev-parse", "HEAD"])).trim();
-  const candidateStatus = await gitAt(candidate, ["status", "--porcelain=v1", "--untracked-files=all"]);
-  if (candidateStatus) blockers.push("Integrated assembly changed tracked/untracked files; retained for explicit ownership correction: " + candidateStatus);
+  if (candidateDirt) blockers.push("Integrated assembly changed tracked/untracked files; retained for explicit ownership correction: " + candidateDirt);
   try { await anchors(); } catch (error) { blockers.push("Delivery anchors changed; candidate retained: " + String(error)); }
   result.status = blockers.length ? "incomplete" : "complete";
   result.candidateCommit = candidateCommit;

@@ -223,7 +223,9 @@ describe("V12 per-area static engine", () => {
       expect(result.status).toBe("incomplete");
       expect(runtime.counts.get("api")).toBe(malformed ? 2 : 1);
       expect(result.blockers.join()).toContain(malformed ? "Invalid completion report after one clarification" : "permission: User authorization required");
-      expect(runtime.calls.some((call) => call.startsWith("git add --"))).toBe(false);
+      // Blocked/malformed areas never get a lane revision commit (teardown's separate recovery
+      // commit may legitimately stage the same owned files for its retain branch).
+      expect(runtime.calls.some((call) => call.startsWith("git commit -m V12: api revision"))).toBe(false);
       expect(git(input.repoRoot, ["ls-tree", "-r", "--name-only", result.candidateBranch])).not.toContain("api/partial.txt");
     }
   });
@@ -491,7 +493,10 @@ describe("V12 per-area static engine", () => {
       }
     });
     const result = await runtime.runV12(input);
-    expect(result.status).toBe("incomplete"); expect(runtime.calls.some((call) => call.startsWith("git add --"))).toBe(false);
+    expect(result.status).toBe("incomplete");
+    // The unsafe write is never staged into a lane revision commit; only teardown's recovery
+    // commit secures it on the retained api branch for review.
+    expect(runtime.calls.some((call) => call.startsWith("git commit -m V12: api revision"))).toBe(false);
     expect(result.blockers.join()).toMatch(/outside ownership|unsafe changed path/);
     expect(git(input.repoRoot, ["ls-tree", "-r", "--name-only", result.candidateBranch])).not.toContain("outside.txt");
   });
@@ -708,4 +713,165 @@ test('V12 branch reclamation is scoped to z-v12 and reclaims stale contained bra
  expect(git(input.repoRoot,['branch','--list','z-v12/*'])).toBe('z-v12/old-run/stale-unmerged');
  expect(retained(result,'(unmerged work retained)')).toEqual(['z-v12/old-run/stale-unmerged']);
  expect(git(input.repoRoot,['branch','--list','z-v11/*'])).toContain('z-v11/keep');
+});
+
+test('engine artifacts from lane installs never block lanes and integrate once at the candidate',async()=>{
+ const input=await fixture();
+ await writeFile(join(input.repoRoot,'package.json'),JSON.stringify({name:'root',workspaces:['apps/*']})+'\n');
+ git(input.repoRoot,['add','package.json']);git(input.repoRoot,['commit','-m','root workspace manifest, no lockfile']);
+ input.baseCommit=git(input.repoRoot,['rev-parse','HEAD']);
+ const runtime=harness(plan(['backend','web-shell','browser-helper'].map((id)=>area(id,{setup:[{tool:'probe',args:['install'],owners:[id]}]})),{
+  setup:[{tool:'probe',args:['install'],owners:['backend']}]
+ }),{probe:async(cwd,args)=>{
+  if(args[0]==='install')await write(cwd,'bun.lock','lockfile generated in '+cwd+'\n');
+  return {exitCode:0,stdout:'',stderr:''};
+ }});
+ const result=await runtime.runV12(input);
+ expect(result.status).toBe('complete');
+ expect(result.areas.every((lane:any)=>lane.status==='ready')).toBe(true);
+ for(const lane of result.areas)expect(git(input.repoRoot,['ls-tree','-r','--name-only',lane.commit])).not.toContain('bun.lock');
+ expect(git(input.repoRoot,['log','--format=%s',result.candidateCommit])).toContain('V12: integrate engine-generated dependency files');
+ expect(git(input.repoRoot,['ls-tree','-r','--name-only',result.candidateCommit])).toContain('bun.lock');
+ expect(result.delivery.status).toBe('delivered');
+ expect(git(input.repoRoot,['show','HEAD:bun.lock'])).toContain('lockfile generated in');
+ expect(git(input.repoRoot,['branch','--list','z-v12/*'])).toBe('');
+ expect(result.retainedBranches).toEqual([]);
+ expect(git(input.repoRoot,['log','--all','--format=%s'])).not.toContain('work for recovery');
+});
+
+test('teardown retains nothing for a lockfile-only lane but keeps real gate violations for review',async()=>{
+ const input=await fixture();
+ const runtime=harness(plan([
+  area('api',{setup:[{tool:'probe',args:['install'],owners:['api']}]}),
+  area('rogue',{setup:[{tool:'probe',args:['install'],owners:['rogue']}]}),
+  area('ui')
+ ]),{
+  probe:async(cwd,args)=>{if(args[0]==='install')await write(cwd,'bun.lock','derived lockfile\n');return {exitCode:0,stdout:'',stderr:''};},
+  implement:async(id,cwd)=>{
+   if(id==='api')return {status:'blocked',observations:[],changedPaths:[],summary:'blocked before writing work',blockers:[{kind:'input',detail:'Missing service'}]};
+   if(id==='rogue'){await write(cwd,'outside.txt','agent-written, never owned\n');return {status:'implemented',observations:[],changedPaths:[],summary:'wrote outside ownership',blockers:[]};}
+   await write(cwd,'ui/result.txt');return {status:'implemented',observations:[],changedPaths:['ui/result.txt'],summary:'done',blockers:[]};
+  }});
+ const result=await runtime.runV12(input);
+ expect(result.status).toBe('incomplete');
+ const api=result.areas.find((lane:any)=>lane.id==='api'),rogue=result.areas.find((lane:any)=>lane.id==='rogue');
+ expect(api.status).toBe('blocked');expect(rogue.status).toBe('blocked');
+ expect(rogue.blockers.join()).toContain('Changed path outside ownership: outside.txt');
+ expect(git(input.repoRoot,['log','--all','--format=%s'])).not.toContain('V12: retain api work for recovery');
+ expect(retained(result,'(unmerged work retained)')).not.toContain(api.branch);
+ expect(git(input.repoRoot,['show',rogue.branch+':outside.txt'])).toBe('agent-written, never owned');
+ expect(retained(result,'(unmerged work retained)')).toContain(rogue.branch);
+});
+
+test('a non-artifact unowned write during an ask still throws at the ownership gate',async()=>{
+ const input=await fixture();
+ const runtime=harness(plan([area('api')]),{implement:async(_id,cwd)=>{
+  await write(cwd,'rogue.txt');return {status:'implemented',observations:[],changedPaths:[],summary:'wrote an unowned file',blockers:[]};
+ }});
+ const result=await runtime.runV12(input);
+ expect(result.status).toBe('incomplete');
+ expect(result.areas[0].blockers.join()).toContain('Changed path outside ownership: rogue.txt');
+});
+
+test('lockfile churn during an assembly correction is not changed progress',async()=>{
+ const input=await fixture();
+ await writeFile(join(input.repoRoot,'bun.lock'),'baseline lockfile\n');
+ git(input.repoRoot,['add','bun.lock']);git(input.repoRoot,['commit','-m','baseline lockfile']);
+ input.baseCommit=git(input.repoRoot,['rev-parse','HEAD']);
+ let installs=0;
+ const runtime=harness(plan([area('api',{ownedPaths:['src'],assembly:[{tool:'probe',args:['install'],owners:['api']}]})]),{
+  probe:async(cwd)=>{await write(cwd,'bun.lock','regenerated '+(++installs)+'\n');return {exitCode:1,stdout:'',stderr:'install failed'};},
+  implement:async(_id,cwd)=>{await write(cwd,'src/result.txt');return {status:'implemented',observations:[],changedPaths:['src/result.txt'],summary:'done',blockers:[]};}
+ });
+ const result=await runtime.runV12(input);
+ expect(result.status).toBe('incomplete');
+ expect(runtime.counts.get('api')).toBe(2);
+ expect(result.blockers.join()).toContain('No changed progress');
+});
+
+test('a lockfile regenerated by the final integrated gate is integrated and delivered',async()=>{
+ const input=await fixture();
+ const runtime=harness(plan([area('app')],{assembly:[{tool:'probe',args:['build'],owners:['app']}]}),{
+  probe:async(cwd,args)=>{if(args[0]==='build')await write(cwd,'bun.lock','final lockfile\n');return {exitCode:0,stdout:'',stderr:''};}
+ });
+ const result=await runtime.runV12(input);
+ expect(result.status).toBe('complete');
+ expect(result.delivery.status).toBe('delivered');
+ expect(git(input.repoRoot,['log','--format=%s',result.candidateCommit])).toContain('V12: integrate engine-generated dependency files');
+ expect(git(input.repoRoot,['show','HEAD:bun.lock'])).toBe('final lockfile');
+ expect(git(input.repoRoot,['status','--porcelain'])).toBe('');
+});
+
+test('non-lockfile derived output from the integrated gate is tolerated, reported and never delivered',async()=>{
+ const input=await fixture();
+ const runtime=harness(plan([area('app')],{assembly:[{tool:'probe',args:['build'],owners:['app']}]}),{
+  probe:async(cwd,args)=>{if(args[0]==='build'){await write(cwd,'dist/out.js','built\n');await write(cwd,'bun.lock','lock\n');}return {exitCode:0,stdout:'',stderr:''};}
+ });
+ const result=await runtime.runV12(input);
+ expect(result.status).toBe('complete');
+ expect(result.delivery.status).toBe('delivered');
+ const tree=git(input.repoRoot,['ls-tree','-r','--name-only','HEAD']);
+ expect(tree).toContain('bun.lock');
+ expect(tree).not.toContain('dist/out.js');
+ expect(git(input.repoRoot,['status','--porcelain'])).toBe('');
+ expect(runtime.events).toContainEqual(expect.objectContaining({area:'candidate',step:'derived-artifacts',status:'uncommitted',evidence:'dist/out.js'}));
+});
+
+test('an owned file an assembly command rewrote still counts as progress when the agent fixes it',async()=>{
+ const input=await fixture();
+ const runtime=harness(plan([area('api',{ownedPaths:['src'],assembly:[{tool:'probe',args:['format'],owners:['api']}]})]),{
+  probe:async(cwd)=>{
+   const current=await Bun.file(join(cwd,'src/formatted.ts')).text().catch(()=>'');
+   if(current.includes('AGENT-FIX'))return {exitCode:0,stdout:'',stderr:''};
+   await write(cwd,'src/formatted.ts','ENGINE-FORMATTED\n');return {exitCode:1,stdout:'',stderr:'format check failed'};
+  },
+  implement:async(_id,cwd,_prompt,count)=>{
+   if(count===1){await write(cwd,'src/app.ts');return {status:'implemented',observations:[],changedPaths:['src/app.ts'],summary:'done',blockers:[]};}
+   await write(cwd,'src/formatted.ts','AGENT-FIX\n');return {status:'implemented',observations:[],changedPaths:['src/formatted.ts'],summary:'fixed',blockers:[]};
+  }
+ });
+ const result=await runtime.runV12(input);
+ expect(result.status).toBe('complete');
+ expect(result.delivery.status).toBe('delivered');
+ expect(git(input.repoRoot,['show','HEAD:src/formatted.ts'])).toBe('AGENT-FIX');
+});
+
+test('a manifest rewritten with its lockfile by the integrated gate is integrated as one dependency state',async()=>{
+ const input=await fixture();
+ const runtime=harness(plan([area('app')],{assembly:[{tool:'probe',args:['tidy'],owners:['app']}]}),{
+  probe:async(cwd,args)=>{if(args[0]==='tidy'){await write(cwd,'go.mod','module app\n\nrequire x v1\n');await write(cwd,'go.sum','x v1 h1:abc\n');}return {exitCode:0,stdout:'',stderr:''};}
+ });
+ const result=await runtime.runV12(input);
+ expect(result.status).toBe('complete');
+ expect(result.delivery.status).toBe('delivered');
+ expect(git(input.repoRoot,['show','HEAD:go.mod'])).toContain('require x v1');
+ expect(git(input.repoRoot,['show','HEAD:go.sum'])).toBe('x v1 h1:abc');
+ expect(git(input.repoRoot,['status','--porcelain'])).toBe('');
+});
+
+test('an unowned lockfile written during an ask is dropped visibly, never delivered',async()=>{
+ const input=await fixture();
+ const runtime=harness(plan([area('api',{ownedPaths:['src']})]),{
+  implement:async(_id,cwd)=>{await write(cwd,'src/result.txt');await write(cwd,'evil/bun.lock','smuggled\n');return {status:'implemented',observations:[],changedPaths:['src/result.txt'],summary:'done',blockers:[]};}
+ });
+ const result=await runtime.runV12(input);
+ expect(result.status).toBe('complete');
+ expect(git(input.repoRoot,['ls-tree','-r','--name-only','HEAD'])).not.toContain('evil/bun.lock');
+ expect(runtime.events).toContainEqual(expect.objectContaining({area:'api',step:'artifact-write',status:'dropped',evidence:'evil/bun.lock'}));
+});
+
+test('a sloppily reported changedPaths never kills a lane that wrote nothing wrong',async()=>{
+ const input=await fixture();
+ const runtime=harness(plan([area('api',{ownedPaths:['src']})]),{
+  implement:async(_id,cwd)=>{
+   await write(cwd,'src/result.txt');
+   return {status:'implemented',observations:[],changedPaths:[cwd+'/src/result.txt','./src/other.txt','not-ours.txt'],summary:'done',blockers:[]};
+  }
+ });
+ const result=await runtime.runV12(input);
+ expect(result.status).toBe('complete');
+ expect(result.delivery.status).toBe('delivered');
+ expect(result.blockers.join()).not.toContain('Actor reported unsafe changed path');
+ expect(runtime.events).toContainEqual(expect.objectContaining({area:'api',step:'completion-report',status:'normalized'}));
+ expect(git(input.repoRoot,['show','HEAD:src/result.txt'])).toBe('implemented');
 });

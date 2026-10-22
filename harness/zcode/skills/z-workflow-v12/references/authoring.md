@@ -69,7 +69,14 @@ dependency/build directories (`node_modules`, `.venv`, `venv`, `__pycache__`, `.
 embedded Git repository: for the former add the matching ignore rules (always part of the
 authorized bootstrap, even when user files exist) and re-run — the partial init resumes; for
 the latter report the path as a blocker with its remedy (remove that nested `.git` or
-initialize at that level), never deleting a nested `.git` yourself. A bootstrapped-with-scaffold
+initialize at that level), never deleting a nested `.git` yourself. When the thin scaffold
+includes package manifests and the package registry is reachable, run the package manager's
+install once **before** `bootstrap.ts` so the lockfile is part of the baseline (faster lanes,
+no drift); if that install fails, proceed — the engine integrates regenerated lockfiles
+itself. Do not pin dependency versions through per-package registry lookups during
+preparation (the first real run burned ~9 minutes on `bun pm view` returning UNAVAILABLE);
+write caret ranges or the stack's standard `create` conventions and let install resolve them.
+A bootstrapped-with-scaffold
 project plans NO scaffold area: every feature area starts concurrently, with no dependsOn
 except genuinely shared inputs.
 
@@ -216,7 +223,13 @@ cwd, records every worktree in the repo's ignored `.zcode/workflow-drafts/worktr
 tears every worktree down with an auto-commit so blocked work stays recoverable. Writers
 author source, tests and named helpers and may use required compiler assistance on their
 edited files; a zero-exit incremental build is valid — never demand cold builds or cache
-clearing without actual user scope. Build gates go in assembly, tests in selected check
+clearing without actual user scope. Files produced by engine-run commands (lockfiles,
+generated sources) are engine artifacts: they never block a lane, are committed only by a
+lane that owns them; dependency files (lockfiles and the manifests an engine command rewrote with them) are integrated once at the candidate while other derived files
+stay uncommitted and are discarded with the worktree. The engine judges write ownership from
+git status, never from an agent's self-reported `changedPaths` (reported paths are normalized
+to owned ones and never block). Assign root manifests to the scaffold/shell owner when a lane must edit them; otherwise nothing needs to own them.
+Build gates go in assembly, tests in selected check
 phases; every command names nonempty exact owner IDs, uses existing named
 executables/scripts (new helper paths are writer deliverables), never places inline programs
 or shell wrappers in setup/assembly, and never shares writable dependency folders between
