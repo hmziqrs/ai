@@ -1,117 +1,79 @@
 ---
 name: z-workflow-v12
 description: >-
-  Parallel-first ZCode build workflow: a Flash HIGH preparation author initializes an
-  uninitialized project pre-workflow (git baseline plus thin scaffold), then splits the
-  brief into concurrent writer lanes by default; the engine runs them in isolated worktrees
-  with guaranteed teardown, and audits/tests/vision stay opt-in pieces.
+  Parallel-first build workflow: a Flash HIGH author initializes an uninitialized project
+  pre-workflow (git baseline plus thin scaffold), then splits the brief into concurrent
+  writer lanes; the engine runs isolated worktrees with guaranteed teardown, guarded
+  fast-forward delivery and z-v12 branch reclamation; audits, tests and vision stay opt-in.
 ---
 
 # z-workflow-v12
 
-Select V12 when requested. It is an independent experiment built on V11's engine; preserve V11
-and every older release. The coordinator delegates one typed plan and source assembly to
-`workflow-author-v12` (Flash HIGH). The run consumes that plan directly: no second configurator
-rediscovers it. Maintained source is concatenated unchanged, with literal phase labels and
-concrete ask interfaces. No saved standing workflows, runtime imports, callback registries or
-authored engines.
-
-## Priorities
-
-- Complete the requested scope fast through parallel lanes by default: the author splits work
-  along real ownership seams (parallel-by-default floor of 2 writer areas; typically 3-6 for
-  multi-feature briefs). An initialized-but-empty project may use one thin scaffold owner as
-  its only blocking bootstrap; a project the author bootstrapped pre-workflow plans no
-  scaffold lane at all — every feature area starts concurrently.
-- Audits, unit tests and vision are opt-in pieces with explicit authorization. Default posture
-  is no tests, no audits — only what the user requested. Nothing is enabled by
-  stack detection.
-- Never promise speed unmeasured; report elapsed preparation/execution separately.
+Select V12 when requested. An independent experiment on V11's engine; preserve V11 and older
+releases. The coordinator delegates one typed plan and source assembly to
+`workflow-author-v12` (Flash HIGH); the run consumes it directly — no second configurator, no
+saved engines. Parallel lanes by default (floor of 2 writer areas, typically 3-6 for
+multi-feature briefs); never promise speed unmeasured. Audits, unit tests and vision are
+opt-in with explicit authorization; stack detection enables nothing — the default posture is
+no tests, no audits.
 
 ## Coordinate
 
 1. Send the original brief, absolute workspace and this skill's absolute directory to the
-   installed `workflow-author-v12` Agent. Include known instruction paths and any lane
-   preferences; do not write a detailed TASK.md or explore project/engine source first. Natural
-   short prompts are sufficient. The author's [contract](references/authoring.md) contains the
-   schema/catalog and its one deterministic preflight command. When preflight reports the
-   workspace uninitialized, the author itself performs the user-authorized bootstrap — thin
-   scaffold for an empty project when the brief names a stack, then `scripts/bootstrap.ts` and
-   a fresh preflight — before assembling the run. If the agent is not discovered,
-   start a new ZCode session (agent discovery reads `~/.zcode/agents/` at session start).
-2. While it prepares, load the current ZCode `dynamic-workflows` launch contract once. Its
-   examples do not authorize extra reviews. Do not inspect compiler/engine internals or repeat
-   the author's probes. If a prerequisite is blocked, perform only an authorized concrete remedy;
-   preserve user edits and isolated project scope. Give the author the diagnostic, not a new plan.
-3. Use returned `scriptPath` in CreateWorkflow, following the separate confirmation flow even
-   with Full access. Preserve preview-only requests: show the assembled phases without starting
-   a run. Plan-only mode has no writers, worktrees or implementation gates. Compiler diagnostics
-   mean no workflow started; report/recover narrowly under the current contract.
-4. On completion, use recorded evidence and captured HEAD/full branch ref to guard ordinary
-   fast-forward delivery to the original checkout — delivery needs only the recorded candidate
-   branch/commit, never a surviving worktree. No reset/clean/force/push/deploy. Changed anchors,
-   failed required checks or a dirty candidate retain the result for review. Do not rerun
-   successful gates or demand a cold build. Report actual outcome, elapsed preparation/execution
-   separately, pieces, effective models, evidence, retained branches and unmet requirements
-   briefly.
+   installed `workflow-author-v12` agent, plus known instruction paths and lane preferences;
+   no detailed TASK.md, no exploring project/engine source first. The author's
+   [contract](references/authoring.md) holds the schema, catalog and its one preflight
+   command; when preflight reports the workspace uninitialized, the author itself performs
+   the user-authorized bootstrap before assembling the run. If the agent is not discovered,
+   start a new ZCode session (agents load at session start).
+2. While it prepares, load the current ZCode `dynamic-workflows` launch contract once (its
+   examples authorize no extra reviews); do not inspect engine internals or repeat the
+   author's probes. A blocked prerequisite gets only an authorized concrete remedy — give
+   the author the diagnostic, not a new plan.
+3. Use the returned `scriptPath` in CreateWorkflow, following the separate confirmation flow
+   even with Full access. Preserve preview-only requests; plan-only mode has no writers,
+   worktrees or gates. Compiler diagnostics mean no workflow started.
+4. On completion the engine has already attempted delivery: anchors re-verified (same
+   HEAD/branch, clean), checkout fast-forwarded to the candidate commit, `z-v12/*` branches
+   reclaimed (contained deleted; candidate kept only while retained; unmerged work reported).
+   Report `delivery.status`/`detail`, `retainedBranches`, blockers, per-area findings, the
+   selected pieces and effective models, the evidence recorded, and elapsed preparation and
+   execution separately; for `retained`, give the manual command
+   `git merge --ff-only <candidateCommit>` plus the reason. Never reset/clean/force/push,
+   rerun successful gates or demand a cold build.
 
-## Scope and execution
+## Pieces and review policy
 
-Optional pieces are selected from user intent before submission. Nothing extra is enabled by
-stack detection. [Authoring contract](references/authoring.md) defines exact fields and examples.
+Pieces are selected from user intent before submission (fields in the
+[authoring contract](references/authoring.md)): `planning`; `unit-tests`, `tui-tests`,
+`audit`, `browser`; `web-vision`/`native-vision`/`mobile-vision` (real captured images judged
+by Flash HIGH — text snapshots, test exits and screenshot existence alone are not visual
+judgments). Plan checking is the author's preparation-time self-check — no plan-audit
+workflow round.
 
-- `planning` names the requested thin plan; otherwise the kernel accepts the prepared work data.
-- Plan checking happens at the author level: the author re-reads its finished plan against the
-  brief during preparation and fixes gaps itself. There is no plan-audit workflow round — one
-  workflow round, everything predetermined by the author.
-- `unit-tests`, `tui-tests`, `audit` and `browser` are separate behavior/review pieces.
-- `web-vision`, `native-vision`, `mobile-vision` capture real images and use Flash HIGH judgment.
-  Text snapshots, test exits and screenshot existence alone are not visual judgments.
+Default review policy is one pass; fixed rounds/until-clean and repairs need explicit
+authority. Judgment findings never veto finished work: without `fixFindings` they are
+reported on area results and a completed run still delivers; a phase whose commands exit
+nonzero blocks as a hard failure. A changed source revision invalidates affected evidence;
+exhausted finite budgets require explicit follow-up; no automatic MAX.
 
-Default requested review policy is one pass. Fixed rounds/until-clean and repairs require
-explicit authority. Findings without repair authority stop incomplete. Plan findings corrected
-with a final permitted pass are reported corrected but not re-audited. Do not invent another
-clean pass. A changed source revision invalidates affected evidence; exhausted finite check
-budgets require explicit follow-up instead of quietly executing more rounds. No automatic MAX.
-
-The author defines disjoint source owners and real dependencies. Independent area pipelines
-start concurrently and advance through their own checks; there is no global phase barrier.
-The author's preparation is the only pre-implementation step. Shared Git, PTY,
-browser/device and writers serialize only where necessary. Requested audit/unit-test phases
-attach to each implementation area by default and run in that area's own worktree immediately
-after it implements, while siblings still build; merged verification areas consume actual
-implementation commits without becoming product writers, and are built only for checks that
-inherently cross lanes (integrated browser journeys, whole-app visual pass). Device capture
-releases its lock
-before image judgment. The runtime tools remain shared; persona tool lists are intended
-authority, not a claimed sandbox.
-
-## Two-stage lanes (early hand-off)
-
-Each area runs in two stages: stage A (implement + build gate + commit) resolves the
-committed promise the moment source lands, so dependent lanes fan out immediately; stage B
-(the area's read-only audit/test phases) runs concurrently via future() and gates only the
-final result. A lane whose phases carry repair authority (fixFindings) gates as one stage,
-because dependents must build against its final source.
+Each lane runs two stages: stage A (implement + gates + commit) resolves an immutable
+committed snapshot the moment source lands, so dependents fan out immediately and never
+observe a later stage-B outcome; stage B (the lane's read-only phases) streams concurrently
+via future() and gates only the final result. Lanes with repair authority gate as one stage.
 
 ## Worktree hygiene
 
-The engine tears down every worktree it creates — on success, incomplete and mid-run failure
-alike — in a guaranteed finally phase. Before removal, a dirty worktree is auto-committed to
-its area branch so blocked work stays recoverable; area branches already contained in the
-candidate are deleted, the candidate branch is always kept as the delivery reference, and any
-branch still holding recoverable work is reported in `retainedBranches`. Every created worktree
-is also recorded in `<repoRoot>/.zcode/workflow-drafts/worktrees.jsonl` (persistent, git-ignored);
-teardown removes entries as it reclaims each worktree. A run stopped or killed mid-flight skips
-engine teardown — reclaim exactly the registered worktrees afterwards with
-`bun <skillRoot>/scripts/cleanup-worktrees.ts <repoRoot>` (`--dry-run` supported; only registry
-entries with V12-shaped paths and branches are ever touched). Per-worktree engine command
-evidence (ignored JSONL under `.zcode/workflow-drafts/v12-evidence/`) is disposable; the run
-journal and repo-root evidence namespaces remain authoritative. Dependency-blocked areas report
-no phantom worktree paths.
+The engine tears down every worktree it creates (success, incomplete and mid-run failure
+alike), auto-committing dirty ones so blocked work stays recoverable, and records each in
+`<repoRoot>/.zcode/workflow-drafts/worktrees.jsonl` (git-ignored). A stopped or
+killed run skips engine teardown — reclaim the registered worktrees with
+`bun <skillRoot>/scripts/cleanup-worktrees.ts <repoRoot>` (`--dry-run`; V12-shaped entries
+only): it commits any uncommitted work to the worktree's branch first and deletes a branch
+only when its work is contained in HEAD or that run's candidate, retaining the rest.
 
-Bun, Git and the skill's pinned TypeScript dependency are required. Installation uses regular
-files in `~/.zcode/skills/z-workflow-v12/` and `~/.zcode/agents/workflow-author-v12.md`; niche
-personas remain project-local. The copied v4 persona kit is byte-identical to canonical.
-Reusable fixes require a new numbered release; preserve task-owned diagnostics rather than
-rewriting installed helpers during a run. Installing this skill does not authorize a benchmark.
+Requires Bun and Git; install as regular files in `~/.zcode/skills/z-workflow-v12/` and
+`~/.zcode/agents/workflow-author-v12.md`, then `bun install --frozen-lockfile` in the
+destination. Niche personas stay project-local; the copied v4 persona kit is byte-identical
+to canonical. Reusable fixes require a new numbered release. Installing this skill does not
+authorize a benchmark; restart the session to load the author.

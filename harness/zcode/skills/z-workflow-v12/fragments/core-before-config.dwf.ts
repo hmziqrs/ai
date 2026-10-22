@@ -54,8 +54,8 @@
     await execute(input.repoRoot, "sh", ["-c", "grep -Fvx \"$1\" \"$2\" >\"$2.part\" || true; mv \"$2.part\" \"$2\"", "sh", registryEntry(worktree), registryFile]);
   };
   // Teardown is total: it never throws, so a finally caller can rely on it. Dirty worktrees are
-  // committed first so blocked work stays recoverable from its branch; area branches contained in
-  // the candidate are deleted, the candidate branch is always kept as the delivery reference.
+  // committed first so blocked work stays recoverable from its branch; worktrees are removed and
+  // pruned. Branch reclamation belongs to the "Deliver and clean up" phase, not teardown.
   const cleanupWorktrees = async (): Promise<string[]> => {
     const retained: string[] = [];
     while (createdWorktrees.length) {
@@ -70,13 +70,6 @@
         if (removed.exitCode !== 0) removed = await execute(input.repoRoot, "git", ["worktree", "remove", "--force", worktree.path]);
         if (removed.exitCode !== 0) { retained.push(worktree.branchRef + " (worktree kept: remove failed)"); continue; }
         await registryRemove(worktree);
-        if (worktree.area === "candidate") { retained.push(worktree.branchRef + " (delivery reference)"); continue; }
-        const merged = await execute(input.repoRoot, "git", ["merge-base", "--is-ancestor", worktree.branchRef, branch]);
-        if (merged.exitCode === 0) {
-          const deleted = await execute(input.repoRoot, "git", ["branch", "-D", worktree.branchRef]);
-          if (deleted.exitCode === 0) continue;
-        }
-        retained.push(worktree.branchRef + " (unmerged work retained)");
       } catch (error) {
         retained.push(worktree.branchRef + " (cleanup failed: " + String(error).slice(0, 200) + ")");
       }

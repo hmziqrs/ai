@@ -60,7 +60,8 @@ test('execute engine keeps the analyzer-safe teardown shape (no long try/finally
  const {source}=await composeLibrary(root,normalizeSelection([{name:'browser',authorization:'user browser'}]));
  expect(source).toContain('const runEngine = async (): Promise<RunResult> => {');
  expect(source).toContain('await runEngine().catch((error) => { failed = true; failure = error; });');
- expect(source).toContain('result.retainedBranches.push(...await cleanupWorktrees());');
+ expect(source).toContain('const teardownRetained = await cleanupWorktrees();');
+ expect(source).toContain('phase("Deliver and clean up");');
  // The platform graph-projector overflows on a try/finally spanning the engine body
  // (reproduced 2026-10-21: three host turn crashes before this restructure).
  expect(source).not.toMatch(/return result;\s*\}\s*finally\s*\{/);

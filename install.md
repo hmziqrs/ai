@@ -342,10 +342,14 @@ uninitialized projects), not an addition to the seven default Global Core agents
 authorization to install niche specialists globally. Its skill-local persona copy must match
 that definition.
 
-V12 is V11's engine unchanged plus the user-authorized pre-workflow bootstrap: a git baseline
-commit, an ignored workflow-drafts directory, a thin scaffold for empty projects when the
-brief names a stack, and no scaffold lane for bootstrapped projects. It carries its own
-helpers/pieces/references and a byte-identical v4 kit. Current ZCode approval and guarded
-delivery still apply. Preserve V11 and older versions. Open a new ZCode session to discover
-both V12 artifacts. Installing V12 neither promotes it nor authorizes launching an app
-benchmark.
+V12 is V11's engine plus the user-authorized pre-workflow bootstrap and three behavior
+changes: judgment findings without repair authority are reported and never veto a completed
+run; each lane's committed hand-off is an immutable snapshot, so later check outcomes never
+retroactively block dependents; and the engine's final phase performs guarded
+checkout-anchored fast-forward delivery and `z-v12/*`-only branch reclamation (current ZCode
+approval still applies). The bootstrap is a git baseline commit, an ignored workflow-drafts
+directory, a thin scaffold for empty projects when the brief names a stack, and no scaffold
+lane for bootstrapped projects. It carries its own
+helpers/pieces/references and a byte-identical v4 kit. Preserve V11 and older versions. Open
+a new ZCode session to discover both V12 artifacts. Installing V12 neither promotes it nor
+authorizes launching an app benchmark.

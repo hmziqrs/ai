@@ -24,7 +24,8 @@ interface AreaWork {
 }
 interface PhaseWork { summary: string; blockers: string[]; findings: string[] }
 interface AreaResult { id: string; status: "ready" | "blocked"; branch: string; worktree: string; commit: string; summary: string; blockers: string[]; findings: string[]; observations: string[] }
-interface RunResult { status: "complete" | "incomplete"; candidateBranch: string; candidateWorktree: string; candidateCommit: string; areas: AreaResult[]; blockers: string[]; notes: string[]; callerStartedAt: string; firstImplementationAt: string; completedAt: string; retainedBranches: string[] }
+interface DeliveryResult { status: "delivered" | "retained" | "skipped"; detail: string; checkoutCommit: string }
+interface RunResult { status: "complete" | "incomplete"; candidateBranch: string; candidateWorktree: string; candidateCommit: string; areas: AreaResult[]; blockers: string[]; notes: string[]; callerStartedAt: string; firstImplementationAt: string; completedAt: string; retainedBranches: string[]; delivery: DeliveryResult }
 
 function v12SafePath(path: string): boolean {
   return typeof path === "string" && path !== "" && !path.startsWith("/") && !path.includes("\\") &&
@@ -175,6 +176,12 @@ function v12ValidateWork(work: AreaWork): void {
   }
   v12Require(work.status === "blocked" ? work.blockers.length > 0 : work.blockers.length === 0,
     "AreaWork.status/blockers", "implemented requires empty blockers; blocked requires an actionable unmet requirement");
+}
+function v12ValidateDelivery(delivery: DeliveryResult): void {
+  v12Require(!!delivery && typeof delivery === "object" && !Array.isArray(delivery), "delivery", "expected an object");
+  v12Require(["delivered", "retained", "skipped"].includes(delivery.status), "delivery.status", "expected delivered, retained or skipped");
+  v12Require(typeof delivery.detail === "string", "delivery.detail", "expected a string");
+  v12Require(typeof delivery.checkoutCommit === "string", "delivery.checkoutCommit", "expected a string");
 }
 function v12BlockerText(work: AreaWork): string {
   return work.blockers.map((blocker) => blocker.kind + ": " + blocker.detail).join("\n");

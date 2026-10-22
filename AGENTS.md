@@ -279,39 +279,10 @@ application benchmark or promote it over older versions. Future behavior changes
 
 ## Experimental standalone workflow v12
 
-The user-authorized `harness/zcode/skills/z-workflow-v12/` and
-`harness/zcode/agents/workflow-author-v12.md` are a separate opt-in experiment. Install the
-whole skill as regular files at `~/.zcode/skills/z-workflow-v12/`, and that one author as a
-regular file at `~/.zcode/agents/workflow-author-v12.md`. Like V9's author, this explicitly
-selected preparation author is a narrow exception to the seven default global agents; it is
-not a niche specialist or a change to the Global Core install set. Keep V11 and all prior
-versions unchanged.
-
-V12 keeps V11's engine, source library and contracts with behavior unchanged, adding one
-user-authorized capability: the preparation author initializes an UNINITIALIZED project
-pre-workflow in the real checkout, so the run starts from a valid baseline commit with no
-in-workflow blocking scaffold lane. Bootstrap covers exactly two cases — a workspace inside
-no Git repository, or a repository whose checked-out branch has zero commits. In those cases
-the author may first write a thin scaffold (root manifests, gitignore additions, a shared
-contract/types file, app entry stubs — never feature implementation) when the project has no
-real user files and the brief names a stack, then runs the deterministic
-`scripts/bootstrap.ts` (git init honoring `init.defaultBranch` else `-b main`, repo-root
-`.zcode/workflow-drafts/` ignore, baseline commit preserving files exactly as found) and
-re-runs preflight. Existing user files are baselined as-is; with no determinable stack the
-scaffold becomes an ordinary worktree lane. A bootstrapped-with-scaffold project plans no
-scaffold area: every feature area starts concurrently. This one author carries Edit access
-per the user's explicit authorization.
-
-Safety rails: the author never modifies the Git state of an already-initialized repository;
-dirty initialized checkouts and detached HEADs remain coordinator blockers; bootstrap never
-stashes/resets/cleans/checkouts/deletes or forces anything, surfaces Git's own error text
-when the baseline commit fails, and never invents a Git identity. Before staging anything it
-refuses a baseline that would sweep unignored dependency/build directories (`node_modules`,
-`.venv`, Cargo `target`, ...) into history or that contains an embedded Git repository: the
-author adds the matching ignore rules and re-runs (the partial init resumes), while an embedded
-repository is reported as a blocker, never deleted. The engine, canonical v4 persona-kit bytes
-and Pro HIGH implementation defaults remain V11's; like every numbered release, V12 carries
-its own identifier-rebranded copy of the model-policy helper. Reusable fixes require a new
-numbered release. Installing V12 does not authorize a benchmark or promote it over older
-versions; a new session is needed to load the new agent. (V10 and V11 were added without
-sections here; their `SKILL.md` files are authoritative for those releases.)
+The user-authorized `harness/zcode/skills/z-workflow-v12/` and `harness/zcode/agents/workflow-author-v12.md` are a separate opt-in experiment: install the whole skill as regular files at `~/.zcode/skills/z-workflow-v12/` and that one author at `~/.zcode/agents/workflow-author-v12.md` — a narrow exception to the seven default global agents, carrying Edit access for its user-authorized pre-workflow bootstrap of UNINITIALIZED projects (a workspace in no Git repository, or a checked-out branch with zero commits): thin scaffold (root manifests, gitignore additions, shared contract/types, entry stubs — never feature implementation) only when the project is empty and the brief names a stack, then deterministic `scripts/bootstrap.ts` (git init honoring `init.defaultBranch` else `-b main`, drafts ignore, baseline commit preserving files exactly).
+Bootstrap never stashes/resets/cleans/checkouts/deletes or forces, never modifies an initialized repository (dirty checkouts and detached HEADs stay coordinator blockers), never invents a Git identity, and refuses baselines sweeping unignored dependency/build directories (add ignore rules and re-run; the partial init resumes) or containing an embedded repository (reported blocker, never deleted).
+Keep V11 and all prior versions unchanged (V10/V11 have no sections here; their `SKILL.md` files are authoritative).
+Beyond V11's engine, V12 user-authorizes: judgment findings never veto finished work (without `fixFindings` they are reported on area results while phase command failures still block), and a final engine phase performs guarded checkout-anchored `git merge --ff-only` delivery (never reset/clean/force/push; refusals retain the candidate branch) plus `refs/heads/z-v12/*`-only branch reclamation — coordinator-only delivery no longer applies to V12.
+The canonical v4 persona-kit bytes stay byte-identical; V12 carries its own trimmed HIGH-only model-policy copy.
+Reusable fixes require a new numbered release.
+Installing V12 authorizes no benchmark, does not promote it over older versions, and a new session is needed to load the agent.

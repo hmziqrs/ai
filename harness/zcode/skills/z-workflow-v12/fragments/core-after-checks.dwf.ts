@@ -1,9 +1,13 @@
 
-        if (phaseProblems.length) {
-          if (!step.fixFindings) throw new Error("Requested phase failed without authorized repairs: " + phaseProblems.join("\n"));
+        // Hard failures (phase commands exited nonzero) block exactly as before. Judgment
+        // findings without repair authority never veto finished work: they are reported on
+        // the area result and the phase completes (verify areas follow the same rule).
+        const judgmentFindings = commandError ? [] : phaseProblems;
+        if (commandError && !step.fixFindings) throw new Error("Requested phase failed without authorized repairs: " + commandError);
+        if (phaseProblems.length && step.fixFindings) {
           if (area.role === "verify") throw new Error("Verification found owned implementation defects requiring owner-scoped follow-up: " + phaseProblems.join("\n"));
           const before = await fingerprint(area, cwd);
-          const fixed = await askWork(area, cwd, "Apply only the explicitly authorized fixes for phase " + step.id + " in " + cwd + ". Authorization and instructions: " + step.instructions + "\nFindings: " + phaseProblems.join("\n") + "\nOwned paths only; return AreaWork. No Git, workflows, unrelated fixes or checks.");
+          const fixed = await askWork(area, cwd, "Apply only the explicitly authorized fixes for phase " + step.id + " in " + cwd + ". Authorization and instructions: " + step.instructions + "\nFindings: " + phaseProblems.join("\n"));
           if (fixed.blockers.length) throw new Error(v12BlockerText(fixed));
           if (await fingerprint(area, cwd) === before && (!commandError || await runCommands(step.commands, cwd, step.resource))) throw new Error("No changed progress on authorized phase findings");
           const correctedAssembly = await assembleArea(area, cwd, area.assembly, "assembly");
@@ -14,6 +18,7 @@
           }
           result.findings = []; index = 0; continue;
         }
+        for (const finding of judgmentFindings) if (!result.findings.includes(finding)) result.findings.push(finding);
         event(area.id, step.id, "ready");
         if (selection.mode === "rounds" && round < selection.rounds) continue;
         index += 1;
@@ -46,8 +51,8 @@
       event(area.id, "setup", "ready");
       if (area.role !== "verify") {
       const persona = await v12Persona(area.personaPath, "pro", "write");
-      contexts.set(area.id, v12Agent(persona, "V12 implementer " + area.id, "Work only in " + cwd + ". Own only " + JSON.stringify(area.ownedPaths) + ". Never touch the user checkout or other worktrees. No Git, agents, workflows, audits, test execution, screenshots or source discovery outside assigned needs. Author assigned test files and lifecycle helpers; the engine executes them. The engine has prepared this worktree and owns all setup/install and assembly/check commands. Do not run them. Use installed APIs/types; no source eval or smoke programs. Required framework compiler assistance for edited files is allowed once per changed revision. Return a brief structured AreaWork with observations separate from genuine blockers."));
-      const work = await askWork(area, cwd, "Implement your area completely. Task: " + input.task + "\nShared contract: " + plan.sharedContract + "\nArea: " + area.title + "\n" + area.instructions + "\nInstruction files: " + JSON.stringify(input.instructionPaths) + "\nWorktree: " + cwd + "\nOwned paths: " + JSON.stringify(area.ownedPaths) + "\nReturn AreaWork; do not run assembly or QA.");
+      contexts.set(area.id, v12Agent(persona, "V12 implementer " + area.id, "Work only in " + cwd + ". Own only " + JSON.stringify(area.ownedPaths) + ". Never touch the user checkout or other worktrees. No audits, screenshots or source discovery outside assigned needs. Author assigned test files and lifecycle helpers; the engine executes them."));
+      const work = await askWork(area, cwd, "Implement your area completely. Task: " + input.task + "\nShared contract: " + plan.sharedContract + "\nArea: " + area.title + "\n" + area.instructions + "\nInstruction files: " + JSON.stringify(input.instructionPaths) + "\nWorktree: " + cwd + "\nOwned paths: " + JSON.stringify(area.ownedPaths));
       result.summary = work.summary;
       if (work.blockers.length) throw new Error(v12BlockerText(work));
       }
@@ -62,7 +67,11 @@
       result.blockers.push(error instanceof Error ? error.message : String(error));
       event(area.id, "complete", "blocked");
     }
-    results.set(area.id, result); resolveCommitted.get(area.id)!(result); return result;
+    // Dependents receive an immutable snapshot taken at commit time: stage-B outcomes can
+    // never retroactively change what a dependent lane sees. The completed promise still
+    // resolves with the live final result.
+    const snapshot: AreaResult = Object.freeze({ ...result, blockers: [...result.blockers], findings: [...result.findings], observations: [...result.observations] });
+    results.set(area.id, result); resolveCommitted.get(area.id)!(snapshot); return result;
     })();
     if (!streaming) { implementStage.then((r) => resolveArea.get(area.id)!(r)); return implementStage; }
     return future(async (): Promise<AreaResult> => {
@@ -106,7 +115,7 @@
           try {
             await serializeGit(async () => await merge(result.worktree, candidateHead));
             const before = await fingerprint(area, result.worktree);
-            const fixed = await askWork(area, result.worktree, "Correct only your owned contribution to this blocking integrated assembly failure in " + result.worktree + ". Other named owners correct their disjoint paths concurrently. No audits, tests, Git or unrelated fixes.\n" + error + "\nReturn AreaWork.");
+            const fixed = await askWork(area, result.worktree, "Correct only your owned contribution to this blocking integrated assembly failure in " + result.worktree + ". Other named owners correct their disjoint paths concurrently.\n" + error);
             if (fixed.blockers.length) return id + ": " + v12BlockerText(fixed);
             if (await fingerprint(area, result.worktree) === before) { unchangedOwners.add(id); return ""; }
             const localError = await assembleArea(area, result.worktree, area.assembly, "assembly");
@@ -179,8 +188,57 @@
   // cleanupWorktrees is total (never throws), and an engine failure rethrows after cleanup.
   let failed = false; let failure: unknown;
   await runEngine().catch((error) => { failed = true; failure = error; });
-  result.retainedBranches.push(...await cleanupWorktrees());
+  const teardownRetained = await cleanupWorktrees();
   if (failed) throw failure;
+  phase("Deliver and clean up");
+  // Final engine phase: guarded fast-forward delivery into the user's checkout, then
+  // z-v12/* branch reclamation. The ff-only merge is the only write ever made to the
+  // checkout; every refusal outcome retains the candidate branch instead.
+  const checkoutHead = async (): Promise<string> => {
+    try { return (await gitAt(input.repoRoot, ["rev-parse", "HEAD"])).trim(); }
+    catch { return input.baseCommit; }
+  };
+  if (result.status !== "complete") {
+    const summary = result.blockers.slice(0, 3).join("; ").slice(0, 600);
+    result.delivery = { status: "retained", detail: "run incomplete: " + (summary || "unmet requirements"), checkoutCommit: await checkoutHead() };
+  } else try {
+    await anchors();
+    await serializeGit(async () => await gitAt(input.repoRoot, ["merge", "--ff-only", result.candidateCommit]));
+    const head = await checkoutHead();
+    if (head !== result.candidateCommit) throw new Error("checkout HEAD is " + head + " after fast-forward, expected " + result.candidateCommit);
+    result.delivery = { status: "delivered", detail: "fast-forwarded " + input.branchRef + " to " + result.candidateCommit, checkoutCommit: head };
+  } catch (error) {
+    result.delivery = { status: "retained", detail: "guarded delivery refused: " + (error instanceof Error ? error.message : String(error)).slice(0, 600), checkoutCommit: await checkoutHead() };
+  }
+  // Branch reclamation, regardless of delivery outcome and limited to refs/heads/z-v12/:
+  // delete every contained branch (ancestor of the checkout HEAD, or of the retained
+  // candidate while it stays the delivery reference), keep the candidate itself only
+  // while it is not contained in HEAD, retain everything else as unmerged work.
+  const candidateKept = result.delivery.status !== "delivered";
+  const sweep: string[] = [];
+  try {
+    const inUse = new Set((await gitAt(input.repoRoot, ["worktree", "list", "--porcelain"])).split("\n")
+      .filter((line) => line.startsWith("branch refs/heads/z-v12/")).map((line) => line.slice("branch refs/heads/".length)));
+    const refs = (await gitAt(input.repoRoot, ["for-each-ref", "--format=%(refname:short)", "refs/heads/z-v12/"])).split("\n").map((line) => line.trim()).filter(Boolean);
+    const ancestorOf = async (ref: string, tip: string): Promise<boolean> =>
+      (await execute(input.repoRoot, "git", ["merge-base", "--is-ancestor", ref, tip])).exitCode === 0;
+    for (const ref of refs) {
+      if (inUse.has(ref)) { sweep.push(ref + " (in use by a live worktree)"); continue; }
+      if (candidateKept && ref === branch) { sweep.push(ref + " (delivery reference)"); continue; }
+      if (!await ancestorOf(ref, "HEAD") && !(candidateKept && await ancestorOf(ref, branch))) { sweep.push(ref + " (unmerged work retained)"); continue; }
+      // -d only accepts branches merged into HEAD; the ancestry check above carries the
+      // same safety for retained-candidate branches, so fall back to plumbing, never -D.
+      const del = await execute(input.repoRoot, "git", ["branch", "-d", ref]);
+      if (del.exitCode !== 0) {
+        const plumbing = await execute(input.repoRoot, "git", ["update-ref", "-d", "refs/heads/" + ref]);
+        if (plumbing.exitCode !== 0) sweep.push(ref + " (delete failed)");
+      }
+    }
+  } catch (error) {
+    sweep.push("(branch reclamation failed: " + (error instanceof Error ? error.message : String(error)).slice(0, 300) + ")");
+  }
+  result.retainedBranches = [...sweep, ...teardownRetained];
+  v12ValidateDelivery(result.delivery);
   return result;
 }
 

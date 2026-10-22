@@ -49,14 +49,12 @@ function leftoverWorktrees(repoRoot: string): string[] {
   return readdirSync(dirname(repoRoot)).filter((entry) => entry.includes("-zv12-"));
 }
 interface MockOptions {
-  configure?: (count: number, prompt: string) => unknown;
   implement?: (id: string, cwd: string, prompt: string, count: number) => Promise<any>;
   probe?: (cwd: string, args: string[]) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
   inspect?: (name: string, prompt: string) => Promise<{ summary: string; blockers: string[]; findings: string[] }>;
 }
 function harness(manifest: unknown, options: MockOptions = {}) {
   const events: any[] = []; const calls: string[] = []; const counts = new Map<string, number>();
-  const configurationPrompts: string[] = [];
   const world = { run: async (tool: string, argv: string[]) => {
     if (tool === "date") return { exitCode: 0, stdout: "2026-10-20T10:01:00Z\n", stderr: "" };
     expect(tool).toBe("sh"); expect(argv.slice(0, 3)).toEqual(["-c", 'cd "$1" && shift && exec "$@"', "sh"]);
@@ -77,15 +75,13 @@ function harness(manifest: unknown, options: MockOptions = {}) {
   } };
   const v12Agent = (_persona: unknown, name: string, rules: string) => ({ ask: async (prompt: string) => {
     calls.push("ask " + name);
-    if (name === "V12 configurator") { configurationPrompts.push(prompt); return options.configure ? options.configure(configurationPrompts.length, prompt) : manifest; }
     if (!name.startsWith("V12 implementer ")) return options.inspect?.(name, prompt) ?? { summary: "Requested check", blockers: [], findings: [] };
     const id = name.slice("V12 implementer ".length), cwd = rules.match(/^Work only in (.*?)\. Own only/)![1];
     const count = (counts.get(id) ?? 0) + 1; counts.set(id, count);
     if (options.implement) return await options.implement(id, cwd, prompt, count);
     await write(cwd, id + "/result.txt"); return { status: "implemented", observations: [], changedPaths: [id + "/result.txt"], summary: id, blockers: [] };
   } });
-  // v12Persona/v12Agent are declared by this skill's v12-rebranded model-policy helper,
-  // mirroring how every numbered release rebrands its own policy copy.
+  // v12Persona/v12Agent are declared by this skill's trimmed HIGH-only model-policy helper.
   const runtime = new Function("world", "v12Persona", "v12Agent", "phase", "report", "guardWrites", "future", executable + "\nreturn { runV12, v12ValidatePlan, v12ValidateWork }; ")(
     world, async (path: string, tier: string, access: string) => ({ path, tier, access }), v12Agent, () => {}, (event: unknown) => events.push(event), async (_persona: unknown, cwd: string, work: () => Promise<unknown>) => {
       const before = git(cwd, ["diff", "HEAD"]) + git(cwd, ["status", "--porcelain", "--untracked-files=all"]) + git(cwd, ["rev-parse", "HEAD"]);
@@ -98,7 +94,7 @@ function harness(manifest: unknown, options: MockOptions = {}) {
     const names = [...new Set(phases.map((phase: any) => phase.kind))] as string[];
     return {...input,plan:suppliedManifest,mode:input.mode ?? "execute",pieces:input.pieces ?? names.map(name=>({name,authorization:"Fixture user requested",mode:"until-clean",rounds:1,fixFindings:phases.some((phase:any)=>phase.kind===name&&phase.fixFindings)}))};
   };
-  return { ...runtime, runV12:(input:any)=>runtime.runV12(addInput(input)), v12ValidatePlan:(plan:any)=>runtime.v12ValidatePlan(plan,addInput({},plan)), events, calls, counts, configurationPrompts };
+  return { ...runtime, runV12:(input:any)=>runtime.runV12(addInput(input)), v12ValidatePlan:(plan:any)=>runtime.v12ValidatePlan(plan,addInput({},plan)), events, calls, counts };
 }
 
 describe("V12 per-area static engine", () => {
@@ -245,7 +241,6 @@ describe("V12 per-area static engine", () => {
       }
     });
     expect((await runtime.runV12(input)).status).toBe("complete");
-    expect(runtime.configurationPrompts).toHaveLength(0);
     expect(manifest.areas[0].ownedPaths).toContain(".gitignore");
     expect(manifest.areas[0].ownedPaths).toContain("src/lib/server");
     expect(manifest.areas[1].ownedPaths).toContain("src/lib/components");
@@ -260,22 +255,12 @@ describe("V12 per-area static engine", () => {
     expect(() => runtime.v12ValidatePlan(plan([area("api", { ownedPaths: [".gitignore", ".github/workflows/"] }), area("ui")]))).not.toThrow();
   });
 
-  test("prepared data dispatches writers without a redundant configurator ask", async () => {
-    const input = await fixture();
-    const runtime = harness(plan([area("api")]));
-    expect((await runtime.runV12(input)).status).toBe("complete");
-    expect(runtime.configurationPrompts).toHaveLength(0);
-    expect(runtime.counts.get("api")).toBe(1);
-    expect(runtime.calls.some((c) => c.includes("configurator"))).toBe(false);
-  });
-
   test("repeated invalid shape stops with a field diagnostic and no product mutations", async () => {
     const input = await fixture();
     const runtime = harness(plan([area("api", { dependsOn: null })]));
     const result = await runtime.runV12(input);
     expect(result.status).toBe("incomplete");
     expect(result.blockers.join()).toContain("areas[0].dependsOn");
-    expect(runtime.configurationPrompts).toHaveLength(0);
     expect(runtime.calls.some((call) => call.startsWith("git worktree") || call.startsWith("ask V12 implementer"))).toBe(false);
     expect(git(input.repoRoot, ["status", "--porcelain"])).toBe("");
   });
@@ -322,7 +307,7 @@ describe("V12 per-area static engine", () => {
     const result = await running;
     expect(result.status).toBe("complete");
     expect(runtime.events.findIndex((event: any) => event.area === "ui" && event.step === "visual")).toBeLessThan(runtime.events.findIndex((event: any) => event.area === "api" && event.step === "complete"));
-    expect(git(input.repoRoot, ["rev-parse", "HEAD"])).toBe(input.baseCommit);
+    expect(git(input.repoRoot, ["rev-parse", "HEAD"])).toBe(result.candidateCommit);
     expect(git(input.repoRoot, ["status", "--porcelain"])).toBe("");
   });
 
@@ -348,7 +333,6 @@ describe("V12 per-area static engine", () => {
       const result = await runtime.runV12(input);
       expect(result.status).toBe("incomplete");
       expect(result.blockers.join()).toContain("Invalid prepared plan");
-      expect(runtime.configurationPrompts).toHaveLength(0);
       expect(runtime.calls.some((call) => call.startsWith("git worktree"))).toBe(false);
     }
   });
@@ -364,7 +348,7 @@ describe("V12 per-area static engine", () => {
     });
     const result = await runtime.runV12(input);
     expect(result.status).toBe("complete");
-    const tree = git(input.repoRoot, ["ls-tree", "-r", "--name-only", result.candidateBranch]);
+    const tree = git(input.repoRoot, ["ls-tree", "-r", "--name-only", result.candidateCommit]);
     expect(tree).toContain("bun.lock");
     expect(tree).toContain("package.json");
   });
@@ -425,13 +409,17 @@ describe("V12 per-area static engine", () => {
     expect(leftoverWorktrees(input.repoRoot)).toHaveLength(0);
   });
 
-  test("successful teardown deletes merged area branches and keeps the candidate delivery reference", async () => {
+  test("a successful run delivers by fast-forward and reclaims every z-v12 branch", async () => {
     const input = await fixture(); const runtime = harness(plan([area("api"), area("ui")]));
     const result = await runtime.runV12(input);
     expect(result.status).toBe("complete");
-    expect(retained(result, "(delivery reference)")).toEqual([result.candidateBranch]);
-    expect(git(input.repoRoot, ["branch", "--list", "z-v12/*"])).toBe(result.candidateBranch);
-    expect(git(input.repoRoot, ["rev-parse", result.candidateBranch])).toBe(result.candidateCommit);
+    expect(result.delivery.status).toBe("delivered");
+    expect(result.delivery.detail).toBe("fast-forwarded refs/heads/main to " + result.candidateCommit);
+    expect(result.delivery.checkoutCommit).toBe(result.candidateCommit);
+    expect(git(input.repoRoot, ["rev-parse", "HEAD"])).toBe(result.candidateCommit);
+    expect(git(input.repoRoot, ["status", "--porcelain"])).toBe("");
+    expect(git(input.repoRoot, ["branch", "--list", "z-v12/*"])).toBe("");
+    expect(result.retainedBranches).toEqual([]);
     expect(leftoverWorktrees(input.repoRoot)).toHaveLength(0);
     let registryLeft = ""; try { registryLeft = (await readFile(join(input.repoRoot, ".zcode/workflow-drafts/worktrees.jsonl"), "utf8")).trim(); } catch { }
     expect(registryLeft).toBe("");
@@ -470,7 +458,7 @@ describe("V12 per-area static engine", () => {
       probe: async () => ({ exitCode: ++attempts === 1 ? 1 : 0, stdout: "", stderr: "compiler failure" })
     });
     expect((await runtime.runV12(input)).status).toBe("complete"); expect(runtime.counts.get("api")).toBe(2);
-    expect(runtime.calls.filter((call) => call.startsWith("ask V12 ")).every((call) => call === "ask V12 configurator" || call === "ask V12 implementer api")).toBe(true);
+    expect(runtime.calls.filter((call) => call.startsWith("ask V12 ")).every((call) => call === "ask V12 implementer api")).toBe(true);
   });
 
   test("a repeated correction with no changed progress stops incomplete", async () => {
@@ -516,10 +504,13 @@ describe("V12 per-area static engine", () => {
     expect(result.status).toBe("incomplete"); expect(runtime.counts.get("api")).toBe(1); expect(result.blockers.join()).toContain("without authorized repairs");
   });
 
-  test("planning-only manifests return notes without writers or worktrees", async () => {
+  test("planning-only manifests return notes without writers, worktrees or delivery", async () => {
     const input = {...await fixture(),mode:"plan"}; const runtime = harness(plan([], { notes: ["A thin requested plan"] }));
     const result = await runtime.runV12(input);
     expect(result.status).toBe("complete"); expect(result.notes).toEqual(["A thin requested plan"]);
+    expect(result.delivery).toEqual({ status: "skipped", detail: "plan-only", checkoutCommit: input.baseCommit });
+    expect(git(input.repoRoot, ["rev-parse", "HEAD"])).toBe(input.baseCommit);
+    expect(git(input.repoRoot, ["branch", "--list", "z-v12/*"])).toBe("");
     expect(runtime.calls.some((call) => call.startsWith("git worktree") || call.startsWith("ask V12 implementer"))).toBe(false);
   });
 
@@ -643,3 +634,78 @@ test('source correction cannot quietly repeat a once-only earlier check',async()
  const r=await runtime.runV12(input);expect(r.status).toBe('incomplete');expect(r.blockers.join()).toContain('budget exhausted');expect(tests).toBe(1);
 });
 
+
+test('V12 judgment findings without repair authority are reported and never veto delivery',async()=>{
+ const input=await fixture();
+ const runtime=harness(plan([
+  area('app',{phases:[{id:'review',kind:'audit',commands:[],personaPath:'/fixture/audit.md',instructions:'User requested read-only audit'}]}),
+  area('joined-check',{role:'verify',dependsOn:['app'],ownedPaths:['evidence'],phases:[{id:'joined',kind:'audit',commands:[],personaPath:'/fixture/audit.md',instructions:'User requested integrated audit'}]})
+ ]),{inspect:async(name)=>({summary:'Reviewed',blockers:[],findings:[name+': src/lint.md:1 minor style issue']})});
+ const result=await runtime.runV12(input);
+ expect(result.status).toBe('complete');
+ expect(result.areas.every((a:any)=>a.status==='ready')).toBe(true);
+ expect(result.areas.find((a:any)=>a.id==='app').findings.join()).toContain('minor style issue');
+ expect(result.areas.find((a:any)=>a.id==='joined-check').findings.join()).toContain('minor style issue');
+ expect(runtime.events).toContainEqual(expect.objectContaining({area:'app',step:'review',status:'ready'}));
+ expect(result.delivery.status).toBe('delivered');
+ expect(git(input.repoRoot,['rev-parse','HEAD'])).toBe(result.candidateCommit);
+ expect(git(input.repoRoot,['branch','--list','z-v12/*'])).toBe('');
+ expect(leftoverWorktrees(input.repoRoot)).toHaveLength(0);
+});
+test('V12 a phase command failure without repair authority blocks the area and retains the candidate',async()=>{
+ const input=await fixture();
+ const runtime=harness(plan([area('api',{phases:[{id:'gate',kind:'unit-tests',commands:[{tool:'probe',args:[],owners:['api']}],instructions:'User requested tests, no fixes'}]})]),{
+  probe:async()=>({exitCode:1,stdout:'',stderr:'assertion failed'})});
+ const result=await runtime.runV12(input);
+ expect(result.status).toBe('incomplete');
+ expect(result.areas.find((a:any)=>a.id==='api').status).toBe('blocked');
+ expect(result.blockers.join()).toContain('without authorized repairs');
+ expect(result.delivery.status).toBe('retained');
+ expect(git(input.repoRoot,['rev-parse','HEAD'])).toBe(input.baseCommit);
+ const branches=git(input.repoRoot,['branch','--list','z-v12/*']);
+ expect(branches).toContain(result.candidateBranch);
+ expect(branches).not.toContain(result.areas.find((a:any)=>a.id==='api').branch);
+ expect(retained(result,'(delivery reference)')).toEqual([result.candidateBranch]);
+});
+test('V12 an upstream stage-B hard failure after commit never blocks a dependent that checks later',async()=>{
+ const input=await fixture();const upstreamFailed=deferred();let dependentChecked=false;
+ const runtime=harness(plan([
+  area('api',{phases:[{id:'gate',kind:'unit-tests',commands:[{tool:'probe',args:['fail'],owners:['api']}],instructions:'User requested tests'}]}),
+  area('ui',{dependsOn:['api'],phases:[{id:'check',kind:'unit-tests',commands:[{tool:'probe',args:['ok'],owners:['ui']}],instructions:'User requested tests',dependsOn:['api']}]})
+ ]),{
+  implement:async(id,cwd)=>{if(id==='ui')await upstreamFailed.promise;await write(cwd,id+'/result.txt');return {status:'implemented',observations:[],changedPaths:[id+'/result.txt'],summary:id,blockers:[]};},
+  probe:async(_cwd,args)=>args[0]==='fail'?(upstreamFailed.resolve(),{exitCode:1,stdout:'',stderr:'gate failed'}):(dependentChecked=true,{exitCode:0,stdout:'',stderr:''})});
+ const result=await runtime.runV12(input);
+ expect(dependentChecked).toBe(true);
+ expect(result.areas.find((a:any)=>a.id==='api').status).toBe('blocked');
+ expect(result.areas.find((a:any)=>a.id==='ui').status).toBe('ready');
+ expect(result.blockers.join()).toContain('api:');
+});
+test('V12 a checkout commit landing mid-run retains delivery with the anchors reason and no merge',async()=>{
+ const input=await fixture();let foreign='';
+ const runtime=harness(plan([area('api')]),{
+  implement:async()=>{if(!foreign){git(input.repoRoot,['commit','--allow-empty','-m','foreign edit']);foreign=git(input.repoRoot,['rev-parse','HEAD']);}return {status:'implemented',observations:[],changedPaths:[],summary:'done',blockers:[]};}});
+ const result=await runtime.runV12(input);
+ expect(result.status).toBe('incomplete');
+ expect(result.blockers.join()).toContain('anchors');
+ expect(result.delivery.status).toBe('retained');
+ expect(result.delivery.detail).toContain('anchors');
+ expect(git(input.repoRoot,['rev-parse','HEAD'])).toBe(foreign);
+ expect(git(input.repoRoot,['rev-parse','HEAD'])).not.toBe(result.candidateCommit);
+ expect(git(input.repoRoot,['branch','--list','z-v12/*'])).toContain('candidate');
+});
+test('V12 branch reclamation is scoped to z-v12 and reclaims stale contained branches only',async()=>{
+ const input=await fixture();
+ git(input.repoRoot,['branch','z-v12/old-run/stale-contained']);
+ git(input.repoRoot,['checkout','-q','-b','z-v12/old-run/stale-unmerged']);
+ await writeFile(join(input.repoRoot,'stale.txt'),'old work\n');
+ git(input.repoRoot,['add','stale.txt']);git(input.repoRoot,['commit','-m','stale']);
+ git(input.repoRoot,['checkout','-q','main']);
+ git(input.repoRoot,['branch','z-v11/keep']);
+ const runtime=harness(plan([area('api')]));
+ const result=await runtime.runV12(input);
+ expect(result.delivery.status).toBe('delivered');
+ expect(git(input.repoRoot,['branch','--list','z-v12/*'])).toBe('z-v12/old-run/stale-unmerged');
+ expect(retained(result,'(unmerged work retained)')).toEqual(['z-v12/old-run/stale-unmerged']);
+ expect(git(input.repoRoot,['branch','--list','z-v11/*'])).toContain('z-v11/keep');
+});

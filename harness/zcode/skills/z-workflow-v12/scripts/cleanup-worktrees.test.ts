@@ -67,3 +67,63 @@ test("missing registry is a clean no-op", async () => {
   expect(result.code).toBe(0);
   expect(result.text).toContain("registry empty");
 });
+
+test("uncommitted work in a dirty worktree is committed to its branch, which is then retained", async () => {
+  const { dir, repo, registry, drafts } = await fixture(); await mkdir(drafts, { recursive: true });
+  const branch = "z-v12/aaa11111-20261021T120000000Z/api";
+  const engineWt = join(dir, basename(repo) + "-zv12-aaa11111-20261021T120000000Z-api");
+  git(repo, ["worktree", "add", "-q", "-b", branch, engineWt]);
+  await writeFile(join(engineWt, "src.ts"), "export const halfDone = true;\n");
+  await writeFile(join(engineWt, "README.md"), "seed\nedited mid-run\n");
+  await writeFile(registry, JSON.stringify({ path: engineWt, branchRef: branch, area: "api" }) + "\n");
+  const result = run(repo);
+  expect(result.code).toBe(0);
+  expect(result.text).toContain("committed uncommitted work in " + engineWt);
+  expect(result.text).toContain("retained branch " + branch + " (unmerged work retained)");
+  expect(git(repo, ["worktree", "list"])).not.toContain("-zv12-");
+  expect(git(repo, ["log", "-1", "--format=%s", branch])).toBe("V12: retain api work for recovery");
+  expect(git(repo, ["show", branch + ":src.ts"])).toBe("export const halfDone = true;");
+  expect(git(repo, ["show", branch + ":README.md"])).toBe("seed\nedited mid-run");
+  expect(git(repo, ["rev-parse", "HEAD"])).toBe(git(repo, ["rev-parse", "main"]));
+});
+
+test("a branch contained in the run's candidate is deleted while the candidate stays as delivery reference", async () => {
+  const { dir, repo, registry, drafts } = await fixture(); await mkdir(drafts, { recursive: true });
+  const token = "bbb22222-20261021T120000000Z";
+  const candidateBranch = "z-v12/" + token + "/candidate", apiBranch = "z-v12/" + token + "/api";
+  const candidateWt = join(dir, basename(repo) + "-zv12-" + token + "-candidate");
+  const apiWt = join(dir, basename(repo) + "-zv12-" + token + "-api");
+  git(repo, ["worktree", "add", "-q", "-b", candidateBranch, candidateWt]);
+  git(repo, ["worktree", "add", "-q", "-b", apiBranch, apiWt]);
+  await writeFile(join(apiWt, "api.ts"), "export {};\n");
+  git(apiWt, ["add", "."]); git(apiWt, ["commit", "-q", "-m", "V12: api revision 1"]);
+  git(candidateWt, ["merge", "-q", "--no-edit", "--no-ff", apiBranch]);
+  await writeFile(registry, [
+    JSON.stringify({ path: candidateWt, branchRef: candidateBranch, area: "candidate" }),
+    JSON.stringify({ path: apiWt, branchRef: apiBranch, area: "api" }),
+  ].join("\n") + "\n");
+  const result = run(repo);
+  expect(result.code).toBe(0);
+  expect(result.text).toContain("retained branch " + candidateBranch + " (delivery reference)");
+  expect(result.text).toContain("deleted branch " + apiBranch + " (work contained in " + candidateBranch + ")");
+  expect(git(repo, ["worktree", "list"])).not.toContain("-zv12-");
+  expect(git(repo, ["branch", "--list", "z-v12/*"]).trim()).toBe(candidateBranch);
+  expect(git(repo, ["show", candidateBranch + ":api.ts"])).toBe("export {};");
+});
+
+test("an already-removed worktree with an unmerged branch keeps the branch and drops the entry", async () => {
+  const { dir, repo, registry, drafts } = await fixture(); await mkdir(drafts, { recursive: true });
+  const branch = "z-v12/ccc33333-20261021T120000000Z/ui";
+  const engineWt = join(dir, basename(repo) + "-zv12-ccc33333-20261021T120000000Z-ui");
+  git(repo, ["worktree", "add", "-q", "-b", branch, engineWt]);
+  await writeFile(join(engineWt, "ui.ts"), "export {};\n");
+  git(engineWt, ["add", "."]); git(engineWt, ["commit", "-q", "-m", "V12: ui revision 1"]);
+  git(repo, ["worktree", "remove", "--force", engineWt]);
+  await writeFile(registry, JSON.stringify({ path: engineWt, branchRef: branch, area: "ui" }) + "\n");
+  const result = run(repo);
+  expect(result.code).toBe(0);
+  expect(result.text).toContain("worktree already gone: " + engineWt);
+  expect(result.text).toContain("retained branch " + branch + " (unmerged work retained)");
+  expect(git(repo, ["branch", "--list", "z-v12/*"]).trim()).toBe(branch);
+  expect(await Bun.file(registry).exists()).toBe(false);
+});

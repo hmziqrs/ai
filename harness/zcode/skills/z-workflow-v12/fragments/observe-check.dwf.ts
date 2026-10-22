@@ -22,7 +22,7 @@
         let context=phaseContexts.get(key);
         if(!context) {
           const persona=await v12Persona(step.personaPath,visual?"flash":"pro","read-only");
-          context={persona,actor:v12Agent(persona,"V12 "+area.id+" "+step.id,"Read-only assigned evidence judgment. No edits, Git, agents, workflows, duplicate commands or automatic fixes. Engine owns lifecycle; image capture releases its resource before judgment.")};
+          context={persona,actor:v12Agent(persona,"V12 "+area.id+" "+step.id,"Read-only assigned evidence judgment. No edits or automatic fixes. Engine owns lifecycle; image capture releases its resource before judgment.")};
           phaseContexts.set(key,context);
         }
         const finding=await guardWrites(context.persona,cwd,async()=>await context!.actor.ask<PhaseWork>(purpose+"\nRun only this authorized "+step.kind+" phase in "+cwd+". "+step.instructions+"\nIf commands are declared, read their actual engine records (already executed; do not rerun): "+cwd+"/.zcode/workflow-drafts/v12-evidence/"+step.id+".jsonl\nSuccessful exit codes are valid evidence, including incremental builds. Do not demand cold builds or clear caches without an explicit request. Missing images or image capability block visual review; never invent a pass.\nTask: "+input.task+"\nShared contract: "+plan.sharedContract+"\nReturn PhaseWork with concrete summary, blockers and findings."));

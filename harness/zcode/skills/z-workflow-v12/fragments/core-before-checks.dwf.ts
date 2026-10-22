@@ -1,9 +1,9 @@
-  if (input.mode === "plan") return { status: "complete", candidateBranch: "", candidateWorktree: "", candidateCommit: "", areas: [], blockers: [], notes: plan.notes, callerStartedAt: input.startedAt, firstImplementationAt, completedAt: await timestamp(), retainedBranches: [] };
+  if (input.mode === "plan") return { status: "complete", candidateBranch: "", candidateWorktree: "", candidateCommit: "", areas: [], blockers: [], notes: plan.notes, callerStartedAt: input.startedAt, firstImplementationAt, completedAt: await timestamp(), retainedBranches: [], delivery: { status: "skipped", detail: "plan-only", checkoutCommit: input.baseCommit } };
   phase("Run each ready area through its own phases");
   await serializeGit(async () => await gitAt(input.repoRoot, ["worktree", "add", "-b", branch, candidate, input.baseCommit]));
   createdWorktrees.push({ path: candidate, branchRef: branch, area: "candidate" });
   await registryAdd({ path: candidate, branchRef: branch, area: "candidate" });
-  const result: RunResult = { status: "incomplete", candidateBranch: branch, candidateWorktree: candidate, candidateCommit: "", areas: [], blockers: [], notes: plan.notes, callerStartedAt: input.startedAt, firstImplementationAt, completedAt: "", retainedBranches: [] };
+  const result: RunResult = { status: "incomplete", candidateBranch: branch, candidateWorktree: candidate, candidateCommit: "", areas: [], blockers: [], notes: plan.notes, callerStartedAt: input.startedAt, firstImplementationAt, completedAt: "", retainedBranches: [], delivery: { status: "skipped", detail: "pending", checkoutCommit: "" } };
   // The engine tail lives in one inner function closed by core-after-checks; teardown wraps the
   // call (catch-based, never a long try/finally span: the platform graph projector overflows on
   // those, as V8's composition notes warned for callback registries).
@@ -53,7 +53,7 @@
     }
     return (await gitAt(cwd, ["rev-parse", "HEAD"])).trim();
   });
-  const workContract = "Return AreaWork only: {status:'implemented'|'blocked',changedPaths:string[],summary:string,blockers:{kind:'input'|'permission'|'environment'|'implementation',detail:string}[],observations:string[]}. Summary is a brief result, not a file-by-file report, repeated task, version inventory or check transcript. Implemented means owned implementation is finished and blockers is empty. Blocked means an actual unmet requirement prevents completing implementation; name it concretely. Engine checks not yet run, excluded tests, assumptions and residual risks belong in observations and do not block implementation. Setup/assembly/optional checks belong to the engine; do not run or repeat them yourself. Batch independent source reads; use prepared local types. No audits, test execution, HTTP/CRUD smokes, source eval programs, Git, nested agents or workflows. Mandatory framework compiler assistance is limited to edited files; do not repeat passed compiler checks on unchanged files.";
+  const workContract = "Return AreaWork only: {status:'implemented'|'blocked',changedPaths:string[],summary:string,blockers:{kind:'input'|'permission'|'environment'|'implementation',detail:string}[],observations:string[]}. Summary is a brief result, not a file-by-file report, repeated task, version inventory or check transcript. Implemented means owned implementation is finished and blockers is empty. Blocked means an actual unmet requirement prevents completing implementation; name it concretely. Engine checks not yet run, excluded tests, assumptions and residual risks belong in observations and do not block implementation.";
   const askWork = async (area: AreaPlan, cwd: string, prompt: string): Promise<AreaWork> => {
     revisions.set(area.id, (revisions.get(area.id) ?? 0) + 1);
     event(area.id, "implementation", "running");
@@ -98,7 +98,7 @@
       const error = await runCommands(commands, cwd, resource);
       if (!error) { event(area.id, step, "ready"); return ""; }
       const before = await fingerprint(area, cwd);
-      const work = await askWork(area, cwd, "Correct only this blocking required assembly failure, in your owned paths at " + cwd + ". No audits, tests, unrelated fixes, Git or nested workflows. Return AreaWork.\n" + error);
+      const work = await askWork(area, cwd, "Correct only this blocking required assembly failure in your owned paths at " + cwd + ".\n" + error);
       if (work.blockers.length) return v12BlockerText(work);
       if (await fingerprint(area, cwd) === before) {
         const retry = await runCommands(commands, cwd, resource);
