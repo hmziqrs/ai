@@ -89,9 +89,16 @@ own fan-out callback — so an area moves to its next phase the moment its own
 work lands and never waits for other areas. The only joins are the final
 report and an optional final whole-tree smoke gate. Optional verification
 phases (audit, unit tests, native/device testing, vision, browser, smoke)
-run only when the brief names them; each defaults to 1 round, an explicit N
-when the brief says so, and "until zero issues" when the brief says so
-(bounded by an amendable cap, reported honestly if unconverged). Per-area
+run only when the brief names them; each defaults to 1 round, an explicit N when the brief
+says so, and "until zero issues" when the brief says so (bounded by an
+amendable cap, reported honestly if unconverged). Phases attach per area,
+not globally — vision and browser phases apply only to UI-producing areas,
+native testing only to device-targeting areas; an area without a phase
+simply has a shorter chain. Each area's implementer and checkers carry a
+niche persona distilled from the matching `z-*` specialist when one exists
+(the project's `.zcode/agents/` first). Vision interpreters pin to
+GLM-5.3-Flash (HIGH) by default, or GLM-5.3 when the user asks for the
+stronger eye. Per-area
 checks are scoped to that area's own files/targets. No git worktrees,
 branches, or commits — areas edit the current checkout directly. The run
 publishes a live per-area board. Flash subagents unless the user asks

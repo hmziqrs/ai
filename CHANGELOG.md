@@ -23,6 +23,9 @@ versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
   default, explicit N, or until-zero-issues bounded by an amendable cap. Per-area checks
   stay scoped to the area's own files; no git worktrees, branches or commits; a live
   per-area board shows the pipeline while it runs; fresh script per task, nothing saved.
+  Phases attach per area (vision/browser only to UI-producing areas, native testing only
+  to device surfaces), areas carry niche personas distilled from matching `z-*`
+  specialists, and vision interpreters pin to GLM-5.3-Flash (HIGH) or GLM-5.3 on request.
   Speed is the only goal.
 - **`coding/` category skills.** `code-comments` (hard comment discipline for agent-written
   code) and the three-skill `test-quality-*` suite (`guardrails`, `tdd-agents`, `audit`),

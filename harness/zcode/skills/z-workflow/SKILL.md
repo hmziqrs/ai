@@ -72,6 +72,11 @@ fresh script written for that task; nothing is saved, nothing is reused.
    default**; the explicit number when the brief says 2, 3, 4…; "until zero
    issues" when the brief says so (loop until clean, bounded by a generous
    cap that can be amended, reported honestly if it never converged).
+   Phases attach **per area, not globally**: vision and browser phases apply
+   only to areas that produce a visible UI (never a backend or library
+   area); native/device testing only to areas targeting a device surface.
+   An area where a phase does not apply simply has a shorter chain —
+   nothing skips, nothing waits.
 4. **Per-area checks stay scoped to that area.** A phase checks only its own
    area's files and module targets (its own tests, its own type/lint scope).
    Anything that needs the whole tree — full suite, integrated build, smoke —
@@ -82,8 +87,14 @@ fresh script written for that task; nothing is saved, nothing is reused.
 6. **No git machinery.** No worktrees, no branches, no commits, no pushes.
    Areas edit the current checkout directly; the deliverable is the changed
    files.
-7. **Flash everywhere.** Subagents default to flash. Move an area to the
-   main-tier model only when the user explicitly asks.
+7. **Personas and models.** Subagents default to flash; an area moves to
+   the main-tier model only when the user explicitly asks. The one fixed
+   pin is vision: interpreters judging captures run on GLM-5.3-Flash (HIGH)
+   by default, or GLM-5.3 when the user asks for the stronger eye. Each
+   area's implementer and checkers carry a niche persona distilled from the
+   matching `z-*` specialist when one exists (the project's
+   `.zcode/agents/` first), so niche work gets specialist judgment instead
+   of a generic prompt.
 8. **A live board, not a wall of logs.** The run publishes an areas board
    (columns per phase: implementing, auditing, testing, done, failed) and
    reports each area's transition as it happens — the pipelining is visible

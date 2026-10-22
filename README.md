@@ -66,9 +66,13 @@ implementation, or review authority.
   implement → optional audit → optional test → … — inside its own fan-out
   callback, so an area advances the moment its own work lands and never
   waits for other areas. Optional verification phases run only when the
-  brief names them (default 1 round, explicit N, or until-zero-issues);
-  per-area checks stay scoped to the area's own files; whole-tree gates run
-  once at the final join. No git worktrees/branches/commits — areas edit
+  brief names them (default 1 round, explicit N, or until-zero-issues) and
+  attach per area — vision/browser only to UI-producing areas, native
+  testing only to device-targeting areas; per-area checks stay scoped to
+  the area's own files; whole-tree gates run once at the final join. Areas
+  carry niche personas distilled from matching `z-*` specialists; vision
+  interpreters pin to GLM-5.3-Flash (HIGH) or GLM-5.3 on request. No git
+  worktrees/branches/commits — areas edit
   the current checkout directly. A live per-area board shows the pipeline
   while it runs. Fresh script per task, nothing saved.
 - **`z-project-init`** (global core): initializes, audits, or updates
