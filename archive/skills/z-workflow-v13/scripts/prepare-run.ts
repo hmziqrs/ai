@@ -134,7 +134,11 @@ async function prepare() {
   if (fields.maxRounds !== undefined) args.maxRounds = fields.maxRounds;
   if (fields.maxLines !== undefined) args.maxLines = fields.maxLines;
   if (fields.maxFiles !== undefined) args.maxFiles = fields.maxFiles;
-  if (fields.agentsMd !== undefined) args.agentsMd = fields.agentsMd;
+  // files.read resolves against the workflow run's workspace, not repoRoot — the same
+  // trap world.run's anchoring already covers. Absolutize so the engine injects the
+  // target repo's rules, never another repo's (or nobody's).
+  const agentsMd = typeof fields.agentsMd === "string" ? fields.agentsMd : "AGENTS.md";
+  args.agentsMd = agentsMd === "" || isAbsolute(agentsMd) ? agentsMd : join(repoRoot, agentsMd);
 
   const checked = Bun.spawnSync({
     cmd: [process.execPath, "--no-env-file", "--config=/dev/null", join(skillRoot, "scripts", "check-script.ts"), join(skillRoot, "zflow-engine.dwf.ts")],

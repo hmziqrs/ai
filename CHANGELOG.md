@@ -7,183 +7,67 @@ versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
 ## [Unreleased]
 
 ### Added
-- Opt-in `z-workflow-v9` with `workflow-author-v9` (Flash HIGH), deterministic root preflight, prepared-plan execution without a second configurator, real preimplementation plan audit, distinct TUI testing and web vision, explicit finite evidence budgets and recorded command evidence. Previous workflow versions remain unchanged.
+
+- **New `z-workflow`: parallel by default, zero global phase barriers.** Built directly
+  on the bundled `dynamic-workflows` skill: the coordinator dispatches a single
+  `workflow-launcher` agent (full access, GLM-5.3-Flash, HIGH thinking) that does
+  everything pre-workflow — explores, bootstraps an uninitialized project (thin scaffold +
+  git baseline, never touching an initialized repository), parses optional phases and
+  round budgets from the brief, and predetermines 2–8 areas with disjoint file sets —
+  then launches one fresh script in which every area is its own state machine
+  (implement → optional audit → optional test → …) chained inside its own fan-out
+  callback. An area advances to its next phase the moment its own work lands and never
+  waits for other areas; the only joins are the final report and an optional final
+  whole-tree smoke gate. Optional verification phases (audit, unit tests, native/device
+  testing, vision, browser, smoke) run only when the brief names them — 1 round by
+  default, explicit N, or until-zero-issues bounded by an amendable cap. Per-area checks
+  stay scoped to the area's own files; no git worktrees, branches or commits; a live
+  per-area board shows the pipeline while it runs; fresh script per task, nothing saved.
+  Speed is the only goal.
+- **`coding/` category skills.** `code-comments` (hard comment discipline for agent-written
+  code) and the three-skill `test-quality-*` suite (`guardrails`, `tdd-agents`, `audit`),
+  every claim traced to the research sweep under `research/coding/test-quality/`.
+- **`i18n/` category.** `rust-i18n`, `sveltekit-paraglide`, `flutter-slang`, and
+  `astro-i18n` reference skills; the matching skill is installed per stack by
+  `z-project-init` and referenced from the stack specialists.
+- **`languages/rust/` category group.** Five Rust super-optimization skills: `rust-superopt`
+  (the router), `rust-simd-crates`, `rust-simd-kernels`, `rust-parallel-cache`,
+  `rust-fast-architecture`.
+- Mobile and terminal capture tooling (`mobile-automation`, `mobilecli`, `tui-use`) joins
+  `agent-browser` and `open-computer-use` as external capture dependencies referenced by
+  the device-verification specialists.
 
 ### Removed
-- **The autonomous Shipflow layer is retired.** The `shipflow/` skill (its GitHub
-  kit, task-cycle template, reconciler, setup, cleanup, policy hooks, PRD lint and
-  planning checkers), the approval helper, the probe scripts and the `z-product-owner`
-  agent are removed. The code stays in git history at tag `archive/shipflow-autopilot`.
-  The four GitHub agents that Shipflow used (`z-gh-operator`, `z-pr-merge-steward`,
-  `z-queue-sentinel`, `z-github-project-manager`) are removed too. Kept: `z-workflow`,
-  `z-proflow`, `z-flashflow`, `z-liteflow`, `z-project-init`, the niche specialists, and
-  the planning skills `prd-authoring`, `site-recon` and `parity-testing`.
-- **Support-specialist routing pruned from eight agents to three.** `z-api-contract-engineer`,
-  `z-database-migration-engineer`, `z-product-flow-analyst`, `z-accessibility-auditor`, and
-  `z-ci-diagnostician` are removed. Contract compatibility folds into the matching stack
-  specialists, migration and durability rules into the `drizzle-orm-d1` / `rust-embedded-storage`
-  skills, and accessibility depth into `z-qa-evaluator`. `z-security-auditor` becomes the base
-  project pin so every project carries the read-only diff audit, and `z-qa-evaluator` joins the
-  web-rendering stack rows. Existing projects remove the five files on their next
-  `z-project-init` update.
+
+- **The entire pre-2026-10 workflow family is retired into `archive/`** (restricted,
+  never installed, `SKILL.md` renamed `SKILL.snapshot.md`): the original `z-workflow`,
+  experiments v2 through v13, the `z-proflow` / `z-flashflow` / `z-liteflow` profiles, the
+  `z-gpui-workflow` / `z-tauri-workflow` / `z-super-rustflow` domain workflows, all eight
+  `workflow-author*` / `workflow-planner*` agent definitions, the persona-kit checker, and
+  the legacy `zflow-engine` saved workflow. Everything is preserved in `archive/` and git
+  history; installing or discovering archived content is prohibited (see AGENTS.md).
+- **The autonomous Shipflow layer** (skill, approval helper, probe scripts, and its GitHub
+  agents `z-gh-operator`, `z-pr-merge-steward`, `z-queue-sentinel`,
+  `z-github-project-manager`, `z-product-owner`) is removed; preserved in git history.
+- **Support-specialist routing pruned** — `z-api-contract-engineer`,
+  `z-database-migration-engineer`, `z-product-flow-analyst`, `z-accessibility-auditor`,
+  and `z-ci-diagnostician` removed; `z-security-auditor` is the base project pin and
+  `z-qa-evaluator` covers web-rendering stacks.
 
 ### Changed
-- **Opt-in `z-workflow-v7` adds early setup and local completion recovery.** Each area
-  prepares its own worktree before implementation without holding unrelated areas. Brief
-  structured results distinguish real blockers from observations; malformed reports receive
-  one local clarification. Command ownership carries into corrections. V6 and older skills
-  remain unchanged, with HIGH defaults and optional product checks retained.
-- **Opt-in `z-workflow-v6` preserves V5 and adds configuration recovery.** Ordinary directory
-  trailing slashes normalize before ownership validation; invalid fields produce precise
-  diagnostics and one correction in the persistent configurator before writers start.
-  Inline smoke scripts cannot be relabeled assembly, and project-wide check dependencies
-  belong at integration rather than delaying independent implementation. Numbered workflow
-  revisions are preserved; subsequent behavior changes receive a new version.
-- **Opt-in `z-workflow-v5` revives the static ZFlow engine approach.** A maintained engine
-  consumes task data inside one run, with independent per-area phase progression and
-  persistent specialists. The attempted native channel/future restoration stalled the harness
-  analyzer and was reverted to the successfully benchmarked flat per-area scheduler. The
-  checker now rejects that channel/future shape before submission; optional checks and HIGH
-  defaults remain.
-  It replaces per-task orchestration authoring only for explicitly
-  selected V5 runs. Original/V2/V3/V4 are retained; audits, QA and vision remain opt-in.
-- **Framework i18n routing added to the stack specialists.** `z-gpui-engineer` routes to the
-  `gpui-kit` i18n guide and Longbridge `rust-i18n` (the crate is `rust-i18n`, not `rust-intl`),
-  `z-svelte-engineer` to Paraglide JS for SvelteKit, `z-flutter-engineer` to the project's
-  `slang` v4 convention with official gen-l10n as the alternative, and `z-astro-engineer` to
-  Astro's built-in `i18n` routing and `astro:i18n` helpers, with a matching i18n lane in
-  `z-gpui-workflow`.
-- **New `i18n/` skill category.** `i18n/rust-i18n`, `i18n/sveltekit-paraglide`,
-  `i18n/flutter-slang`, and `i18n/astro-i18n` are reference skills written from current
-  official sources (as of 2026-10-19); the matching skill is installed per stack by
-  `z-project-init` and referenced from the four stack specialists, `z-gpui-workflow`, and
-  `llms.txt`/`README.md`.
-- **Outside the opt-in V5/V6/V7 experiments, no saved engines: each z-flow run
-  executes a script written for its
-  task.** z-workflow writes a fresh script per task through the
-  workflow-author; for larger work the new `workflow-planner` /
-  `workflow-planner-flash` agents gather every fact into the WorkflowBrief
-  and dispatch the author, so the coordinator never gathers facts
-  (Pillar 9). The only reusable workflow code is the persona kit
-  (`harness/zcode/skills/z-workflow/persona-kit.dwf.ts`) and z-liteflow's
-  pre-tested template. No skill offers to save an engine or to
-  SaveWorkflow a generated script.
-- **Shipflow is now a framework-agnostic z-workflow profile.** One cycle
-  takes one GitHub issue through a fresh z-workflow run on the COMPLEX
-  path, with the normal approval dialog, a run-owned `wf/shipflow-<N>`
-  worktree, planner-discovered gates, merge policy in script code, and
-  one documented exception to z-workflow's no-push rule: a single
-  non-force push of the run's own branch. Roles formerly carried by
-  dedicated agents map onto the core agents and `z-*` specialists.
-- **z-project-init** installs Shipflow as the `shipflow/` skill plus the
-  four new `z-*` agents and the project's selected specialists, and
-  removes legacy per-project engine, queue, and role files (with their
-  snapshot entries) on update.
-- **Repo restructured by kind.** `zcode/` → `harness/zcode/` and
-  `codex/` → `harness/codex/` — harness-specific kits live under
-  `harness/`, cross-harness skills in top-level categories. The
-  `.zcode-plugin/plugin.json` manifest paths and all documentation
-  (README, llms.txt, AGENTS.md, install docs) follow.
 
-### Added
-- **Mobile and terminal capture lanes.** The vendored global skills `mobile-automation`
-  (mobile-mcp `mobile_*` MCP tools), `mobilecli` (iOS/Android device and simulator CLI),
-  and `tui-use` (in-terminal TUI automation) join `agent-browser` and `open-computer-use`
-  as capture tooling: z-workflow names the tool per visible surface (`web`, `desktop`,
-  `mobile`, `tui`) and serializes mobile and TUI captures through the single-worker device
-  lane, z-tauri-workflow names `mobilecli` for its `V = mobile` lane, and z-project-init
-  installs them for Tauri mobile, Flutter, and Rust TUI projects.
-- `workflow-planner` and `workflow-planner-flash` core agents (Global
-  Core is now seven agents).
-- Four per-project niche agents for Shipflow-style GitHub work, usable by
-  any z-workflow run: `z-gh-operator` (exact listed `gh` label, assignee,
-  comment, and PR-create operations, each verified by re-read),
-  `z-pr-merge-steward` (typed merge-readiness facts; merges only one
-  authorized reviewed head with `--match-head-commit`), `z-queue-sentinel`
-  (read-only queue health), and `z-security-auditor` (read-only diff
-  security audit).
-- Migration plan: `research/harness/zcode/zflow-migration-plan.md`.
-- **`coding/` category: three `test-quality-*` skills.** Test-discipline
-  suite for AI-heavy development, every claim, quote, and link traced to
-  a 133-source research sweep (`research/coding/test-quality/ai-generated-tests-research.md`):
-  `test-quality-guardrails` — stop the bloat with rules-file policies
-  (default-off test generation, read-only failing tests, targeted
-  in-loop runs with the full suite in CI/hooks) shipped as copy-paste
-  CLAUDE.md/AGENTS.md/.cursorrules blocks; `test-quality-tdd-agents` —
-  tests-first agent workflows (confirm-fail red-green loop with frozen
-  tests, tests as the spec humans own, characterization tests for legacy
-  code, property-based testing as the better agent assignment); and
-  `test-quality-audit` — prune AI-written suites (mutation testing as
-  the quality gate, coverage as a vanity metric, mirroring and
-  over-mocking smells, the "not too many, mostly integration" mix, and
-  a promote/flag/delete triage runbook).
-- **z-super-rustflow skill** — the Rust super-optimization chain: a
-  read-only research phase (explorer/researcher/auditor nodes →
-  Amdahl-ranked findings dossier with owner skill, lever, risk, and
-  measurement plan) as the DEFAULT with zero repo edits, an opt-in
-  implement phase that runs only on explicit user ask (round 0 =
-  criterion benchmark + parity oracle + saved baseline, then implement →
-  gates → fresh blind audit rounds scored against the rust-superopt
-  done-rubric), main-tier only — no vision node, no flash agents
-  anywhere — and a convergence loop that exits clean only when a full
-  audit round finds zero NOVEL registry findings. Composes its own
-  inline runs over the rust-* family rather than chaining over
-  zflow-engine.
-- **`coding/` category: `code-comments` skill.** Hard comment discipline
-  for agent-written code: zero comments by default — names, types,
-  structure, and tests carry the meaning. Exactly three earning
-  categories survive (public-API contract docs, convention-required
-  SAFETY blocks, link-carrying last-resort constraint notes pushed
-  toward a test or lint first), each capped at 2 lines, 3 absolute max;
-  doubt kills, and an unearned comment is deleted, never rewritten.
-  Narration, banners, change-log and AI-voice comments are banned
-  outright — saving output tokens and keeping the codebase clean.
-- **`languages/rust/` category group: five Rust super-optimization skills.** Plain
-  cross-harness skills (no harness mechanisms), each folder carrying
-  `SKILL.md` plus a `references/` pack: `rust-superopt` (the router —
-  benchmark-first triage across compute/memory/lock/IO, release-profile
-  hygiene, measurement discipline, PGO/BOLT and codegen-inspection
-  tooling), `rust-simd-crates` (adopting SIMD-accelerated crates —
-  simd-json/sonic-rs, hashing, compression, codecs, BLAS — over
-  hand-writing kernels), `rust-simd-kernels` (hand-written and portable
-  SIMD kernels: std::simd, intrinsics, `#[target_feature]`, runtime
-  dispatch, codegen verification), `rust-parallel-cache` (rayon pools,
-  core pinning, false sharing, NUMA first-touch, cache tiling, Apple
-  Silicon QoS steering), and `rust-fast-architecture` (single-writer
-  service architecture, contention math, write-behind group commit,
-  deterministic simulation testing, async-runtime chooser).
-- **z-tauri-workflow skill** — the Tauri v2 twin of z-gpui-workflow: a
-  fine-grained desktop chain with two-lane vision (frontend areas audited
-  on the tauri dev-server URL via the web lane; window/tray/native via the
-  desktop ocu lane), Tauri-specific area slicing (Rust core under
-  `src-tauri/`, frontend, capabilities/config), and non-mutating gate forms
-  for the cargo + frontend toolchains.
-- **Cross-harness skill categories.** Every top-level directory except
-  `harness/` is a category holding plain-SKILL.md skills that install
-  for every harness. First category and first skill: `copy/antislop-copy`
-  — cuts consumer-facing website copy (homepages, landing pages,
-  feature grids, pricing, about, FAQ, release posts, page titles and
-  meta descriptions) to the shortest version that still answers the
-  visitor's questions, without adding or bending any fact.
-
-### Removed
-- The saved engine and its contract: `harness/zcode/workflows/`
-  (`zflow-engine.dwf.ts`, `zflow-SPEC.md`, `shipflow-queue.dwf.ts`) and the
-  optional install step that copied the engine to `~/.zcode/workflows/`.
-- The 20 dedicated Shipflow role agents (`harness/zcode/agents/shipflow-*.md`),
-  `harness/zcode/skills/shipflow/references/knowledge/`, and
-  `harness/zcode/scripts/check-shipflow.mjs`.
-- Research documents for the superseded design: the V3 unification plan,
-  `research/harness/zcode/shipflow/`, and `research/harness/zcode/history/`
-  (including the zflow-port development snapshots).
-- **The installers.** `bin/ai.js`, `bin/codex-ai.js`, and the
-  `npx github:hmziqrs/ai` entry are gone. Installation is
-  agent-driven: an AI agent (or human) follows `install.md` /
-  `harness/codex/install.md`, which now carry the full procedure the
-  scripts used to encode (marked provider block, `0600` secret file,
-  `__ZAI_MODEL_CATALOG__` rendering, category skills). The ZCode
-  plugin manifest and the skills.sh path remain as declarative
-  alternatives.
+- **Global Core is now 4 agents and 2 skills.** Global agents:
+  `general-pro`, `general-flash`, `explore-flash`, `workflow-launcher`. Global ZCode
+  skills: `z-workflow`, `z-project-init`. The 5 universal baseline skills in
+  `~/.agents/skills/` are unchanged. **No workflow skills install per project anymore**;
+  `z-project-init` snapshots move to `schemaVersion: 2` (persona-kit fields and
+  per-project workflow lists dropped) and remove retired workflow installs on update.
+- **Docs rewritten to match disk.** `AGENTS.md`, `install.md`, `llms.txt`, and `README.md`
+  describe the new layout and drop stale references (the Codex kit directory and
+  `.zcode-plugin` route no longer exist). `install.md` includes a cleanup step that
+  removes retired workflow skills/agents/saved engines from global directories.
+- **Repo restructured by kind.** `zcode/` → `harness/zcode/` — harness-specific kits live
+  under `harness/`, cross-harness skills in top-level categories.
 
 ## [1.0.0] - 2026-09-22
 

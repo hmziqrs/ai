@@ -23,6 +23,7 @@ async function fixture(): Promise<Fixture> {
   git(["config", "user.email", "fixture@example.invalid"]);
   git(["config", "user.name", "Prepare fixture"]);
   await writeFile(join(repoRoot, "README.md"), "seed\n");
+  await writeFile(join(repoRoot, "AGENTS.md"), "# prepare fixture rules\n");
   await writeFile(join(repoRoot, ".gitignore"), ".zflow/\n");
   git(["add", "."]); git(["commit", "-m", "seed"]);
   return {
@@ -60,6 +61,7 @@ describe("V13 prepare-run", () => {
     expect(launched.args.baseSha).toBe(head);
     expect(launched.args.runTag).toBe(head.slice(0, 8));
     expect(launched.args.repoRoot).toBe(realpathSync(fx.repoRoot));
+    expect(launched.args.agentsMd).toBe(join(realpathSync(fx.repoRoot), "AGENTS.md"));
     expect(launched.anchors.branchRef).toBe("refs/heads/main");
     expect(launched.anchors.baseCommit).toBe(head);
   });

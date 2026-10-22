@@ -1,59 +1,56 @@
 # ai
 
-> Model-pinned ZCode and Codex harness kits plus cross-harness skill
-> categories. No installer, no build step, no dependencies: an AI agent
-> pointed at this repo installs it by following the procedures below.
+> Model-pinned ZCode harness kit plus cross-harness skill categories. No
+> installer, no build step, no dependencies: an AI agent pointed at this
+> repo installs it by following the procedures below.
 
-Layout: harness-specific kits under `harness/` (`zcode/`, `codex/`);
-other top-level directories except `research/` (`copy/`, `coding/`, `i18n/`, `languages/rust/`, `product/`, `testing/`)
-are cross-harness skill categories. To install, follow [install.md](install.md),
-which enforces a strict **Global Core vs Per-Project Niche** split:
-- **Global Core (`~/.zcode/` and `~/.agents/skills/`)**: only the 7 core agents
-  (`general-pro`, `general-flash`, `explore-flash`, `workflow-author`,
-  `workflow-author-flash`, `workflow-planner`, `workflow-planner-flash`), the 5 general ZCode skills (`z-workflow`, `z-proflow`,
-  `z-flashflow`, `z-liteflow`, `z-project-init`), and the 5 universal baseline
-  skills (`antislop-copy`, `code-comments`, `test-quality-guardrails`,
+Layout: the ZCode kit under `harness/zcode/`; other top-level directories
+except `research/` and `archive/` (`copy/`, `coding/`, `i18n/`,
+`languages/rust/`, `product/`, `testing/`, `web-spec/`) are cross-harness
+skill categories. To install, follow [install.md](install.md), which
+enforces a strict **Global Core vs Per-Project Niche** split:
+- **Global Core (`~/.zcode/` and `~/.agents/skills/`)**: only the 4 core
+  agents (`general-pro`, `general-flash`, `explore-flash`,
+  `workflow-launcher`), the 2 core ZCode skills (`z-workflow`,
+  `z-project-init`), and the 5 universal baseline skills
+  (`antislop-copy`, `code-comments`, `test-quality-guardrails`,
   `test-quality-tdd-agents`, `test-quality-audit`).
 - **Per-Project Niche (`<project>/.zcode/` and `<project>/.agents/skills/`, via `z-project-init`)**:
-  niche `z-*` specialists, niche workflows (`z-gpui-workflow`,
-  `z-tauri-workflow`, `z-super-rustflow`), and stack-specific domain
-  skills (`languages/rust/rust-*` and external framework skills) install only into
-  the project that uses them and record their `hmziqrs/ai` commit SHA and file
-  hashes in `<project>/.zcode/hmziqrs-ai-snapshot.json`.
-Agent definitions must be regular files — ZCode's discovery silently skips symlinks;
-`find ~/.zcode/agents -type l` and `find <project>/.zcode/agents -type l` printing
-nothing confirms none.
+  niche `z-*` specialist agents and stack-specific domain skills
+  (`languages/rust/rust-*`, `product/*`, `testing/*`, and external
+  framework skills) install only into the project that uses them and
+  record their `hmziqrs/ai` commit SHA and file hashes in
+  `<project>/.zcode/hmziqrs-ai-snapshot.json`.
+Agent definitions must be regular files — ZCode's discovery silently skips
+symlinks; `find ~/.zcode/agents -type l` and
+`find <project>/.zcode/agents -type l` printing nothing confirms none.
 
-`research/` is excluded from installation and routine exploration. Read it only
-when the user explicitly requests research material or the task is research-related.
-Follow the hard rule in [AGENTS.md](AGENTS.md).
+`research/` and `archive/` are excluded from installation and routine
+exploration. Read them only when the user explicitly requests that
+material or the task is maintenance of it. Follow the hard rule in
+[AGENTS.md](AGENTS.md).
 
 ## ZCode kit (`harness/zcode/`)
 
 - [harness/zcode/agents/general-flash.md](harness/zcode/agents/general-flash.md): full-tools general agent pinned to glm-5.3-flash — objectively checkable work (CRUD, boilerplate, mechanical verification).
 - [harness/zcode/agents/explore-flash.md](harness/zcode/agents/explore-flash.md): read-only search + code-audit agent pinned to glm-5.3-flash — reports findings, no verdict authority.
 - [harness/zcode/agents/general-pro.md](harness/zcode/agents/general-pro.md): full-tools judgment agent pinned to glm-5.3 — complex implementation, audit verdicts, continue/stop decisions.
-- [harness/zcode/skills/z-workflow/SKILL.md](harness/zcode/skills/z-workflow/SKILL.md): the general dynamic-workflow composer — for small work the workflow-author explores directly, for larger work the workflow-planner gathers every fact (signals, files, specialists) into the WorkflowBrief and dispatches the author, keeping the coordinator's context clean; the workflow-author writes a fresh script per task from measured signals, work lands on run-owned branches, with guarded automatic fast-forward into the user's checkout.
-- [harness/zcode/skills/z-workflow/persona-kit.dwf.ts](harness/zcode/skills/z-workflow/persona-kit.dwf.ts): the shared persona kit — paste it unchanged into any workflow script to drive subagents with agent files (loadPersona, personaAgent, guardWrites, personaReport); workflows cannot call agents by name.
-- [harness/zcode/skills/z-proflow/SKILL.md](harness/zcode/skills/z-proflow/SKILL.md): z-workflow on the pro model only, with no vision — every role on GLM-5.3, no Flash anywhere, visible requirements checked by commands or listed as not covered.
-- [harness/zcode/skills/z-flashflow/SKILL.md](harness/zcode/skills/z-flashflow/SKILL.md): z-workflow on Flash only — every role, including the workflow-author, on GLM-5.3-Flash; judge verdicts stay labelled judged.
-- [harness/zcode/skills/z-liteflow/SKILL.md](harness/zcode/skills/z-liteflow/SKILL.md): the fast small-task form of z-workflow — no explorers and no author: the coordinator fills a pre-tested one-lane template (implement, gate, flash tracer, fresh pro judge); bigger tasks hand off to z-workflow.
-- [harness/zcode/skills/z-project-init/SKILL.md](harness/zcode/skills/z-project-init/SKILL.md): per-project ZCode initializer and snapshot manager — inspects project manifests, installs only the required niche `z-*` sub-agents (`.zcode/agents/`), niche workflows (`.zcode/skills/`), and domain skills (`.agents/skills/`), and writes `.zcode/hmziqrs-ai-snapshot.json` for drift detection and isolated per-project updates while keeping the 7 core agents global.
-- [harness/zcode/skills/z-gpui-workflow/SKILL.md](harness/zcode/skills/z-gpui-workflow/SKILL.md): GPUI (`gpui-kit`) domain profile of z-workflow — fresh script per task, `z-gpui-engineer` and companion Rust/verification specialists loaded via `persona-kit.dwf.ts` v4, crate-scoped Cargo and `#[gpui_kit::test]` UI integration gates, and serialized `V=desktop` capture via `z-native-device-verifier` (`open-computer-use` AX tree + PNG) with blind Flash vision audit before guarded Step 6 fast-forward delivery.
-- [harness/zcode/skills/z-tauri-workflow/SKILL.md](harness/zcode/skills/z-tauri-workflow/SKILL.md): Tauri v2 domain profile of z-workflow — fresh script per task separating Rust Core (`src-tauri/`), IPC/capability contracts, and static Frontend areas, `z-tauri-integrator` and framework specialists loaded via `persona-kit.dwf.ts` v4, scoped Cargo and package-manager gates, and explicit two-surface runtime verification (`V=web` browser lane vs serialized `V=desktop`/`V=mobile` `z-native-device-verifier` lane) before guarded Step 6 fast-forward delivery.
-- [harness/zcode/skills/z-super-rustflow/SKILL.md](harness/zcode/skills/z-super-rustflow/SKILL.md): Rust super-optimization campaign over the `rust-*` performance and soundness skill suite — read-only research phase by default (`z-rust-perf-engineer`, `z-rust-memory-engineer`, `z-rust-simd-engineer`, `z-rust-async-engineer`, `z-unsafe-ffi-auditor` via `persona-kit.dwf.ts` v4, zero edits), opt-in implement phase with a converge-until-auditors-go-silent audit-fix loop and guarded Step 6 delivery; Pro only, no vision, no Flash.
+- [harness/zcode/agents/workflow-launcher.md](harness/zcode/agents/workflow-launcher.md): full-access Flash HIGH launcher for z-workflow — does everything pre-workflow (explores, bootstraps an uninitialized project, parses optional phases and round budgets from the brief, plans every area), then writes one fresh dynamic-workflows script where each area runs its own phase chain with zero global barriers, and launches it with CreateWorkflow.
+- [harness/zcode/skills/z-workflow/SKILL.md](harness/zcode/skills/z-workflow/SKILL.md): the only workflow skill — parallel by default with zero global phase barriers. Every task is its own area running its own chain (implement → optional audit → optional test → …) inside its own fan-out callback, so an area advances the moment its own work lands. Optional verification phases run only when the brief names them (default 1 round, explicit N, or until-zero-issues); per-area checks stay scoped to the area's own files; whole-tree gates run once at the final join. No git worktrees, branches or commits — areas edit the current checkout directly. Fresh script per task, nothing saved, live per-area board.
+- [harness/zcode/skills/z-project-init/SKILL.md](harness/zcode/skills/z-project-init/SKILL.md): per-project ZCode initializer and snapshot manager — inspects project manifests, installs only the required niche `z-*` sub-agents and domain skills, and writes `.zcode/hmziqrs-ai-snapshot.json` for drift detection and isolated per-project updates while keeping the core agents global.
 
-The ZCode kit also supplies reusable `z-*` domain and verification personas, including
-`z-qa-evaluator` (skeptical browser QA against acceptance criteria with a calibrated rubric)
-and `z-security-auditor` (read-only diff security audit). Use [specialist routing](harness/zcode/skills/z-workflow/references/specialists.md)
-with discovered agent descriptions; the coordinator supplies explicit role authority,
-acceptance evidence and available skill paths.
+The ZCode kit also supplies reusable `z-*` domain and verification
+personas, including `z-qa-evaluator` (skeptical browser QA against
+acceptance criteria) and `z-security-auditor` (read-only diff security
+audit). Agent descriptions select expertise; the coordinator assigns
+scope and explicit analysis, implementation, or review authority.
 
 ## Cross-harness skill categories
 
-Every top-level directory except `harness/` and `research/` is a category
-holding plain-SKILL.md skills (no harness tooling). Category skills install
-for every harness; research archives never install.
+Every top-level directory except `harness/`, `research/`, and `archive/`
+is a category holding plain-SKILL.md skills (no harness tooling).
+Category skills install for every harness; research and archive never
+install.
 
 - [copy/antislop-copy/SKILL.md](copy/antislop-copy/SKILL.md): cuts consumer-facing website copy to the shortest version that still answers the visitor's questions, without inventing or bending facts.
 - [coding/code-comments/SKILL.md](coding/code-comments/SKILL.md): hard comment discipline for agent-written code — use whenever writing or editing code in any language, even when the request never mentions comments. Zero comments by default; names, types, structure, and tests carry the meaning. Only public-API contract docs, convention-required SAFETY blocks, and link-carrying last-resort constraint notes survive, never longer than 2 lines (3 absolute max). Bans narration, section banners, change-log and AI-voice comments.
@@ -73,29 +70,8 @@ for every harness; research archives never install.
 - [product/site-recon/SKILL.md](product/site-recon/SKILL.md): read-only reconnaissance of a public reference website into a discovery pack — archetypes, captures, data model, journeys, gated-area assumptions, parity spec.
 - [testing/parity-testing/SKILL.md](testing/parity-testing/SKILL.md): reference-parity tests for a website clone — aria-snapshot structure matching, masked pixel diffs of static chrome, journey replay, per-archetype parity scores, noise and sensitivity calibration.
 
-## Codex kit (`harness/codex/`)
-
-Installs the Z.ai Responses provider, five custom agents, six profiles,
-a two-model catalog, and four skills while preserving the normal OpenAI
-default. The `ZAI_API_KEY` import goes into the private Codex-only
-`~/.codex/secrets/zai-api-key` file with mode `0600`; provider
-authentication reads that file, and the key never enters Git or
-`~/.codex/config.toml`. Full procedure:
-[harness/codex/install.md](harness/codex/install.md).
-
-- [harness/codex/agents](harness/codex/agents): `zai_flash`, `zai_vision`, `zai_pro`, and `zai_reviewer` at max reasoning, plus a low-effort read-only explorer.
-- [harness/codex/plugins/zai-workflows](harness/codex/plugins/zai-workflows): publishable Codex plugin containing z-workflow, z-proflow, z-flashflow, and z-liteflow.
-
 ## Optional
 
 - [README.md](README.md): full documentation — layout, categories, install paths, how to add skills/kits/harnesses.
 - [install.md](install.md): the ZCode-kit + categories install procedure an AI agent executes.
-- [.zcode-plugin/plugin.json](.zcode-plugin/plugin.json): install as a ZCode plugin (Settings → Plugin Management → Discover → + → this Git URL) — the only plugin route; the ZCode kit's agents and skills are harness-specific and are never published to other harnesses' plugin/marketplace systems.
 - [AGENTS.md](AGENTS.md): orientation for AI agents working IN this repository (layout, conventions, extension rules).
-
-- [harness/zcode/skills/z-workflow-v6/SKILL.md](harness/zcode/skills/z-workflow-v6/SKILL.md): Opt-in flat ZFlow engine with per-area parallelism, HIGH defaults, optional checks, precise configuration validation and targeted recovery; separate from preserved V5.
-
-- [harness/zcode/skills/z-workflow-v7/SKILL.md](harness/zcode/skills/z-workflow-v7/SKILL.md): Opt-in flat engine with independent setup before HIGH specialist work, structured blockers/observations, local completion recovery and brief handoffs; previous versions preserved.
-
-- [harness/zcode/skills/z-workflow-v9/SKILL.md](harness/zcode/skills/z-workflow-v9/SKILL.md): opt-in composable V9; one Flash HIGH author prepares a typed plan, deterministic assembly, real optional plan audit/TUI tests/web vision and flat per-area execution.
-- [harness/zcode/agents/workflow-author-v9.md](harness/zcode/agents/workflow-author-v9.md): V9 preparation author; compact contract and preflight, no engine rewriting or workflow launch.
