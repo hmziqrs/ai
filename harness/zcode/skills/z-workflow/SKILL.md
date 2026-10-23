@@ -23,8 +23,12 @@ posts       ████►                                        …while post
 notifs      done        ████►      ████►                 ← notifs already past audit
 ```
 
-Built entirely on the bundled `dynamic-workflows` skill. Every run is one
-fresh script written for that task; nothing is saved, nothing is reused.
+Built entirely on the bundled `dynamic-workflows` skill — ZCode's own workflow
+authoring contract. This skill adds no engine, no templates, no saved
+workflows: every run is a fresh script written for that one task. The
+skill's `references/proven-patterns.md` catalogues ten campaign-verified
+workflow shapes (chains, model mixes, deterministic gates, and the
+platform rules that bite) — the launcher plans from that catalogue.
 
 ## When to use it
 
@@ -45,11 +49,13 @@ fresh script written for that task; nothing is saved, nothing is reused.
    clean.
 2. **Let it launch.** The launcher explores, bootstraps an uninitialized
    project if needed, plans every area, writes one fresh workflow script on
-   the `dynamic-workflows` contract, and submits it with CreateWorkflow. If
-   the harness refuses the CreateWorkflow call from its context, it returns
+   the `dynamic-workflows` contract — with per-subagent model pins baked
+   into the script — and submits it with CreateWorkflow. If the harness
+   refuses the CreateWorkflow call from its context, it returns
    `{status:"ready", scriptPath, areas}` — then you load the
    `dynamic-workflows` skill and submit `CreateWorkflow` with
-   `path: scriptPath` yourself. Never edit or "improve" its script.
+   `path: scriptPath` yourself, script unmodified; its model pins travel
+   inside the script. Never edit or "improve" its script.
 3. **Relay the result.** Do not poll the run. The completion notification
    arrives on its own; report the conclusion and per-area outcomes honestly,
    including any area that failed or never converged.
@@ -76,22 +82,39 @@ fresh script written for that task; nothing is saved, nothing is reused.
    only to areas that produce a visible UI (never a backend or library
    area); native/device testing only to areas targeting a device surface.
    An area where a phase does not apply simply has a shorter chain —
-   nothing skips, nothing waits.
+   nothing skips, nothing waits. Testing phases use the matching capture
+   tooling, loaded by the testing subagent itself: `agent-browser` for web
+   flows (a headless-Chrome `world.run` screenshot when a static shot
+   suffices), `open-computer-use` (ocu) for desktop surfaces, `mobilecli`
+   for iOS/Android devices, `tui-use` to drive terminal UIs — with
+   personas from the matching specialists (`z-qa-evaluator` for
+   browser/vision judgment, `z-native-device-verifier` for device work).
 4. **Per-area checks stay scoped to that area.** A phase checks only its own
    area's files and module targets (its own tests, its own type/lint scope).
    Anything that needs the whole tree — full suite, integrated build, smoke —
-   runs ONCE at the final join, never per area.
+   runs ONCE at the final join, never per area. Shared physical resources —
+   one device, one TUI session — serialize through a single device-operator
+   subagent (its ask queue is FIFO); an area waits for the device itself,
+   never for another area's phase.
 5. **Small areas, disjoint files.** Each area is one concrete task finished
    in one sitting. No two areas write the same file; a shared file belongs to
    exactly one area, which also makes every dependent change to it.
 6. **No git machinery.** No worktrees, no branches, no commits, no pushes.
    Areas edit the current checkout directly; the deliverable is the changed
    files.
-7. **Personas and models.** Subagents default to flash; an area moves to
-   the main-tier model only when the user explicitly asks. The one fixed
-   pin is vision: interpreters judging captures run on GLM-5.3-Flash (HIGH)
-   by default, or GLM-5.3 when the user asks for the stronger eye. Each
-   area's implementer and checkers carry a niche persona distilled from the
+7. **Personas and models — per-subagent pins, mixed in one run.** Every
+   agent in the script carries an explicit model pin via the platform's
+   per-subagent model feature (`const MODELS = { pro: model("account:zai-individual-coding-plan/GLM-5.3$high"), flash: model("account:zai-individual-coding-plan/GLM-5.3-Flash$high") }`,
+   then `agent(name, { model: MODELS.… })`). The default tier is flash; an
+   area runs on the main-tier GLM-5.3 only when the user explicitly asks.
+   Vision is the hard exception: only GLM-5.3-Flash supports vision, so
+   capture interpreters are ALWAYS pinned flash (HIGH), never the
+   main-tier model — this is what lets one workflow run a GLM-5.3 area
+   and flash vision rounds as sibling phases of the same run. Only if a
+   host genuinely rejects the pins at compile may the run fall back
+   (run-wide `subagent_model` or the session model), with the deviation
+   disclosed in the run's notes — never fake a pin. Each area's
+   implementer and checkers carry a niche persona distilled from the
    matching `z-*` specialist when one exists (the project's
    `.zcode/agents/` first), so niche work gets specialist judgment instead
    of a generic prompt.

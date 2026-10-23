@@ -66,7 +66,7 @@ llms.txt                     entry point for consuming agents
 - Agent frontmatter: `name`, `description`, `model`, `thoughtLevel`,
   `tools`, `color`. Valid colors: red, blue, green, yellow, purple, orange,
   pink, cyan. Model IDs resolve against the zai / zai-coding-plan providers
-  (`GLM-5.3-Flash`, `GLM-5.3`).
+  (`GLM-5.3-Flash`, `GLM-5.3`); only GLM-5.3-Flash supports vision.
 - New skills, agents, or categories need no registration — every install
   path picks up active content, excluding `research/` and `archive/`.
 - Keep the repo root as flat as possible: prefer grouping skills under an
@@ -96,14 +96,26 @@ not globally — vision and browser phases apply only to UI-producing areas,
 native testing only to device-targeting areas; an area without a phase
 simply has a shorter chain. Each area's implementer and checkers carry a
 niche persona distilled from the matching `z-*` specialist when one exists
-(the project's `.zcode/agents/` first). Vision interpreters pin to
-GLM-5.3-Flash (HIGH) by default, or GLM-5.3 when the user asks for the
-stronger eye. Per-area
+(the project's `.zcode/agents/` first). Model pins are per subagent inside
+the script (a ZCode platform feature): implementers default
+GLM-5.3-Flash (HIGH), a main-tier GLM-5.3 area only on explicit request,
+and vision interpreters are ALWAYS GLM-5.3-Flash — the only vision-capable
+model — so one workflow mixes models across areas and phases. Testing
+phases use the matching capture tooling —
+`agent-browser` (web), `open-computer-use` (desktop), `mobilecli`
+(mobile), `tui-use` (TUI) — loaded by the testing subagents, with personas
+from `z-qa-evaluator` / `z-native-device-verifier`; one physical device or
+TUI session serializes through a single FIFO device-operator subagent, so
+an area waits only for the device. Per-area
 checks are scoped to that area's own files/targets. No git worktrees,
 branches, or commits — areas edit the current checkout directly. The run
 publishes a live per-area board. Flash subagents unless the user asks
 otherwise; fresh script per task; never SaveWorkflow or build a standing
-engine. The full contract lives in the skill's `SKILL.md`.
+engine. The full contract lives in the skill's `SKILL.md`, and
+`references/proven-patterns.md` catalogues the ten campaign-verified
+workflow shapes (October 2026: fourteen mixed-model runs, all green — ten
+workflow types plus device-lane, interactive-browser, and 8-area scale
+tests) the launcher plans from.
 
 The entire previous workflow family — the original z-workflow, versions
 v2–v13, the z-proflow / z-flashflow / z-liteflow profiles, the

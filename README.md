@@ -70,11 +70,21 @@ implementation, or review authority.
   attach per area — vision/browser only to UI-producing areas, native
   testing only to device-targeting areas; per-area checks stay scoped to
   the area's own files; whole-tree gates run once at the final join. Areas
-  carry niche personas distilled from matching `z-*` specialists; vision
-  interpreters pin to GLM-5.3-Flash (HIGH) or GLM-5.3 on request. No git
+  carry niche personas distilled from matching `z-*` specialists; model
+  pins are per subagent inside the script — implementers default
+  GLM-5.3-Flash (HIGH), main-tier GLM-5.3 only on explicit request, and
+  vision interpreters are always Flash (the only vision-capable model) —
+  so one workflow mixes models across areas and phases. Testing phases
+  use the matching
+  capture tooling — `agent-browser` (web), `open-computer-use` (desktop),
+  `mobilecli` (mobile), `tui-use` (TUI) — with `z-qa-evaluator` /
+  `z-native-device-verifier` personas; one physical device or TUI session
+  serializes through a single FIFO device-operator subagent. No git
   worktrees/branches/commits — areas edit
   the current checkout directly. A live per-area board shows the pipeline
-  while it runs. Fresh script per task, nothing saved.
+  while it runs. Fresh script per task, nothing saved. `references/proven-patterns.md`
+  catalogues the ten campaign-verified mixed-model workflow shapes (October
+  2026, all green) the launcher plans from.
 - **`z-project-init`** (global core): initializes, audits, or updates
   per-project niche sub-agents, domain skills, and
   `.zcode/hmziqrs-ai-snapshot.json`.

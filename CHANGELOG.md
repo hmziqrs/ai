@@ -25,7 +25,26 @@ versioning is [SemVer](https://semver.org/), released as git tags (`vX.Y.Z`).
   per-area board shows the pipeline while it runs; fresh script per task, nothing saved.
   Phases attach per area (vision/browser only to UI-producing areas, native testing only
   to device surfaces), areas carry niche personas distilled from matching `z-*`
-  specialists, and vision interpreters pin to GLM-5.3-Flash (HIGH) or GLM-5.3 on request.
+  specialists, and vision interpreters are always pinned to GLM-5.3-Flash (HIGH) — the
+  only vision-capable model (a host that refuses model pins degrades to the session's
+  image-analysis tooling, with the method disclosed). Testing phases pick the matching
+  capture tooling — agent-browser (web), open-computer-use (desktop), mobilecli (mobile),
+  tui-use (TUI) — with z-qa-evaluator / z-native-device-verifier personas, and shared
+  devices/TUI sessions serialize through one FIFO device-operator subagent. Model pins
+  are per subagent inside the script (ZCode platform feature): implementers default
+  GLM-5.3-Flash at HIGH, main-tier GLM-5.3 only on explicit request, vision interpreters
+  always Flash (the only vision-capable model) — one workflow mixes models across areas
+  and phases. Verified by a ten-run campaign (October 2026): ten distinct workflow types —
+  web app, CLI, glob-driven code sweep, dual-page visual family, TUI executed-output,
+  DOM-verified, schema-validated config, planner→fan-out→editor content pipeline,
+  adversarial implement↔attack, and an everything capstone — every run mixed-model,
+  every deterministic gate green; the shapes are catalogued in the skill's
+  `references/proven-patterns.md`. Follow-up residue tests verified the remaining
+  mechanisms live: the serialized FIFO device lane on a booted iOS simulator (real
+  `xcrun simctl` operations + flash pixel-judged captures), the interactive browser
+  lane (a subagent driving real Playwright-backed clicks via agent-browser), the
+  8-area scale ceiling with alternating model pins, and the final launcher returning
+  per-subagent pins intact under its own context's refusal.
   Speed is the only goal.
 - **`coding/` category skills.** `code-comments` (hard comment discipline for agent-written
   code) and the three-skill `test-quality-*` suite (`guardrails`, `tdd-agents`, `audit`),
